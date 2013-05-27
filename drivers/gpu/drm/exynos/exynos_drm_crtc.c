@@ -186,12 +186,6 @@ static int exynos_drm_crtc_mode_set_commit(struct drm_crtc *crtc, int x, int y,
 	return 0;
 }
 
-static void exynos_drm_crtc_load_lut(struct drm_crtc *crtc)
-{
-	DRM_DEBUG_KMS("%s\n", __FILE__);
-	/* drm framework doesn't check NULL */
-}
-
 static int exynos_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 					  struct drm_framebuffer *old_fb)
 {
@@ -228,7 +222,6 @@ static struct drm_crtc_helper_funcs exynos_crtc_helper_funcs = {
 	.mode_fixup	= exynos_drm_crtc_mode_fixup,
 	.mode_set	= exynos_drm_crtc_mode_set,
 	.mode_set_base	= exynos_drm_crtc_mode_set_base,
-	.load_lut	= exynos_drm_crtc_load_lut,
 	.disable	= exynos_drm_crtc_disable,
 };
 
