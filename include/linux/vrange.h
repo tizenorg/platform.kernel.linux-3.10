@@ -24,11 +24,13 @@ static inline int is_vrange_entry(swp_entry_t entry)
 	return swp_type(entry) == SWP_VRANGE;
 }
 
-static inline void vrange_root_init(struct vrange_root *vroot, int type)
+static inline void vrange_root_init(struct vrange_root *vroot, int type,
+								void *object)
 {
 	vroot->type = type;
 	vroot->v_rb = RB_ROOT;
 	mutex_init(&vroot->v_lock);
+	vroot->object = object;
 }
 
 static inline void vrange_lock(struct vrange_root *vroot)
@@ -59,7 +61,8 @@ extern bool vrange_addr_purged(struct vm_area_struct *vma,
 
 #else
 
-static inline void vrange_root_init(struct vrange_root *vroot, int type) {};
+static inline void vrange_root_init(struct vrange_root *vroot,
+					int type, void *obj) {};
 static inline void vrange_root_cleanup(struct vrange_root *vroot) {};
 static inline int vrange_fork(struct mm_struct *new, struct mm_struct *old)
 {

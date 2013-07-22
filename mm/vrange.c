@@ -11,6 +11,8 @@
 #include <linux/hugetlb.h>
 #include "internal.h"
 #include <linux/mmu_notifier.h>
+#include <linux/mm_inline.h>
+#include <linux/migrate.h>
 
 static struct kmem_cache *vrange_cachep;
 static struct kmem_cache *vroot_cachep;
@@ -20,6 +22,11 @@ static struct vrange_list {
 	unsigned long size;
 	struct mutex lock;
 } vrange_list;
+
+struct vrange_walker {
+	struct vm_area_struct *vma;
+	struct list_head *pagelist;
+};
 
 static inline unsigned int vrange_size(struct vrange *range)
 {
@@ -68,6 +75,15 @@ static inline int __vroot_get(struct vrange_root *vroot)
 static inline void __vroot_put(struct vrange_root *vroot)
 {
 	if (atomic_dec_and_test(&vroot->refcount)) {
+		enum {VRANGE_MM, VRANGE_FILE} type = vroot->type;
+		if (type == VRANGE_MM) {
+			struct mm_struct *mm = vroot->object;
+			mmdrop(mm);
+		} else if (type == VRANGE_FILE) {
+			/* TODO : */
+		} else
+			BUG();
+
 		WARN_ON(!RB_EMPTY_ROOT(&vroot->v_rb));
 		kmem_cache_free(vroot_cachep, vroot);
 	}
@@ -80,7 +96,7 @@ static bool __vroot_init_mm(struct vrange_root *vroot, struct mm_struct *mm)
 	spin_lock(&mm->page_table_lock);
 	if (!mm->vroot) {
 		mm->vroot = vroot;
-		vrange_root_init(mm->vroot, VRANGE_MM);
+		vrange_root_init(mm->vroot, VRANGE_MM, mm);
 		atomic_inc(&mm->mm_count);
 		ret = true;
 	}
@@ -97,7 +113,7 @@ static bool __vroot_init_mapping(struct vrange_root *vroot,
 	mutex_lock(&mapping->i_mmap_mutex);
 	if (!mapping->vroot) {
 		mapping->vroot = vroot;
-		vrange_root_init(mapping->vroot, VRANGE_FILE);
+		vrange_root_init(mapping->vroot, VRANGE_FILE, mapping);
 		/* XXX - inc ref count on mapping? */
 		ret = true;
 	}
@@ -918,9 +934,189 @@ static struct vrange *isolate_vrange(void)
 	return vrange;
 }
 
-static unsigned int discard_vrange(struct vrange *vrange)
+static unsigned int discard_vrange_pagelist(struct list_head *page_list)
 {
+	struct page *page;
+	unsigned int nr_discard = 0;
+	LIST_HEAD(ret_pages);
+	LIST_HEAD(free_pages);
+
+	while (!list_empty(page_list)) {
+		int err;
+		page = list_entry(page_list->prev, struct page, lru);
+		list_del(&page->lru);
+		if (!trylock_page(page)) {
+			list_add(&page->lru, &ret_pages);
+			continue;
+		}
+
+		/*
+		 * discard_vapge returns unlocked page if it
+		 * is successful
+		 */
+		err = discard_vpage(page);
+		if (err) {
+			unlock_page(page);
+			list_add(&page->lru, &ret_pages);
+			continue;
+		}
+
+		ClearPageActive(page);
+		list_add(&page->lru, &free_pages);
+		dec_zone_page_state(page, NR_ISOLATED_ANON);
+		nr_discard++;
+	}
+
+	free_hot_cold_page_list(&free_pages, 1);
+	list_splice(&ret_pages, page_list);
+	return nr_discard;
+}
+
+static void vrange_pte_entry(pte_t pteval, unsigned long address,
+		unsigned ptent_size, struct mm_walk *walk)
+{
+	struct page *page;
+	struct vrange_walker *vw = walk->private;
+	struct vm_area_struct *vma = vw->vma;
+	struct list_head *pagelist = vw->pagelist;
+
+	if (pte_none(pteval))
+		return;
+
+	if (!pte_present(pteval))
+		return;
+
+	page = vm_normal_page(vma, address, pteval);
+	if (unlikely(!page))
+		return;
+
+	if (!PageLRU(page) || PageLocked(page))
+		return;
+
+	/* TODO : Support THP */
+	if (unlikely(PageCompound(page)))
+		return;
+
+	if (isolate_lru_page(page))
+		return;
+
+	list_add(&page->lru, pagelist);
+
+	VM_BUG_ON(page_is_file_cache(page));
+	inc_zone_page_state(page, NR_ISOLATED_ANON);
+}
+
+static int vrange_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end,
+		struct mm_walk *walk)
+{
+	pte_t *pte;
+	spinlock_t *ptl;
+
+	pte = pte_offset_map_lock(walk->mm, pmd, addr, &ptl);
+	for (; addr != end; pte++, addr += PAGE_SIZE)
+		vrange_pte_entry(*pte, addr, PAGE_SIZE, walk);
+	pte_unmap_unlock(pte - 1, ptl);
+	cond_resched();
+
 	return 0;
+}
+
+static unsigned int discard_vma_pages(struct mm_struct *mm,
+		struct vm_area_struct *vma, unsigned long start,
+		unsigned long end)
+{
+	unsigned int ret = 0;
+	LIST_HEAD(pagelist);
+	struct vrange_walker vw;
+	struct mm_walk vrange_walk = {
+		.pmd_entry = vrange_pte_range,
+		.mm = vma->vm_mm,
+		.private = &vw,
+	};
+
+	vw.pagelist = &pagelist;
+	vw.vma = vma;
+
+	walk_page_range(start, end, &vrange_walk);
+
+	if (!list_empty(&pagelist))
+		ret = discard_vrange_pagelist(&pagelist);
+
+	putback_lru_pages(&pagelist);
+	return ret;
+}
+
+/*
+ * vrange->owner isn't stable because caller doesn't hold vrange_lock
+ * so avoid touching vrange->owner.
+ */
+static int __discard_vrange_anon(struct mm_struct *mm, struct vrange *vrange,
+					unsigned int *ret_discard)
+{
+	struct vm_area_struct *vma;
+	unsigned int nr_discard = 0;
+	unsigned long start = vrange->node.start;
+	unsigned long end = vrange->node.last + 1;
+	int ret = 0;
+
+	/* It prevent to destroy vma when the process exist */
+	if (!atomic_inc_not_zero(&mm->mm_users))
+		return ret;
+
+	if (!down_read_trylock(&mm->mmap_sem)) {
+		mmput(mm);
+		ret = -EBUSY;
+		goto out; /* this vrange could be retried */
+	}
+
+	vma = find_vma(mm, start);
+	if (!vma || (vma->vm_start >= end))
+		goto out_unlock;
+
+	for (; vma; vma = vma->vm_next) {
+		if (vma->vm_start >= end)
+			break;
+		BUG_ON(vma->vm_flags & (VM_SPECIAL|VM_LOCKED|VM_MIXEDMAP|
+					VM_HUGETLB));
+		cond_resched();
+		nr_discard += discard_vma_pages(mm, vma,
+				max_t(unsigned long, start, vma->vm_start),
+				min_t(unsigned long, end, vma->vm_end));
+	}
+out_unlock:
+	up_read(&mm->mmap_sem);
+	mmput(mm);
+	*ret_discard = nr_discard;
+out:
+	return ret;
+}
+
+static int discard_vrange(struct vrange *vrange)
+{
+	int ret = 0;
+	struct mm_struct *mm;
+	struct vrange_root *vroot;
+	unsigned int nr_discard = 0;
+	vroot = vrange_get_vroot(vrange);
+	if (!vroot)
+		return 0;
+
+	/* TODO : handle VRANGE_FILE */
+	if (vroot->type != VRANGE_MM)
+		goto out;
+
+	/*
+	 * Race of vrange->owner could happens with __vrange_remove
+	 * but it's okay because subfunctions will check it again
+	 */
+	if (vrange->owner == NULL)
+		goto out;
+
+	mm = vroot->object;
+	ret = __discard_vrange_anon(mm, vrange, &nr_discard);
+out:
+	__vroot_put(vroot);
+	return nr_discard;
 }
 
 static int shrink_vrange(struct shrinker *s, struct shrink_control *sc)
