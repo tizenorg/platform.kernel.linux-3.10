@@ -13,14 +13,168 @@
 #include <linux/mmu_notifier.h>
 
 static struct kmem_cache *vrange_cachep;
+static struct kmem_cache *vroot_cachep;
 
 static int __init vrange_init(void)
 {
+	vroot_cachep = kmem_cache_create("vrange_root",
+				sizeof(struct vrange_root), 0,
+				SLAB_DESTROY_BY_RCU|SLAB_PANIC, NULL);
 	vrange_cachep = KMEM_CACHE(vrange, SLAB_PANIC);
 	return 0;
 }
-
 module_init(vrange_init);
+
+static struct vrange_root *__vroot_alloc(gfp_t flags)
+{
+	struct vrange_root *vroot = kmem_cache_alloc(vroot_cachep, flags);
+	if (!vroot)
+		return vroot;
+
+	atomic_set(&vroot->refcount, 1);
+	return vroot;
+}
+
+static inline int __vroot_get(struct vrange_root *vroot)
+{
+	if (!atomic_inc_not_zero(&vroot->refcount))
+		return 0;
+
+	return 1;
+}
+
+static inline void __vroot_put(struct vrange_root *vroot)
+{
+	if (atomic_dec_and_test(&vroot->refcount)) {
+		WARN_ON(!RB_EMPTY_ROOT(&vroot->v_rb));
+		kmem_cache_free(vroot_cachep, vroot);
+	}
+}
+
+static bool __vroot_init_mm(struct vrange_root *vroot, struct mm_struct *mm)
+{
+	bool ret = false;
+
+	spin_lock(&mm->page_table_lock);
+	if (!mm->vroot) {
+		mm->vroot = vroot;
+		vrange_root_init(mm->vroot, VRANGE_MM);
+		atomic_inc(&mm->mm_count);
+		ret = true;
+	}
+	spin_unlock(&mm->page_table_lock);
+
+	return ret;
+}
+
+static bool __vroot_init_mapping(struct vrange_root *vroot,
+						struct address_space *mapping)
+{
+	bool ret = false;
+
+	mutex_lock(&mapping->i_mmap_mutex);
+	if (!mapping->vroot) {
+		mapping->vroot = vroot;
+		vrange_root_init(mapping->vroot, VRANGE_FILE);
+		/* XXX - inc ref count on mapping? */
+		ret = true;
+	}
+	mutex_unlock(&mapping->i_mmap_mutex);
+
+	return ret;
+}
+
+static struct vrange_root *vroot_alloc_mm_get(struct mm_struct *mm)
+{
+	struct vrange_root *ret, *allocated;
+
+	ret = NULL;
+	allocated = __vroot_alloc(GFP_NOFS);
+	if (!allocated)
+		return NULL;
+
+	if (__vroot_init_mm(allocated, mm)){
+		ret = allocated;
+		allocated = NULL;
+	}
+
+	if(ret && !__vroot_get(ret))
+		ret = NULL;
+
+	if (allocated)
+		__vroot_put(allocated);
+
+	return ret;
+}
+
+static struct vrange_root *vroot_alloc_get_vma(struct vm_area_struct *vma)
+{
+	struct vrange_root *ret, *allocated;
+	bool val;
+
+	ret = NULL;
+	allocated = __vroot_alloc(GFP_NOFS);
+	if (!allocated)
+		return NULL;
+
+	if (vma->vm_file && (vma->vm_flags & VM_SHARED))
+		val = __vroot_init_mapping(allocated, vma->vm_file->f_mapping);
+	else
+		val = __vroot_init_mm(allocated, vma->vm_mm);
+
+	if (val) {
+		ret = allocated;
+		allocated = NULL;
+	}
+
+	if(ret && !__vroot_get(ret))
+		ret = NULL;
+
+	if (allocated)
+		__vroot_put(allocated);
+
+	return ret;
+}
+
+static struct vrange_root *vrange_get_vroot(struct vrange *vrange)
+{
+	struct vrange_root *vroot;
+	struct vrange_root *ret = NULL;
+
+	rcu_read_lock();
+	/*
+	 * Prevent compiler from re-fetching vrange->owner while others
+	 * clears vrange->owner.
+	 */
+	vroot = ACCESS_ONCE(vrange->owner);
+	if (!vroot)
+		goto out;
+
+	/*
+	 * vroot couldn't be destroyed while we're holding rcu_read_lock
+	 * so it's okay to access vroot
+	 */
+	if (!__vroot_get(vroot))
+		goto out;
+
+
+	/* If we reach here, vroot is either ours or others because
+	 * vroot could be allocated for othres in same RCU period
+	 * so we should check it carefully. For free/reallocating
+	 * for others, all vranges from vroot->tree should be detached
+	 * firstly right before vroot freeing so if we check vrange->owner
+	 * isn't NULL, it means vroot is ours.
+	 */
+	smp_rmb();
+	if (!vrange->owner) {
+		__vroot_put(vroot);
+		goto out;
+	}
+	ret = vroot;
+out:
+	rcu_read_unlock();
+	return ret;
+}
 
 static struct vrange *__vrange_alloc(gfp_t flags)
 {
@@ -61,12 +215,14 @@ static inline void __vrange_set(struct vrange *range,
 static inline void __vrange_resize(struct vrange *range,
 		unsigned long start_idx, unsigned long end_idx)
 {
-	struct vrange_root *vroot = range->owner;
+	struct vrange_root *vroot;
 	bool purged = range->purged;
 
+	vroot = vrange_get_vroot(range);
 	__vrange_remove(range);
 	__vrange_set(range, start_idx, end_idx, purged);
 	__vrange_add(range, vroot);
+	__vroot_put(vroot);
 }
 
 static struct vrange *__vrange_find(struct vrange_root *vroot,
@@ -129,6 +285,9 @@ static int vrange_remove(struct vrange_root *vroot,
 	struct vrange *new_range, *range;
 	struct interval_tree_node *node, *next;
 	bool used_new = false;
+
+	if (!vroot)
+		return 0;
 
 	if (!purged)
 		return -EINVAL;
@@ -200,6 +359,9 @@ void vrange_root_cleanup(struct vrange_root *vroot)
 	struct vrange *range;
 	struct rb_node *node;
 
+	if (vroot == NULL)
+		return;
+
 	vrange_lock(vroot);
 	/* We should remove node by post-order traversal */
 	while ((node = rb_first(&vroot->v_rb))) {
@@ -208,6 +370,12 @@ void vrange_root_cleanup(struct vrange_root *vroot)
 		__vrange_free(range);
 	}
 	vrange_unlock(vroot);
+	/*
+	 * Before removing vroot, we should make sure range-owner
+	 * should be NULL. See the smp_rmb of vrange_get_vroot.
+	 */
+	smp_wmb();
+	__vroot_put(vroot);
 }
 
 /*
@@ -215,6 +383,7 @@ void vrange_root_cleanup(struct vrange_root *vroot)
  * can't have copied own vrange data structure so that pages in the
  * vrange couldn't be purged. It would be better rather than failing
  * fork.
+ * The down_write of both mm->mmap_sem protects mm->vroot race.
  */
 int vrange_fork(struct mm_struct *new_mm, struct mm_struct *old_mm)
 {
@@ -222,8 +391,17 @@ int vrange_fork(struct mm_struct *new_mm, struct mm_struct *old_mm)
 	struct vrange *range, *new_range;
 	struct rb_node *next;
 
-	new = &new_mm->vroot;
-	old = &old_mm->vroot;
+	if (!old_mm->vroot)
+		return 0;
+
+	new = vroot_alloc_mm_get(new_mm);
+	if (!new)
+		return -ENOMEM;
+
+	old = old_mm->vroot;
+
+	if (!__vroot_get(old))
+		goto fail_old;
 
 	vrange_lock(old);
 	next = rb_first(&old->v_rb);
@@ -244,21 +422,36 @@ int vrange_fork(struct mm_struct *new_mm, struct mm_struct *old_mm)
 
 	}
 	vrange_unlock(old);
+	__vroot_put(old);
+	__vroot_put(new);
+
 	return 0;
 fail:
 	vrange_unlock(old);
+	__vroot_put(old);
+fail_old:
+	__vroot_put(new);
 	vrange_root_cleanup(new);
-	return 0;
+	return -ENOMEM;
 }
 
-static inline struct vrange_root *__vma_to_vroot(struct vm_area_struct *vma)
+static inline struct vrange_root *__vma_to_vroot_get(struct vm_area_struct *vma)
 {
 	struct vrange_root *vroot = NULL;
 
+	rcu_read_lock();
 	if (vma->vm_file && (vma->vm_flags & VM_SHARED))
-		vroot = &vma->vm_file->f_mapping->vroot;
+		vroot = vma->vm_file->f_mapping->vroot;
 	else
-		vroot = &vma->vm_mm->vroot;
+		vroot = vma->vm_mm->vroot;
+
+	if (!vroot)
+		goto out;
+
+	if (!__vroot_get(vroot))
+		vroot = NULL;
+out:
+	rcu_read_unlock();
 	return vroot;
 }
 
@@ -303,7 +496,12 @@ static ssize_t do_vrange(struct mm_struct *mm, unsigned long start_idx,
 		if (end_idx < tmp)
 			tmp = end_idx;
 
-		vroot = __vma_to_vroot(vma);
+		vroot = __vma_to_vroot_get(vma);
+		if (!vroot)
+			vroot = vroot_alloc_get_vma(vma);
+		if (!vroot)
+			goto out;
+
 		vstart_idx = __vma_addr_to_index(vma, start_idx);
 		vend_idx = __vma_addr_to_index(vma, tmp);
 
@@ -313,6 +511,7 @@ static ssize_t do_vrange(struct mm_struct *mm, unsigned long start_idx,
 		else if (mode == VRANGE_NONVOLATILE)
 			ret = vrange_remove(vroot, vstart_idx, vend_idx,
 						purged);
+		__vroot_put(vroot);
 
 		if (ret)
 			goto out;
@@ -416,17 +615,30 @@ out:
 bool vrange_addr_volatile(struct vm_area_struct *vma, unsigned long addr)
 {
 	struct vrange_root *vroot;
+	struct vrange *vrange;
 	unsigned long vstart_idx, vend_idx;
 	bool ret = false;
 
-	vroot = __vma_to_vroot(vma);
+	vroot = __vma_to_vroot_get(vma);
+	if (!vroot)
+		return ret;
+
 	vstart_idx = __vma_addr_to_index(vma, addr);
 	vend_idx = vstart_idx + PAGE_SIZE - 1;
 
 	vrange_lock(vroot);
-	if (__vrange_find(vroot, vstart_idx, vend_idx))
-		ret = true;
+	vrange = __vrange_find(vroot, vstart_idx, vend_idx);
+	if (vrange) {
+		/*
+		 * vroot can be allocated for another process in
+		 * same period so let's check vroot's stability
+		 */
+		if (likely(vroot == vrange->owner))
+			ret = true;
+	}
 	vrange_unlock(vroot);
+	__vroot_put(vroot);
+
 	return ret;
 }
 
@@ -437,7 +649,9 @@ bool vrange_addr_purged(struct vm_area_struct *vma, unsigned long addr)
 	unsigned long vstart_idx;
 	bool ret = false;
 
-	vroot = __vma_to_vroot(vma);
+	vroot = __vma_to_vroot_get(vma);
+	if (!vroot)
+		return false;
 	vstart_idx = __vma_addr_to_index(vma, addr);
 
 	vrange_lock(vroot);
@@ -445,6 +659,7 @@ bool vrange_addr_purged(struct vm_area_struct *vma, unsigned long addr)
 	if (range && range->purged)
 		ret = true;
 	vrange_unlock(vroot);
+	__vroot_put(vroot);
 	return ret;
 }
 
@@ -471,6 +686,7 @@ static void try_to_discard_one(struct vrange_root *vroot, struct page *page,
 	pte_t pteval;
 	spinlock_t *ptl;
 
+	VM_BUG_ON(!vroot);
 	VM_BUG_ON(!PageLocked(page));
 
 	pte = page_check_address(page, mm, addr, &ptl, 0);
@@ -529,17 +745,21 @@ static int try_to_discard_anon_vpage(struct page *page)
 	anon_vma_interval_tree_foreach(avc, &anon_vma->rb_root, pgoff, pgoff) {
 		vma = avc->vma;
 		mm = vma->vm_mm;
-		vroot = &mm->vroot;
-		address = vma_address(page, vma);
+		vroot = __vma_to_vroot_get(vma);
+		if (!vroot)
+			continue;
 
+		address = vma_address(page, vma);
 		vrange_lock(vroot);
 		if (!__vrange_find(vroot, address, address + PAGE_SIZE - 1)) {
 			vrange_unlock(vroot);
+			__vroot_put(vroot);
 			continue;
 		}
 
 		try_to_discard_one(vroot, page, vma, address);
 		vrange_unlock(vroot);
+		__vroot_put(vroot);
 	}
 
 	page_unlock_anon_vma_read(anon_vma);
@@ -555,18 +775,24 @@ static int try_to_discard_file_vpage(struct page *page)
 	mutex_lock(&mapping->i_mmap_mutex);
 	vma_interval_tree_foreach(vma, &mapping->i_mmap, pgoff, pgoff) {
 		unsigned long address = vma_address(page, vma);
-		struct vrange_root *vroot = &mapping->vroot;
+		struct vrange_root *vroot;
 		long vstart_idx;
 
+		vroot = __vma_to_vroot_get(vma);
+		if (!vroot)
+			continue;
 		vstart_idx = __vma_addr_to_index(vma, address);
+
 		vrange_lock(vroot);
 		if (!__vrange_find(vroot, vstart_idx,
 					vstart_idx + PAGE_SIZE - 1)) {
 			vrange_unlock(vroot);
+			__vroot_put(vroot);
 			continue;
 		}
 		try_to_discard_one(vroot, page, vma, address);
 		vrange_unlock(vroot);
+		__vroot_put(vroot);
 	}
 
 	mutex_unlock(&mapping->i_mmap_mutex);
