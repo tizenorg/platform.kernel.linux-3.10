@@ -15,8 +15,21 @@
 static struct kmem_cache *vrange_cachep;
 static struct kmem_cache *vroot_cachep;
 
+static struct vrange_list {
+	struct list_head list;
+	unsigned long size;
+	struct mutex lock;
+} vrange_list;
+
+static inline unsigned int vrange_size(struct vrange *range)
+{
+	return range->node.last + 1 - range->node.start;
+}
+
 static int __init vrange_init(void)
 {
+	INIT_LIST_HEAD(&vrange_list.list);
+	mutex_init(&vrange_list.lock);
 	vroot_cachep = kmem_cache_create("vrange_root",
 				sizeof(struct vrange_root), 0,
 				SLAB_DESTROY_BY_RCU|SLAB_PANIC, NULL);
@@ -182,19 +195,56 @@ static struct vrange *__vrange_alloc(gfp_t flags)
 	if (!vrange)
 		return vrange;
 	vrange->owner = NULL;
+	INIT_LIST_HEAD(&vrange->lru);
+	atomic_set(&vrange->refcount, 1);
+
 	return vrange;
 }
 
 static void __vrange_free(struct vrange *range)
 {
 	WARN_ON(range->owner);
+	WARN_ON(atomic_read(&range->refcount) != 0);
+	WARN_ON(!list_empty(&range->lru));
+
 	kmem_cache_free(vrange_cachep, range);
+}
+
+static inline void __vrange_lru_add(struct vrange *range)
+{
+	mutex_lock(&vrange_list.lock);
+	WARN_ON(!list_empty(&range->lru));
+	list_add(&range->lru, &vrange_list.list);
+	vrange_list.size += vrange_size(range);
+	mutex_unlock(&vrange_list.lock);
+}
+
+static inline void __vrange_lru_del(struct vrange *range)
+{
+	mutex_lock(&vrange_list.lock);
+	if (!list_empty(&range->lru)) {
+		list_del_init(&range->lru);
+		vrange_list.size -= vrange_size(range);
+		WARN_ON(range->owner);
+	}
+	mutex_unlock(&vrange_list.lock);
 }
 
 static void __vrange_add(struct vrange *range, struct vrange_root *vroot)
 {
 	range->owner = vroot;
 	interval_tree_insert(&range->node, &vroot->v_rb);
+
+	WARN_ON(atomic_read(&range->refcount) <= 0);
+	__vrange_lru_add(range);
+}
+
+static inline void __vrange_put(struct vrange *range)
+{
+	if (atomic_dec_and_test(&range->refcount)) {
+		__vrange_lru_del(range);
+		__vrange_free(range);
+	}
 }
 
 static void __vrange_remove(struct vrange *range)
@@ -220,6 +270,7 @@ static inline void __vrange_resize(struct vrange *range,
 
 	vroot = vrange_get_vroot(range);
 	__vrange_remove(range);
+	__vrange_lru_del(range);
 	__vrange_set(range, start_idx, end_idx, purged);
 	__vrange_add(range, vroot);
 	__vroot_put(vroot);
@@ -257,7 +308,7 @@ static int vrange_add(struct vrange_root *vroot,
 		range = vrange_from_node(node);
 		/* old range covers new range fully */
 		if (node->start <= start_idx && node->last >= end_idx) {
-			__vrange_free(new_range);
+			__vrange_put(new_range);
 			goto out;
 		}
 
@@ -266,7 +317,7 @@ static int vrange_add(struct vrange_root *vroot,
 		purged |= range->purged;
 
 		__vrange_remove(range);
-		__vrange_free(range);
+		__vrange_put(range);
 
 		node = next;
 	}
@@ -310,7 +361,7 @@ static int vrange_remove(struct vrange_root *vroot,
 		if (start_idx <= node->start && end_idx >= node->last) {
 			/* argumented range covers the range fully */
 			__vrange_remove(range);
-			__vrange_free(range);
+			__vrange_put(range);
 		} else if (node->start >= start_idx) {
 			/*
 			 * Argumented range covers over the left of the
@@ -341,7 +392,7 @@ static int vrange_remove(struct vrange_root *vroot,
 	vrange_unlock(vroot);
 
 	if (!used_new)
-		__vrange_free(new_range);
+		__vrange_put(new_range);
 
 	return 0;
 }
@@ -367,7 +418,7 @@ void vrange_root_cleanup(struct vrange_root *vroot)
 	while ((node = rb_first(&vroot->v_rb))) {
 		range = vrange_entry(node);
 		__vrange_remove(range);
-		__vrange_free(range);
+		__vrange_put(range);
 	}
 	vrange_unlock(vroot);
 	/*
