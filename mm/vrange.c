@@ -26,10 +26,19 @@ static inline unsigned int vrange_size(struct vrange *range)
 	return range->node.last + 1 - range->node.start;
 }
 
+static int shrink_vrange(struct shrinker *s, struct shrink_control *sc);
+
+static struct shrinker vrange_shrinker = {
+	.shrink = shrink_vrange,
+	.seeks = DEFAULT_SEEKS
+};
+
 static int __init vrange_init(void)
 {
 	INIT_LIST_HEAD(&vrange_list.list);
 	mutex_init(&vrange_list.lock);
+
+	register_shrinker(&vrange_shrinker);
 	vroot_cachep = kmem_cache_create("vrange_root",
 				sizeof(struct vrange_root), 0,
 				SLAB_DESTROY_BY_RCU|SLAB_PANIC, NULL);
@@ -213,9 +222,14 @@ static void __vrange_free(struct vrange *range)
 static inline void __vrange_lru_add(struct vrange *range)
 {
 	mutex_lock(&vrange_list.lock);
-	WARN_ON(!list_empty(&range->lru));
-	list_add(&range->lru, &vrange_list.list);
-	vrange_list.size += vrange_size(range);
+	/*
+	 * We need this check because it could be raced with
+	 * shrink_vrange and vrange_resize
+	 */
+	if (list_empty(&range->lru)) {
+		list_add(&range->lru, &vrange_list.list);
+		vrange_list.size += vrange_size(range);
+	}
 	mutex_unlock(&vrange_list.lock);
 }
 
@@ -237,6 +251,14 @@ static void __vrange_add(struct vrange *range, struct vrange_root *vroot)
 
 	WARN_ON(atomic_read(&range->refcount) <= 0);
 	__vrange_lru_add(range);
+}
+
+static inline int __vrange_get(struct vrange *vrange)
+{
+	if (!atomic_inc_not_zero(&vrange->refcount))
+		return 0;
+
+	return 1;
 }
 
 static inline void __vrange_put(struct vrange *range)
@@ -873,4 +895,70 @@ int discard_vpage(struct page *page)
 	}
 
 	return 1;
+}
+
+static struct vrange *isolate_vrange(void)
+{
+	struct vrange *vrange = NULL;
+	mutex_lock(&vrange_list.lock);
+	while (!list_empty(&vrange_list.list)) {
+		vrange = list_entry(vrange_list.list.prev,
+				struct vrange, lru);
+		list_del_init(&vrange->lru);
+		vrange_list.size -= vrange_size(vrange);
+
+		/* vrange is going to destroy */
+		if (__vrange_get(vrange))
+			break;
+
+		vrange = NULL;
+	}
+
+	mutex_unlock(&vrange_list.lock);
+	return vrange;
+}
+
+static unsigned int discard_vrange(struct vrange *vrange)
+{
+	return 0;
+}
+
+static int shrink_vrange(struct shrinker *s, struct shrink_control *sc)
+{
+	struct vrange *range = NULL;
+	long nr_to_scan = sc->nr_to_scan;
+	long size = vrange_list.size;
+
+        /* current is dying so it will release memory soon */
+        if (fatal_signal_pending(current))
+                return -1;
+
+	if (!nr_to_scan)
+		return size;
+
+	if (sc->nr_to_scan && !(sc->gfp_mask & __GFP_IO))
+		return -1;
+
+	while (size > 0 && nr_to_scan > 0) {
+		range = isolate_vrange();
+		if (!range)
+			break;
+
+		/* range is removing so don't bother */
+		if (!range->owner) {
+			__vrange_put(range);
+			size -= vrange_size(range);
+			nr_to_scan -= vrange_size(range);
+			continue;
+		}
+
+		if (discard_vrange(range) < 0)
+			__vrange_lru_add(range);
+		__vrange_put(range);
+
+		size -= vrange_size(range);
+		nr_to_scan -= vrange_size(range);
+	}
+
+	return size;
 }
