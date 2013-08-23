@@ -254,7 +254,7 @@ static int arch_timer_set_next_event_phys_mem(unsigned long evt,
 	return 0;
 }
 
-static void __cpuinit __arch_timer_setup(unsigned type,
+static void __arch_timer_setup(unsigned type,
 				       struct clock_event_device *clk)
 {
 	clk->features = CLOCK_EVT_FEAT_ONESHOT;
@@ -293,7 +293,20 @@ static void __cpuinit __arch_timer_setup(unsigned type,
 	clockevents_config_and_register(clk, arch_timer_rate, 0xf, 0x7fffffff);
 }
 
-static int __cpuinit arch_timer_setup(struct clock_event_device *clk)
+static void arch_timer_configure_evtstream(void)
+{
+	int evt_stream_div, pos;
+
+	/* Find the closest power of two to the divisor */
+	evt_stream_div = arch_timer_rate / ARCH_TIMER_EVT_STREAM_FREQ;
+	pos = fls(evt_stream_div);
+	if (pos > 1 && !(evt_stream_div & (1 << (pos - 2))))
+		pos--;
+	/* enable event stream */
+	arch_timer_evtstrm_enable(min(pos, 15));
+}
+
+static int arch_timer_setup(struct clock_event_device *clk)
 {
 	__arch_timer_setup(ARCH_CP15_TIMER, clk);
 
@@ -306,6 +319,8 @@ static int __cpuinit arch_timer_setup(struct clock_event_device *clk)
 	}
 
 	arch_counter_set_user_access();
+	if (IS_ENABLED(CONFIG_ARM_ARCH_TIMER_EVTSTREAM))
+		arch_timer_configure_evtstream();
 
 	return 0;
 }
@@ -420,7 +435,7 @@ static void __init arch_counter_register(unsigned type)
 	timecounter_init(&timecounter, &cyclecounter, start_count);
 }
 
-static void __cpuinit arch_timer_stop(struct clock_event_device *clk)
+static void arch_timer_stop(struct clock_event_device *clk)
 {
 	pr_debug("arch_timer_teardown disable IRQ%d cpu #%d\n",
 		 clk->irq, smp_processor_id());
