@@ -56,14 +56,14 @@ static int sysfs_do_create_link_sd(struct sysfs_dirent *parent_sd,
 	sd->s_symlink.target_sd = target_sd;
 	target_sd = NULL;	/* reference is now owned by the symlink */
 
-	sysfs_addrm_start(&acxt, parent_sd);
+	sysfs_addrm_start(&acxt);
 	/* Symlinks must be between directories with the same ns_type */
 	if (!ns_type ||
 	    (ns_type == sysfs_ns_type(sd->s_symlink.target_sd->s_parent))) {
 		if (warn)
-			error = sysfs_add_one(&acxt, sd);
+			error = sysfs_add_one(&acxt, sd, parent_sd);
 		else
-			error = __sysfs_add_one(&acxt, sd);
+			error = __sysfs_add_one(&acxt, sd, parent_sd);
 	} else {
 		error = -EINVAL;
 		WARN(1, KERN_WARNING
