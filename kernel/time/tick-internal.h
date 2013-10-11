@@ -26,6 +26,8 @@ extern void tick_resume(void);
 
 extern void clockevents_shutdown(struct clock_event_device *dev);
 
+extern ssize_t sysfs_get_uname(const char *buf, char *dst, size_t cnt);
+
 /*
  * NO_HZ / high resolution timer shared code
  */
