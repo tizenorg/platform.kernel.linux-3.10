@@ -183,8 +183,9 @@ int __sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd,
 		    struct sysfs_dirent *parent_sd);
 int sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd,
 		  struct sysfs_dirent *parent_sd);
-void __sysfs_remove(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd);
 void sysfs_remove(struct sysfs_dirent *sd);
+int sysfs_hash_and_remove(struct sysfs_dirent *dir_sd, const char *name,
+			  const void *ns);
 void sysfs_addrm_finish(struct sysfs_addrm_cxt *acxt);
 
 struct sysfs_dirent *sysfs_find_dirent(struct sysfs_dirent *parent_sd,
@@ -227,8 +228,7 @@ int sysfs_permission(struct inode *inode, int mask);
 int sysfs_setattr(struct dentry *dentry, struct iattr *iattr);
 int sysfs_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat);
 int sysfs_setxattr(struct dentry *dentry, const char *name, const void *value,
-		size_t size, int flags);
-int sysfs_hash_and_remove(struct sysfs_dirent *dir_sd, const void *ns, const char *name);
+		   size_t size, int flags);
 int sysfs_inode_init(void);
 
 /*
