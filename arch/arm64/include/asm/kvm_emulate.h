@@ -177,11 +177,19 @@ static inline u8 kvm_vcpu_trap_get_fault(const struct kvm_vcpu *vcpu)
 	return kvm_vcpu_get_hsr(vcpu) & ESR_EL2_FSC_TYPE;
 }
 
-<<<<<<< HEAD
 static inline unsigned long kvm_vcpu_get_mpidr(struct kvm_vcpu *vcpu)
 {
 	return vcpu_sys_reg(vcpu, MPIDR_EL1);
-=======
+}
+
+static inline void kvm_vcpu_set_be(struct kvm_vcpu *vcpu)
+{
+	if (vcpu_mode_is_32bit(vcpu))
+		*vcpu_cpsr(vcpu) |= COMPAT_PSR_E_BIT;
+	else
+		vcpu_sys_reg(vcpu, SCTLR_EL1) |= (1 << 25);
+}
+
 static inline bool kvm_vcpu_is_be(struct kvm_vcpu *vcpu)
 {
 	if (vcpu_mode_is_32bit(vcpu))
@@ -228,7 +236,6 @@ static inline unsigned long vcpu_data_host_to_guest(struct kvm_vcpu *vcpu,
 	}
 
 	return data;		/* Leave LE untouched */
->>>>>>> 6d89d2d... arm/arm64: KVM: MMIO support for BE guest
 }
 
 #endif /* __ARM64_KVM_EMULATE_H__ */
