@@ -28,7 +28,6 @@ static int sysfs_do_create_link_sd(struct sysfs_dirent *parent_sd,
 	struct sysfs_dirent *target_sd = NULL;
 	struct sysfs_dirent *sd = NULL;
 	struct sysfs_addrm_cxt acxt;
-	enum kobj_ns_type ns_type;
 	int error;
 
 	BUG_ON(!name || !parent_sd);
@@ -52,8 +51,7 @@ static int sysfs_do_create_link_sd(struct sysfs_dirent *parent_sd,
 	if (!sd)
 		goto out_put;
 
-	ns_type = sysfs_ns_type(parent_sd);
-	if (ns_type)
+	if (parent_sd->s_flags & SYSFS_FLAG_NS)
 		sd->s_ns = target_sd->s_ns;
 	sd->s_symlink.target_sd = target_sd;
 	target_sd = NULL;	/* reference is now owned by the symlink */
@@ -152,7 +150,7 @@ void sysfs_delete_link(struct kobject *kobj, struct kobject *targ,
 	 * sysfs_remove_dir() for details.
 	 */
 	spin_lock(&sysfs_symlink_target_lock);
-	if (targ->sd && sysfs_ns_type(kobj->sd))
+	if (targ->sd && (kobj->sd->s_flags & SYSFS_FLAG_NS))
 		ns = targ->sd->s_ns;
 	spin_unlock(&sysfs_symlink_target_lock);
 	sysfs_hash_and_remove(kobj->sd, name, ns);
