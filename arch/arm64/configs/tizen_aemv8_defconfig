@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 3.10.0 Kernel Configuration
+# Linux/arm64 3.10.19 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -78,7 +78,6 @@ CONFIG_BSD_PROCESS_ACCT_V3=y
 #
 # RCU Subsystem
 #
-# CONFIG_TREE_RCU is not set
 CONFIG_TREE_PREEMPT_RCU=y
 CONFIG_PREEMPT_RCU=y
 CONFIG_RCU_STALL_COMMON=y
@@ -273,6 +272,7 @@ CONFIG_DEFAULT_MMAP_MIN_ADDR=4096
 # CONFIG_TRANSPARENT_HUGEPAGE is not set
 CONFIG_CROSS_MEMORY_ATTACH=y
 # CONFIG_CLEANCACHE is not set
+# CONFIG_ZBUD is not set
 # CONFIG_XEN is not set
 CONFIG_FORCE_MAX_ZONEORDER=11
 
@@ -451,6 +451,7 @@ CONFIG_VIRTIO_BLK=y
 # CONFIG_DUMMY_IRQ is not set
 # CONFIG_ATMEL_SSC is not set
 # CONFIG_ENCLOSURE_SERVICES is not set
+# CONFIG_SLP_GLOBAL_LOCK is not set
 # CONFIG_SRAM is not set
 # CONFIG_C2PORT is not set
 
@@ -467,6 +468,7 @@ CONFIG_VIRTIO_BLK=y
 #
 # Altera FPGA firmware download module
 #
+# CONFIG_SEC_MODEM is not set
 
 #
 # SCSI device support
@@ -888,6 +890,10 @@ CONFIG_MEDIA_SUBDRV_AUTOSELECT=y
 #
 # Graphics support
 #
+
+#
+# ARM GPU Configuration
+#
 # CONFIG_DRM is not set
 # CONFIG_VGASTATE is not set
 # CONFIG_VIDEO_OUTPUT_CONTROL is not set
@@ -923,6 +929,7 @@ CONFIG_FB_ARMCLCD=y
 # CONFIG_FB_SIMPLE is not set
 # CONFIG_EXYNOS_VIDEO is not set
 # CONFIG_BACKLIGHT_LCD_SUPPORT is not set
+# CONFIG_DISPLAY_CORE is not set
 
 #
 # Console display driver support
@@ -1024,7 +1031,30 @@ CONFIG_VIRTIO_MMIO=y
 #
 # Microsoft Hyper-V guest support
 #
-# CONFIG_STAGING is not set
+CONFIG_STAGING=y
+# CONFIG_ECHO is not set
+# CONFIG_COMEDI is not set
+# CONFIG_ZSMALLOC is not set
+# CONFIG_FT1000 is not set
+
+#
+# Speakup console speech
+#
+# CONFIG_SPEAKUP is not set
+# CONFIG_STAGING_MEDIA is not set
+
+#
+# Android
+#
+CONFIG_ANDROID=y
+# CONFIG_ANDROID_BINDER_IPC is not set
+# CONFIG_ASHMEM is not set
+CONFIG_ANDROID_LOGGER=y
+# CONFIG_ANDROID_TIMED_OUTPUT is not set
+# CONFIG_ANDROID_LOW_MEMORY_KILLER is not set
+# CONFIG_SYNC is not set
+# CONFIG_WIMAX_GDM72XX is not set
+# CONFIG_DGRP is not set
 CONFIG_CLKDEV_LOOKUP=y
 CONFIG_HAVE_CLK_PREPARE=y
 CONFIG_COMMON_CLK=y
@@ -1060,6 +1090,13 @@ CONFIG_IRQCHIP=y
 CONFIG_ARM_GIC=y
 # CONFIG_IPACK_BUS is not set
 # CONFIG_RESET_CONTROLLER is not set
+
+#
+# PHY Subsystem
+#
+# CONFIG_GENERIC_PHY is not set
+# CONFIG_PHY_EXYNOS_MIPI_VIDEO is not set
+# CONFIG_PHY_EXYNOS_USB is not set
 
 #
 # File systems
@@ -1240,6 +1277,7 @@ CONFIG_DEBUG_PREEMPT=y
 # CONFIG_RT_MUTEX_TESTER is not set
 # CONFIG_DEBUG_SPINLOCK is not set
 # CONFIG_DEBUG_MUTEXES is not set
+# CONFIG_DEBUG_WW_MUTEX_SLOWPATH is not set
 # CONFIG_DEBUG_LOCK_ALLOC is not set
 # CONFIG_PROVE_LOCKING is not set
 # CONFIG_LOCK_STAT is not set
