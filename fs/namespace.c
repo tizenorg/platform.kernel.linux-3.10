@@ -2781,6 +2781,8 @@ void __init mnt_init(void)
 
 	br_lock_init(&vfsmount_lock);
 
+	kernfs_init();
+
 	err = sysfs_init();
 	if (err)
 		printk(KERN_WARNING "%s: sysfs_init error: %d\n",
