@@ -1005,8 +1005,9 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 				return -EINVAL;
 			}
 		}
-		if (vb2_plane_size(vb, 0) < ctx->luma_size ||
-			vb2_plane_size(vb, 1) < ctx->chroma_size) {
+		if (vq->memory == V4L2_MEMORY_MMAP &&
+			(vb2_plane_size(vb, 0) < ctx->luma_size ||
+			vb2_plane_size(vb, 1) < ctx->chroma_size)) {
 			mfc_err("Plane buffer (CAPTURE) is too small\n");
 			return -EINVAL;
 		}
@@ -1023,7 +1024,8 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
 			mfc_err("Plane memory not allocated\n");
 			return -EINVAL;
 		}
-		if (vb2_plane_size(vb, 0) < ctx->dec_src_buf_size) {
+		if (vq->memory == V4L2_MEMORY_MMAP &&
+			(vb2_plane_size(vb, 0) < ctx->dec_src_buf_size)) {
 			mfc_err("Plane buffer (OUTPUT) is too small\n");
 			return -EINVAL;
 		}
