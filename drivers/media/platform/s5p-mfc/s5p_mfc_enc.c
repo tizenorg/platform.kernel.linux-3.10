@@ -1639,7 +1639,13 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 	struct s5p_mfc_ctx *ctx = fh_to_ctx(vq->drv_priv);
 	struct s5p_mfc_dev *dev = ctx->dev;
 
-	if (ctx->state != MFCINST_GOT_INST) {
+	if (ctx->state != MFCINST_GOT_INST &&
+			vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		mfc_err("inavlid state: %d\n", ctx->state);
+		return -EINVAL;
+	}
+	if (ctx->state >= MFCINST_FINISHING &&
+			vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		mfc_err("inavlid state: %d\n", ctx->state);
 		return -EINVAL;
 	}
