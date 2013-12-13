@@ -1453,7 +1453,7 @@ static int init_eps(struct ci13xxx *ci)
 			 * eps, maxP is set by epautoconfig() called
 			 * by gadget layer
 			 */
-			mEp->ep.maxpacket = (unsigned short)~0;
+			usb_ep_set_maxpacket_limit(&mEp->ep, (unsigned short)~0);
 
 			INIT_LIST_HEAD(&mEp->qh.queue);
 			mEp->qh.ptr = dma_pool_alloc(ci->qh_pool, GFP_KERNEL,
@@ -1473,7 +1473,7 @@ static int init_eps(struct ci13xxx *ci)
 				else
 					ci->ep0in = mEp;
 
-				mEp->ep.maxpacket = CTRL_PAYLOAD_MAX;
+				usb_ep_set_maxpacket_limit(&mEp->ep, CTRL_PAYLOAD_MAX);
 				continue;
 			}
 

@@ -1835,6 +1835,7 @@ static int atmel_usba_stop(struct usb_gadget *gadget,
 	return 0;
 }
 
+		usb_ep_set_maxpacket_limit(&ep->ep, ep->fifo_size);
 static int __init usba_udc_probe(struct platform_device *pdev)
 {
 	struct usba_platform_data *pdata = pdev->dev.platform_data;
