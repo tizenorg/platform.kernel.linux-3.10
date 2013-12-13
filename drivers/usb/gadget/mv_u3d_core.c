@@ -1331,7 +1331,7 @@ static int mv_u3d_eps_init(struct mv_u3d *u3d)
 	ep->ep.name = ep->name;
 	ep->ep.ops = &mv_u3d_ep_ops;
 	ep->wedge = 0;
-	ep->ep.maxpacket = MV_U3D_EP0_MAX_PKT_SIZE;
+	usb_ep_set_maxpacket_limit(&ep->ep, MV_U3D_EP0_MAX_PKT_SIZE);
 	ep->ep_num = 0;
 	ep->ep.desc = &mv_u3d_ep0_desc;
 	INIT_LIST_HEAD(&ep->queue);
@@ -1356,7 +1356,7 @@ static int mv_u3d_eps_init(struct mv_u3d *u3d)
 		ep->ep.name = ep->name;
 
 		ep->ep.ops = &mv_u3d_ep_ops;
-		ep->ep.maxpacket = (unsigned short) ~0;
+		usb_ep_set_maxpacket_limit(&ep->ep, (unsigned short) ~0);
 		ep->ep_num = i / 2;
 
 		INIT_LIST_HEAD(&ep->queue);
