@@ -1,0 +1,7 @@
+Code-Review+2: Casey Schaufler <casey.schaufler@intel.com>
+Verified+1: Lukasz Stelmach <l.stelmach@samsung.com>
+Submitted-by: Chanho Park
+Submitted-at: Sun, 22 Dec 2013 16:02:01 -0800
+Reviewed-on: https://review.tizen.org/gerrit/14029
+Project: platform/kernel/linux-3.10
+Branch: refs/heads/tizen
