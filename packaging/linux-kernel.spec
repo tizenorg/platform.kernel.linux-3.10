@@ -132,7 +132,7 @@ QA_SKIP_BUILD_ROOT="DO_NOT_WANT"; export QA_SKIP_BUILD_ROOT
 mkdir -p %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}
 mkdir -p %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}
 mkdir -p %{buildroot}/boot/abi/
-mkdir -p %{buildroot}/usr/local/bin
+mkdir -p %{buildroot}/usr/bin/
 
 # 2. Install uImage
 cp %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/arch/arm/boot/uImage %{buildroot}/boot/
@@ -146,11 +146,11 @@ make INSTALL_PATH=%{buildroot}/boot INSTALL_MOD_PATH=%{buildroot} O=%{kernel_bui
 make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
 
 # 4.1 Install ABI/API tools
-cp tools/abi-checker/src/abi-checker %{buildroot}/usr/local/bin
-cp tools/abi-checker/src/abi-module-checker %{buildroot}/usr/local/bin
-cp tools/abi-checker/src/abi-module-dumper %{buildroot}/usr/local/bin
-cp tools/abi-checker/src/abi-module-kernels-list %{buildroot}/usr/local/bin
-chmod 755 %{buildroot}/usr/local/bin/*
+cp tools/abi-checker/src/abi-checker %{buildroot}/usr/bin
+cp tools/abi-checker/src/abi-module-checker %{buildroot}/usr/bin
+cp tools/abi-checker/src/abi-module-dumper %{buildroot}/usr/bin
+cp tools/abi-checker/src/abi-module-kernels-list %{buildroot}/usr/bin
+chmod 755 %{buildroot}/usr/bin/*
 
 # 4.2 Install abi_%{version} file
 %if %{with abidev}
@@ -221,7 +221,10 @@ rm -rf %{buildroot}
 %endif
 
 %files abi-tools
-/usr/local/bin
+/usr/bin/abi-checker
+/usr/bin/abi-module-checker
+/usr/bin/abi-module-dumper
+/usr/bin/abi-module-kernels-list
 
 %if %{with abidev}
 %files abi-dev

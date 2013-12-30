@@ -10,7 +10,7 @@ SRC = kernel_abi_checker.c kernel_abi_checker_elf.c
 
 HEADER = kernel_abi_checker.h
 
-DEST_DIR = /usr/local/bin
+DEST_DIR = /usr/bin
 
 OBJECTS = kernel_abi_checker.o kernel_abi_checker_elf.o
 
