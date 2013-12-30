@@ -30,7 +30,7 @@ TIZEN simple kernel module.
 %build
 make %{?jobs:-j%jobs}
 # Create ABI/API dump fingerprint file
-/usr/local/bin/abi-module-dumper sample_module_2.ko sample_module_2.abidump
+abi-module-dumper sample_module_2.ko sample_module_2.abidump
 
 %install
 mkdir -p %{_builddir}/lib/modules/3.10.19-tizen_defconfig.1/
@@ -39,10 +39,10 @@ cp sample_module_2.abidump %{buildroot}/lib/modules/3.10.19-tizen_defconfig.1/ex
 
 %post
 # list comptible kerel ABI/API versions
-/usr/local/bin/abi-module-kernels-list /lib/modules/3.10.19-tizen_defconfig.1/extra/sample_module_2.abidump
+abi-module-kernels-list /lib/modules/3.10.19-tizen_defconfig.1/extra/sample_module_2.abidump
 
 # Test module ABI/API with the kernel ABI/API
-/usr/local/bin/abi-module-checker /lib/modules/3.10.19-tizen_defconfig.1/extra/sample_module_2.abidump
+abi-module-checker /lib/modules/3.10.19-tizen_defconfig.1/extra/sample_module_2.abidump
 
 %files
 /lib/modules/3.10.19-tizen_defconfig.1/extra/
