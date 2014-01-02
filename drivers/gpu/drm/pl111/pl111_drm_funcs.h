@@ -64,9 +64,15 @@ struct pl111_drm_encoder *pl111_encoder_dummy_create(struct drm_device *dev,
 void pl111_encoder_destroy(struct drm_encoder *encoder);
 
 /* Frame Buffer Functions */
+struct drm_framebuffer *pl111_drm_fb_init(struct drm_device *dev,
+					  struct drm_mode_fb_cmd2 *mode_cmd,
+					  struct drm_gem_object *obj);
 struct drm_framebuffer *pl111_fb_create(struct drm_device *dev,
 					struct drm_file *file_priv,
 					struct drm_mode_fb_cmd2 *mode_cmd);
+
+/* Frame Buffer Device Functions */
+int pl111_drm_fbdev_init(struct drm_device *dev);
 
 /* VMA Functions */
 int pl111_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
@@ -79,6 +85,9 @@ int pl111_drm_resume(struct drm_device *dev);
 int pl111_drm_suspend(struct drm_device *dev, pm_message_t state);
 
 /* GEM Functions */
+struct pl111_gem_bo *pl111_drm_gem_create(struct drm_device *dev,
+					  unsigned int flags,
+					  unsigned long size);
 int pl111_dumb_create(struct drm_file *file_priv,
 			struct drm_device *dev,
 			struct drm_mode_create_dumb *args);

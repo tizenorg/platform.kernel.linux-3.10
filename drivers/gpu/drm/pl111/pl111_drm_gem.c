@@ -28,6 +28,96 @@
 #include <drm/drm_crtc_helper.h>
 #include "pl111_drm.h"
 
+struct pl111_gem_bo *pl111_drm_gem_create(struct drm_device *dev,
+						unsigned int flags,
+						unsigned long size)
+{
+	int ret = 0;
+	struct pl111_gem_bo *bo = NULL;
+	bool create_contig_buffer;
+
+	size = roundup(size, PAGE_SIZE);
+
+	bo = kzalloc(sizeof(*bo), GFP_KERNEL);
+	if (bo == NULL) {
+		ret = -ENOMEM;
+		goto finish;
+	}
+
+	create_contig_buffer = flags & PL111_BO_SCANOUT;
+#ifndef ARCH_HAS_SG_CHAIN
+	/*
+	 * If the ARCH can't chain we can't have non-contiguous allocs larger
+	 * than a single sg can hold.
+	 * In this case we fall back to using contiguous memory
+	 */
+	if (!create_contig_buffer) {
+		long unsigned int n_pages =
+				PAGE_ALIGN(size) >> PAGE_SHIFT;
+		if (n_pages > SG_MAX_SINGLE_ALLOC) {
+			create_contig_buffer = true;
+			/*
+			 * Non-contiguous allocation request changed to
+			 * contigous
+			 */
+			DRM_INFO("non-contig alloc to contig %lu > %lu pages.",
+					n_pages, SG_MAX_SINGLE_ALLOC);
+		}
+	}
+#endif
+	if (!create_contig_buffer) {
+		/* not scanout compatible - use non-contiguous buffer */
+		bo->type = PL111_BOT_SHM;
+		ret = drm_gem_object_init(dev, &bo->gem_object, size);
+		if (ret != 0) {
+			DRM_ERROR("DRM could not init SHM backed GEM obj\n");
+			kfree(bo);
+			ret = -ENOMEM;
+			goto finish;
+		}
+		DRM_DEBUG_KMS("Num bytes: %d\n", bo->gem_object.size);
+	} else {
+		/* scanout compatible - use contiguous buffer */
+		bo->type = PL111_BOT_DMA;
+
+		bo->backing_data.dma.fb_cpu_addr =
+			dma_alloc_writecombine(dev->dev, size,
+					&bo->backing_data.dma.fb_dev_addr,
+					GFP_KERNEL);
+		if (bo->backing_data.dma.fb_cpu_addr == NULL) {
+			DRM_ERROR("dma_alloc_writecombine failed\n");
+			kfree(bo);
+			ret = -ENOMEM;
+			goto finish;
+		}
+
+		ret = drm_gem_private_object_init(dev, &bo->gem_object,
+							size);
+		if (ret != 0) {
+			DRM_ERROR("DRM could not initialise GEM object\n");
+			dma_free_writecombine(dev->dev, size,
+					bo->backing_data.dma.fb_cpu_addr,
+					bo->backing_data.dma.fb_dev_addr);
+			kfree(bo);
+			ret = -ENOMEM;
+			goto finish;
+		}
+	}
+
+	DRM_DEBUG_KMS("s=%llu, flags=0x%x, %s 0x%.8lx, type=%d\n",
+		size, flags,
+		(bo->type == PL111_BOT_DMA) ? "physaddr" : "shared page array",
+		(bo->type == PL111_BOT_DMA)
+			? (unsigned long)bo->backing_data.dma.fb_dev_addr
+			: (unsigned long)bo->backing_data.shm.pages, bo->type);
+
+	return bo;
+finish:
+	if (ret)
+		return ERR_PTR(ret);
+
+}
+
 void pl111_gem_free_object(struct drm_gem_object *obj)
 {
 	struct pl111_gem_bo *bo;

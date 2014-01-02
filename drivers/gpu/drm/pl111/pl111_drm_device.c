@@ -217,6 +217,12 @@ static int pl111_drm_load(struct drm_device *dev, unsigned long chipset)
 		goto out_vblank;
 	}
 
+	ret = pl111_drm_fbdev_init(dev);
+	if (ret) {
+		DRM_ERROR("Failed to init vblank\n");
+		goto out_vblank;
+	}
+
 	goto finish;
 
 out_vblank:

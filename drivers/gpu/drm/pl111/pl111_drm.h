@@ -158,6 +158,7 @@ struct pl111_drm_encoder {
 };
 
 struct pl111_drm_dev_private {
+	struct drm_fb_helper *fb_helper;
 	struct pl111_drm_crtc *pl111_crtc;
 
 	struct amba_device *amba_dev;

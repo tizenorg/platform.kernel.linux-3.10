@@ -317,8 +317,14 @@ int pl111_amba_probe(struct amba_device *dev, const struct amba_id *id)
 	int ret;
 	pr_info("DRM %s\n", __func__);
 
-	if (board == NULL)
-		return -EINVAL;
+	if (board == NULL) {
+#ifdef CONFIG_OF
+		board = kzalloc(sizeof(struct clcd_board), GFP_KERNEL);
+		if (!board)
+			return -ENOMEM;
+		dev->dev.platform_data = board;
+#endif
+	}
 
 	ret = amba_request_regions(dev, NULL);
 	if (ret != 0) {
@@ -335,8 +341,14 @@ int pl111_amba_probe(struct amba_device *dev, const struct amba_id *id)
 		goto clk_err;
 	}
 
+	ret = clk_prepare_enable(priv.clk);
+	if (ret)
+		goto clk_prepare_err;
+
 	return 0;
 
+clk_prepare_err:
+	clk_put(priv.clk);
 clk_err:
 	amba_release_regions(dev);
 out:

@@ -96,6 +96,40 @@ const struct drm_framebuffer_funcs fb_funcs = {
 	.create_handle = pl111_fb_create_handle,
 };
 
+struct drm_framebuffer *pl111_drm_fb_init(struct drm_device *dev,
+					  struct drm_mode_fb_cmd2 *mode_cmd,
+					  struct drm_gem_object *obj)
+{
+	struct pl111_drm_framebuffer *pl111_fb;
+	struct drm_framebuffer *fb = NULL;
+	struct pl111_gem_bo *bo = PL111_BO_FROM_GEM(obj);
+
+	pl111_fb = kzalloc(sizeof(struct pl111_drm_framebuffer), GFP_KERNEL);
+	if (pl111_fb == NULL) {
+		DRM_ERROR("Could not allocate pl111_drm_framebuffer\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	fb = &pl111_fb->fb;
+
+	if (drm_framebuffer_init(dev, fb, &fb_funcs)) {
+		DRM_ERROR("drm_framebuffer_init failed\n");
+		kfree(pl111_fb);
+		fb = NULL;
+		goto out;
+	}
+
+	drm_helper_mode_fill_fb_struct(fb, mode_cmd);
+
+	PL111_BO_TO_FRAMEBUFFER(fb, bo);
+
+	DRM_DEBUG_KMS("Created fb 0x%p for gem_obj 0x%p physaddr=0x%.8x\n",
+			fb, obj, bo->backing_data.dma.fb_dev_addr);
+
+out:
+	return fb;
+}
+
 struct drm_framebuffer *pl111_fb_create(struct drm_device *dev,
 					struct drm_file *file_priv,
 					struct drm_mode_fb_cmd2 *mode_cmd)
