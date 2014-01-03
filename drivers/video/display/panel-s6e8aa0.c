@@ -35,6 +35,7 @@
 #include <video/panel-s6e8aa0.h>
 
 #define LDI_MTP_LENGTH			24
+#define MAX_BRIGHTNESS			100
 #define GAMMA_LEVEL_NUM			25
 #define GAMMA_TABLE_LEN			26
 #define S6E8AA0_PANEL_COND_LEN		39
@@ -906,6 +907,30 @@ static int s6e8aa0_get_brightness(struct backlight_device *bd)
 	return bd->props.brightness;
 }
 
+static int s6e8aa0_convert_brightness(int brightness)
+{
+	const unsigned int convert_table[] = {
+		0, 1, 1, 1, 1, 2, 2, 2, 2, 2,
+		3, 3, 3, 3, 4, 4, 4, 4, 5, 5,
+		5, 5, 6, 6, 6, 6, 7, 7, 7, 7,
+		8, 8, 8, 8, 9, 9, 9, 9, 10, 10,
+		10, 10, 11, 11, 11, 11, 12, 12, 12, 12,
+		13, 13, 13, 13, 14, 14, 14, 14, 15, 15,
+		15, 15, 16, 16, 16, 16, 17, 17, 17, 17,
+		18, 18, 18, 18, 19, 19, 19, 19, 20, 20,
+		20, 20, 21, 21, 21, 21, 21, 22, 22, 22,
+		22, 22, 23, 23, 23, 23, 23, 24, 24, 24,
+		24,
+	};
+
+	if (brightness > ARRAY_SIZE(convert_table)-1)
+		brightness = convert_table[ARRAY_SIZE(convert_table)-1];
+	else
+		brightness = convert_table[brightness];
+
+	return brightness;
+}
+
 static int s6e8aa0_update_status(struct backlight_device *bd)
 {
 	struct s6e8aa0 *lcd = bl_get_data(bd);
@@ -914,7 +939,7 @@ static int s6e8aa0_update_status(struct backlight_device *bd)
 
 	mutex_lock(&lcd->mutex);
 
-	lcd->brightness = bd->props.brightness;
+	lcd->brightness = s6e8aa0_convert_brightness(bd->props.brightness);
 
 	if (lcd->entity.state != DISPLAY_ENTITY_STATE_ON)
 		goto unlock;
@@ -1342,8 +1367,8 @@ static int s6e8aa0_probe(struct platform_device *pdev)
 
 	mutex_init(&lcd->mutex);
 
-	lcd->bd->props.max_brightness = GAMMA_LEVEL_NUM - 1;
-	lcd->bd->props.brightness = GAMMA_LEVEL_NUM - 1;
+	lcd->bd->props.max_brightness = MAX_BRIGHTNESS;
+	lcd->bd->props.brightness = MAX_BRIGHTNESS;
 	lcd->brightness = GAMMA_LEVEL_NUM - 1;
 
 	lcd->entity.of_node = pdev->dev.of_node;
