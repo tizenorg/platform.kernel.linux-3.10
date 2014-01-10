@@ -18,8 +18,16 @@ BuildRequires: linux-glibc-devel
 BuildRequires: u-boot-tools
 BuildRequires: bc
 
+# The below is required for building perf
+BuildRequires: libelf-devel
+BuildRequires: flex
+BuildRequires: bison
+BuildRequires: libdw-devel
+BuildRequires: python-devel
+
 %define kernel_build_dir_name .%{name}-%{version}-%{build_id}
 %define kernel_build_dir %{_builddir}/%{name}-%{version}/%{kernel_build_dir_name}
+%define kernel_arch arm
 
 %description
 The Linux Kernel, the operating system core itself
@@ -60,6 +68,15 @@ Group: Development/System
 %description uImage
 Linux kernel uImage
 
+%package -n perf
+Summary: The 'perf' performance counter tool
+Group: Development/System
+Provides: perf = %{kernel_full_version}
+
+%description -n perf
+This package provides the "perf" tool that can be used to monitor performance
+counter events as well as various kernel internal events.
+
 %prep
 %setup -q
 
@@ -83,6 +100,10 @@ make EXTRAVERSION="-%{build_id}" O=%{kernel_build_dir}/linux-kernel-build-%{vers
 make EXTRAVERSION="-%{build_id}" O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} dtbs %{?_smp_mflags}
 cat %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/arch/arm/boot/zImage %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/arch/arm/boot/dts/%{defaultDtb}  > bImage
 mkimage -A arm -C none -O linux -a 40008000 -e 40008000 -n 'Linux 3.10 Tizen kernel' -d bImage uImage
+
+# 4.2 Build perf
+make -s -C tools/lib/traceevent ARCH=%{kernel_arch} %{?_smp_mflags}
+make -s -C tools/perf WERROR=0 ARCH=%{kernel_arch}
 
 # 5. Update Makefile in output build
 cat %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/Makefile | sed 's/\/home\/abuild\/rpmbuild\/BUILD\/%{name}-%{version}/\/usr\/src\/linux-kernel-sources-%{version}-%{build_id}/' > %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}/Makefile.new
@@ -109,6 +130,15 @@ tar -xf %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}.tar   -C %
 
 # 4. Install kernel headers
 make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
+
+# 4.1 Install perf
+install -d %{buildroot}
+make -s -C tools/perf DESTDIR=%{buildroot} install
+install -d  %{buildroot}/usr/bin
+install -d  %{buildroot}/usr/libexec
+mv %{buildroot}/bin/* %{buildroot}/usr/bin/
+mv %{buildroot}/libexec/* %{buildroot}/usr/libexec/
+rm %{buildroot}/etc/bash_completion.d/perf
 
 # 5. Remove files
 find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name ".tmp_vmlinux1" -exec rm -f {} \;
@@ -165,3 +195,8 @@ rm -rf %{buildroot}
 
 %files uImage
 /boot/uImage
+
+%files -n perf
+%license COPYING
+/usr/bin/perf
+/usr/libexec/perf-core
