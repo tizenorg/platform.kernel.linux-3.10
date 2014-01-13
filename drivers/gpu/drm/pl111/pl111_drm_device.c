@@ -273,6 +273,10 @@ static const struct file_operations drm_fops = {
 	.poll = drm_poll,
 	.read = drm_read,
 	.fasync = drm_fasync,
+	.unlocked_ioctl	= drm_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = drm_compat_ioctl,
+#endif
 };
 
 static struct drm_driver driver = {
