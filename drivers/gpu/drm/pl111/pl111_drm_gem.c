@@ -51,19 +51,8 @@ struct pl111_gem_bo *pl111_drm_gem_create(struct drm_device *dev,
 	 * than a single sg can hold.
 	 * In this case we fall back to using contiguous memory
 	 */
-	if (!create_contig_buffer) {
-		long unsigned int n_pages =
-				PAGE_ALIGN(size) >> PAGE_SHIFT;
-		if (n_pages > SG_MAX_SINGLE_ALLOC) {
-			create_contig_buffer = true;
-			/*
-			 * Non-contiguous allocation request changed to
-			 * contigous
-			 */
-			DRM_INFO("non-contig alloc to contig %lu > %lu pages.",
-					n_pages, SG_MAX_SINGLE_ALLOC);
-		}
-	}
+	if (!create_contig_buffer)
+		create_contig_buffer = true;
 #endif
 	if (!create_contig_buffer) {
 		/* not scanout compatible - use non-contiguous buffer */
@@ -103,8 +92,7 @@ struct pl111_gem_bo *pl111_drm_gem_create(struct drm_device *dev,
 			goto finish;
 		}
 	}
-
-	DRM_DEBUG_KMS("s=%llu, flags=0x%x, %s 0x%.8lx, type=%d\n",
+	DRM_DEBUG_KMS("s=%lu, flags=0x%x, %s 0x%.8lx, type=%d\n",
 		size, flags,
 		(bo->type == PL111_BOT_DMA) ? "physaddr" : "shared page array",
 		(bo->type == PL111_BOT_DMA)
@@ -176,19 +164,8 @@ int pl111_dumb_create(struct drm_file *file_priv,
 	 * than a single sg can hold.
 	 * In this case we fall back to using contiguous memory
 	 */
-	if (!create_contig_buffer) {
-		long unsigned int n_pages =
-				PAGE_ALIGN(args->size) >> PAGE_SHIFT;
-		if (n_pages > SG_MAX_SINGLE_ALLOC) {
-			create_contig_buffer = true;
-			/*
-			 * Non-contiguous allocation request changed to
-			 * contigous
-			 */
-			DRM_INFO("non-contig alloc to contig %lu > %lu pages.",
-					n_pages, SG_MAX_SINGLE_ALLOC);
-		}
-	}
+	if (!create_contig_buffer)
+		create_contig_buffer = true;
 #endif
 	if (!create_contig_buffer) {
 		/* not scanout compatible - use non-contiguous buffer */
@@ -231,7 +208,8 @@ int pl111_dumb_create(struct drm_file *file_priv,
 
 	DRM_DEBUG_KMS("dumb_create: 0x%p with w=%d, h=%d, p=%d, bpp=%d,",
 		bo, args->width, args->height, args->pitch, args->bpp);
-	DRM_DEBUG_KMS("bytes_pp=%d, s=%llu, flags=0x%x, %s 0x%.8lx, type=%d\n",
+
+	DRM_DEBUG_KMS("bytes_pp=%d, s=%lu, flags=0x%x, %s 0x%.8lx, type=%d\n",
 		bytes_pp, args->size, args->flags,
 		(bo->type == PL111_BOT_DMA) ? "physaddr" : "shared page array",
 		(bo->type == PL111_BOT_DMA)
