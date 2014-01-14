@@ -24,19 +24,6 @@ BuildRequires: bc
 %description
 The Linux Kernel, the operating system core itself
 
-%package headers
-Summary: Header files for the Linux kernel for use by glibc
-Group: Development/System
-Obsoletes: kernel-headers
-Provides: kernel-headers = %{version}
-
-%description headers
-Kernel-headers includes the C header files that specify the interface
-between the Linux kernel and userspace libraries and programs.  The
-header files define structures and constants that are needed for
-building most standard programs and are also needed for rebuilding the
-glibc package.
-
 %package sources
 Summary: Full linux kernel sources for out-of-tree modules
 Group: Development/System
@@ -107,10 +94,7 @@ install uImage %{buildroot}/boot/
 tar -xf %{kernel_build_dir}/linux-kernel-sources-%{version}-%{build_id}.tar -C %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}
 tar -xf %{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id}.tar   -C %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}
 
-# 4. Install kernel headers
-make INSTALL_PATH=%{buildroot} INSTALL_MOD_PATH=%{buildroot} O=%{kernel_build_dir}/linux-kernel-build-%{version}-%{build_id} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
-
-# 5. Remove files
+# 4. Remove files
 find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name ".tmp_vmlinux1" -exec rm -f {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name ".tmp_vmlinux2" -exec rm -f {} \;
 find %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id} -name "vmlinux" -exec rm -f {} \;
@@ -128,9 +112,6 @@ find %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id} -name "*.c
 
 find %{buildroot}/usr -name "..install.cmd" -exec rm -f {} \;
 
-find %{buildroot}/usr/include -name "\.\.install.cmd"  -exec rm -f {} \;
-find %{buildroot}/usr/include -name "\.install"  -exec rm -f {} \;
-
 rm -rf %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}/%{kernel_build_dir_name}
 rm -f %{buildroot}/usr/src/linux-kernel-sources-%{version}-%{build_id}/source
 rm -f %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/source
@@ -141,17 +122,13 @@ rm -rf %{buildroot}/vmlinux*
 rm -rf %{buildroot}/boot/System.map*
 rm -rf %{buildroot}/boot/vmlinux*
 
-# 6. Create symbolic links
+# 5. Create symbolic links
 ln -sf /usr/src/linux-kernel-sources-%{version}-%{build_id} %{buildroot}/usr/src/linux-kernel-build-%{version}-%{build_id}/source
 ln -sf /usr/src/linux-kernel-build-%{version}-%{build_id}   %{buildroot}/usr/src/linux-kernel-build-current
 ln -sf /usr/src/linux-kernel-sources-%{version}-%{build_id} %{buildroot}/usr/src/linux-kernel-sources-current
 
 %clean
 rm -rf %{buildroot}
-
-%files headers
-%defattr (-, root, root)
-/usr/include
 
 %files sources
 %defattr (-, root, root)
