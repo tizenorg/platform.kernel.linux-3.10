@@ -34,9 +34,9 @@
 static struct {
 	int w, h, type;
 } pl111_drm_modes[] = {
-	{ 640, 480,  DRM_MODE_TYPE_PREFERRED},
+	{1024, 768,  DRM_MODE_TYPE_PREFERRED},
+	{ 640, 480,  0},
 	{ 800, 600,  0},
-	{1024, 768,  0},
 	{  -1,  -1, -1}
 };
 

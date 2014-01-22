@@ -331,7 +331,7 @@ bool pl111_crtc_helper_mode_fixup(struct drm_crtc *crtc,
 {
 	DRM_DEBUG_KMS("DRM %s on crtc=%p\n", __func__, crtc);
 
-#ifdef CONFIG_ARCH_VEXPRESS
+#if 0
 	/*
 	 * 1024x768 with more than 16 bits per pixel does not work correctly
 	 * on Versatile Express
