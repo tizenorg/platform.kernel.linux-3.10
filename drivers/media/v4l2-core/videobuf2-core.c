@@ -286,9 +286,10 @@ static void __vb2_queue_free(struct vb2_queue *q, unsigned int buffers)
 	if (q->ops->buf_cleanup) {
 		for (buffer = q->num_buffers - buffers; buffer < q->num_buffers;
 		     ++buffer) {
-			if (NULL == q->bufs[buffer])
-				continue;
-			q->ops->buf_cleanup(q->bufs[buffer]);
+			struct vb2_buffer *vb = q->bufs[buffer];
+
+			if (vb && vb->planes[0].mem_priv)
+				q->ops->buf_cleanup(vb);
 		}
 	}
 
@@ -962,6 +963,7 @@ static int __qbuf_userptr(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 	unsigned int plane;
 	int ret;
 	int write = !V4L2_TYPE_IS_OUTPUT(q->type);
+	bool reacquired = vb->planes[0].mem_priv == NULL;
 
 	/* Copy relevant information provided by the userspace */
 	__fill_vb2_buffer(vb, b, planes);
@@ -983,12 +985,16 @@ static int __qbuf_userptr(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 		}
 
 		/* Release previously acquired memory if present */
-		if (vb->planes[plane].mem_priv)
+		if (vb->planes[plane].mem_priv) {
+			if (!reacquired) {
+				reacquired = true;
+				q->ops->buf_cleanup(vb);
+			}
 			call_memop(q, put_userptr, vb->planes[plane].mem_priv);
+		}
 
 		vb->planes[plane].mem_priv = NULL;
-		vb->v4l2_planes[plane].m.userptr = 0;
-		vb->v4l2_planes[plane].length = 0;
+		memset(&vb->v4l2_planes[plane], 0, sizeof(struct v4l2_plane));
 
 		/* Acquire each plane's memory */
 		mem_priv = call_memop(q, get_userptr, q->alloc_ctx[plane],
@@ -1004,21 +1010,31 @@ static int __qbuf_userptr(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 	}
 
 	/*
-	 * Call driver-specific initialization on the newly acquired buffer,
-	 * if provided.
-	 */
-	ret = call_qop(q, buf_init, vb);
-	if (ret) {
-		dprintk(1, "qbuf: buffer initialization failed\n");
-		goto err;
-	}
-
-	/*
 	 * Now that everything is in order, copy relevant information
 	 * provided by userspace.
 	 */
 	for (plane = 0; plane < vb->num_planes; ++plane)
 		vb->v4l2_planes[plane] = planes[plane];
+
+	if (reacquired) {
+		/*
+		 * One or more planes changed, so we must call buf_init to do
+		 * the driver-specific initialization on the newly acquired
+		 * buffer, if provided.
+		 */
+		ret = call_qop(q, buf_init, vb);
+		if (ret) {
+			dprintk(1, "qbuf: buffer initialization failed\n");
+			goto err;
+		}
+	}
+
+	ret = call_qop(q, buf_prepare, vb);
+	if (ret) {
+		dprintk(1, "qbuf: buffer preparation failed\n");
+		call_qop(q, buf_cleanup, vb);
+		goto err;
+	}
 
 	return 0;
 err:
@@ -1039,8 +1055,12 @@ err:
  */
 static int __qbuf_mmap(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 {
+	int ret;
+	struct vb2_queue *q = vb->vb2_queue;
+
 	__fill_vb2_buffer(vb, b, vb->v4l2_planes);
-	return 0;
+	ret = call_qop(q, buf_prepare, vb);
+	return ret;
 }
 
 /**
@@ -1054,6 +1074,7 @@ static int __qbuf_dmabuf(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 	unsigned int plane;
 	int ret;
 	int write = !V4L2_TYPE_IS_OUTPUT(q->type);
+	bool reacquired = vb->planes[0].mem_priv == NULL;
 
 	/* Verify and copy relevant information provided by the userspace */
 	__fill_vb2_buffer(vb, b, planes);
@@ -1086,6 +1107,11 @@ static int __qbuf_dmabuf(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 		}
 
 		dprintk(1, "qbuf: buffer for plane %d changed\n", plane);
+
+		if (!reacquired) {
+			reacquired = true;
+			call_qop(q, buf_cleanup, vb);
+		}
 
 		/* Release previously acquired memory if present */
 		__vb2_plane_dmabuf_put(q, &vb->planes[plane]);
@@ -1120,21 +1146,30 @@ static int __qbuf_dmabuf(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 	}
 
 	/*
-	 * Call driver-specific initialization on the newly acquired buffer,
-	 * if provided.
-	 */
-	ret = call_qop(q, buf_init, vb);
-	if (ret) {
-		dprintk(1, "qbuf: buffer initialization failed\n");
-		goto err;
-	}
-
-	/*
 	 * Now that everything is in order, copy relevant information
 	 * provided by userspace.
 	 */
 	for (plane = 0; plane < vb->num_planes; ++plane)
 		vb->v4l2_planes[plane] = planes[plane];
+
+	if (reacquired) {
+		/*
+		 * Call driver-specific initialization on the newly acquired buffer,
+		 * if provided.
+		 */
+		ret = call_qop(q, buf_init, vb);
+		if (ret) {
+			dprintk(1, "qbuf: buffer initialization failed\n");
+			goto err;
+		}
+	}
+
+	ret = call_qop(q, buf_prepare, vb);
+	if (ret) {
+		dprintk(1, "qbuf: buffer preparation failed\n");
+		call_qop(q, buf_cleanup, vb);
+		goto err;
+	}
 
 	return 0;
 err:
@@ -1182,8 +1217,6 @@ static int __buf_prepare(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 		ret = -EINVAL;
 	}
 
-	if (!ret)
-		ret = call_qop(q, buf_prepare, vb);
 	if (ret)
 		dprintk(1, "qbuf: buffer preparation failed: %d\n", ret);
 	else
