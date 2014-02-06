@@ -35,7 +35,7 @@
 #include <video/panel-s6e8aa0.h>
 
 #define LDI_MTP_LENGTH			24
-#define MAX_BRIGHTNESS			100
+#define MAX_BRIGHTNESS			(GAMMA_LEVEL_NUM - 1)
 #define GAMMA_LEVEL_NUM			25
 #define GAMMA_TABLE_LEN			26
 #define S6E8AA0_PANEL_COND_LEN		39
@@ -1359,7 +1359,7 @@ static int s6e8aa0_probe(struct platform_device *pdev)
 
 	lcd->bd->props.max_brightness = MAX_BRIGHTNESS;
 	lcd->bd->props.brightness = MAX_BRIGHTNESS;
-	lcd->brightness = GAMMA_LEVEL_NUM - 1;
+	lcd->brightness = MAX_BRIGHTNESS;
 
 	lcd->entity.of_node = pdev->dev.of_node;
 	lcd->entity.dev = &pdev->dev;
