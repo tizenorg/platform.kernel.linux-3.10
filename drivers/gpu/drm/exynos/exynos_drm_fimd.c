@@ -107,7 +107,6 @@ struct fimd_win_data {
 	unsigned int		buf_offsize;
 	unsigned int		line_size;	/* bytes */
 	bool			enabled;
-	bool			resume;
 };
 
 struct fimd_context {
@@ -641,8 +640,6 @@ static void fimd_win_disable(struct device *dev, int zpos)
 	win_data = &ctx->win_data[win];
 
 	if (ctx->suspended) {
-		/* do not resume this window*/
-		win_data->resume = false;
 		return;
 	}
 
@@ -846,7 +843,6 @@ static void fimd_window_suspend(struct device *dev)
 
 	for (i = 0; i < WINDOWS_NR; i++) {
 		win_data = &ctx->win_data[i];
-		win_data->resume = win_data->enabled;
 		fimd_win_disable(dev, i);
 	}
 	fimd_wait_for_vblank(dev);
@@ -860,8 +856,7 @@ static void fimd_window_resume(struct device *dev)
 
 	for (i = 0; i < WINDOWS_NR; i++) {
 		win_data = &ctx->win_data[i];
-		win_data->enabled = win_data->resume;
-		win_data->resume = false;
+		win_data->enabled = false;
 	}
 }
 
