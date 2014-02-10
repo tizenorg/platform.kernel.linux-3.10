@@ -12,7 +12,7 @@
  * published by the Free Software Foundation.
 */
 
-/include/ "exynos4412-slp_pq.dts"
+/include/ "exynos4412-trats2.dts"
 
 / {
 	model = "Samsung M0 based on Exynos4412";
