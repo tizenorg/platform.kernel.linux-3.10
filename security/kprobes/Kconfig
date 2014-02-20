@@ -1,0 +1,11 @@
+config SECURITY_PROBES
+	tristate "Security probes"
+	depends on MODULES
+	depends on SECURITY
+	select CONFIGFS
+	select KPROBES
+	default n
+	help
+	  This selects the Security probes.
+	  Security probes are useful for debugging security functions.
+	  If you are unsure how to answer this question, answer N.

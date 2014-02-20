@@ -179,11 +179,15 @@ int security_capable(const struct cred *cred, struct user_namespace *ns,
 	return security_ops->capable(cred, ns, cap, SECURITY_CAP_AUDIT);
 }
 
+EXPORT_SYMBOL_GPL(security_capable);
+
 int security_capable_noaudit(const struct cred *cred, struct user_namespace *ns,
 			     int cap)
 {
 	return security_ops->capable(cred, ns, cap, SECURITY_CAP_NOAUDIT);
 }
+
+EXPORT_SYMBOL_GPL(security_capable_noaudit);
 
 int security_quotactl(int cmds, int type, int id, struct super_block *sb)
 {
