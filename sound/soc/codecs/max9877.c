@@ -263,6 +263,7 @@ static int max9877_i2c_probe(struct i2c_client *client,
 {
 	i2c = client;
 
+	printk(KERN_INFO "%s: entrance as test.\n", __func__);
 	max9877_write_regs();
 
 	return 0;
