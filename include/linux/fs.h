@@ -27,6 +27,7 @@
 #include <linux/lockdep.h>
 #include <linux/percpu-rwsem.h>
 #include <linux/blk_types.h>
+#include <linux/uaccess.h>
 
 #include <asm/byteorder.h>
 #include <uapi/linux/fs.h>
@@ -290,6 +291,7 @@ struct writeback_control;
 struct iov_iter;
 
 struct iov_iter {
+	int type;
 	const struct iovec *iov;
 	unsigned long nr_segs;
 	size_t iov_offset;
@@ -304,7 +306,7 @@ void iov_iter_advance(struct iov_iter *i, size_t bytes);
 int iov_iter_fault_in_readable(struct iov_iter *i, size_t bytes);
 size_t iov_iter_single_seg_count(const struct iov_iter *i);
 
-static inline void iov_iter_init(struct iov_iter *i,
+static inline void __iov_iter_init(struct iov_iter *i,
 			const struct iovec *iov, unsigned long nr_segs,
 			size_t count, size_t written)
 {
@@ -314,6 +316,20 @@ static inline void iov_iter_init(struct iov_iter *i,
 	i->count = count + written;
 
 	iov_iter_advance(i, written);
+}
+
+static inline void iov_iter_init(struct iov_iter *i, int direction,
+			const struct iovec *iov, unsigned long nr_segs,
+			size_t count)
+{
+	/* It will get better.  Eventually... */
+	if (segment_eq(get_fs(), KERNEL_DS))
+		direction |= REQ_KERNEL;
+	i->type = direction;
+	i->iov = iov;
+	i->nr_segs = nr_segs;
+	i->iov_offset = 0;
+	i->count = count;
 }
 
 static inline size_t iov_iter_count(struct iov_iter *i)

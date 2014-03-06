@@ -1468,7 +1468,7 @@ static ssize_t __btrfs_direct_write(struct kiocb *iocb,
 
 	pos += written;
 	count -= written;
-	iov_iter_init(&i, iov, nr_segs, count, written);
+	__iov_iter_init(&i, iov, nr_segs, count, written);
 	written_buffered = __btrfs_buffered_write(file, &i, pos);
 	if (written_buffered < 0) {
 		err = written_buffered;
@@ -1583,7 +1583,7 @@ static ssize_t btrfs_file_aio_write(struct kiocb *iocb,
 	} else {
 		struct iov_iter i;
 
-		iov_iter_init(&i, iov, nr_segs, count, num_written);
+		__iov_iter_init(&i, iov, nr_segs, count, num_written);
 
 		num_written = __btrfs_buffered_write(file, &i, pos);
 		if (num_written > 0)

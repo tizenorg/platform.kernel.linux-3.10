@@ -1137,7 +1137,7 @@ static ssize_t fuse_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 		pos += written;
 		count -= written;
 
-		iov_iter_init(&i, iov, nr_segs, count, written);
+		__iov_iter_init(&i, iov, nr_segs, count, written);
 		written_buffered = fuse_perform_write(file, mapping, &i, pos);
 		if (written_buffered < 0) {
 			err = written_buffered;
@@ -1157,7 +1157,7 @@ static ssize_t fuse_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 		written += written_buffered;
 		iocb->ki_pos = pos + written_buffered;
 	} else {
-		iov_iter_init(&i, iov, nr_segs, count, 0);
+		__iov_iter_init(&i, iov, nr_segs, count, 0);
 		written = fuse_perform_write(file, mapping, &i, pos);
 		if (written >= 0)
 			iocb->ki_pos = pos + written;
@@ -1283,7 +1283,7 @@ ssize_t fuse_direct_io(struct fuse_io_priv *io, const struct iovec *iov,
 	struct fuse_req *req;
 	struct iov_iter ii;
 
-	iov_iter_init(&ii, iov, nr_segs, count, 0);
+	__iov_iter_init(&ii, iov, nr_segs, count, 0);
 
 	if (io->async)
 		req = fuse_get_req_for_background(fc, fuse_iter_npages(&ii));
@@ -1864,7 +1864,7 @@ static int fuse_ioctl_copy_user(struct page **pages, struct iovec *iov,
 	if (!bytes)
 		return 0;
 
-	iov_iter_init(&ii, iov, nr_segs, bytes, 0);
+	__iov_iter_init(&ii, iov, nr_segs, bytes, 0);
 
 	while (iov_iter_count(&ii)) {
 		struct page *page = pages[page_idx++];
