@@ -2697,6 +2697,7 @@ static struct dma_async_tx_descriptor *pl330_prep_dma_cyclic(
 
 			return NULL;
 		}
+	}
 
 		switch (direction) {
 		case DMA_MEM_TO_DEV:
@@ -2727,7 +2728,6 @@ static struct dma_async_tx_descriptor *pl330_prep_dma_cyclic(
 			list_add_tail(&desc->node, &first->node);
 
 		dma_addr += period_len;
-	}
 
 	if (!desc)
 		return NULL;

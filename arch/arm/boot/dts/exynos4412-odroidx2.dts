@@ -45,7 +45,6 @@
 			};
 		};
 	};
-
 	chosen {
 		bootargs = "console=ttySAC1,115200N8 root=/dev/mmcblk0p2 rootwait earlyprintk panic=5";
 	};
@@ -538,6 +537,44 @@
 			reg = <0x37>;
 		};
 	};
+
+	i2c@13870000 {  //i2c1
+                pinctrl-0 = <&i2c1_bus>;
+                pinctrl-names = "default";
+                clocks = <&clock 318>;
+                clock-names = "i2c";
+		status = "okay";
+                max98090: max98090@10 {
+                        compatible = "Odroid,max98090";
+                        reg = <0x10>;
+                        irq-map-policy = <2>;
+                        interrupt-controller;
+                        #interrups-cells = <2>;
+			interrupt-parent = <&lsm330dlc_accel_map>;
+                        interrupts= <1 0>;
+
+                        lsm330dlc_accel_map: lsm330dlc-accel-map {
+                                compatible = "samsung,lsm330dlc-accel-map";
+                                #interrupt-cells = <2>;
+                                #address-cells = <0>;
+                                #size-cells = <0>;
+                                interrupt-map = <0x1 0 &gpx0 0 0>;
+                        };
+                };
+        };
+
+	i2s0: i2s@03830000 {
+                pinctrl-0 = <&i2s0_bus>;
+                pinctrl-names = "default";
+                status = "okay";
+        };
+
+        sound {
+                compatible = "samsung,exynos4-odroid";
+                samsung,i2s-controller = <&i2s0>;
+                samsung,audio-codec = <&max98090>;
+		exynos4412,model = "Tizen Odroid";
+        };
 
 	gpu@13000000 {
 		status = "okay";
