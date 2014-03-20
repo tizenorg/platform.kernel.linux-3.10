@@ -914,6 +914,12 @@ static int clk_set_hierarchy(struct i2s_dai *i2s)
 		return PTR_ERR(i2s->dout_i2s);
 	}
 
+	i2s->op_clk = devm_clk_get(&i2s->pdev->dev, "i2s_opclk0");
+	if (IS_ERR(i2s->op_clk)) {
+		dev_err(dev, "failed to get op_clk div\n");
+		return PTR_ERR(i2s->op_clk);
+	}
+
 	ret = clk_set_parent(i2s->mout_audss, fout_epll);
 	if (ret) {
 		dev_err(dev, "failed to set parent clock of mout_audss\n");
