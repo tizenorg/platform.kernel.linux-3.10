@@ -233,10 +233,16 @@ config SND_SOC_LITTLEMILL
 	select MFD_WM8994
 	select SND_SOC_WM8994
 
-config SND_SOC_SAMSUNG_EXYNOS4_WM1811
-	tristate "SoC I2S Audio support for WM1811 on Tizen Exynos4 board"
-	depends on SND_SOC_SAMSUNG
-	select SND_SOC_WM8994
-	select SND_SAMSUNG_I2S
-	help
+config SND_SOC_ODROID_MAX98090
+        tristate "SoC I2S Audio support for MAX98090 on Tizen Exynos4 ODROID board"
+        depends on SND_SOC_SAMSUNG
+        select SND_SOC_MAX98090
+        select SND_SAMSUNG_I2S
+        help
 	  Say Y if you want to add support for SoC audio on the Tizen Exynos4 board.
+
+config MAX98090_HEADSET
+        bool "MAX98090 HeadSet detect"
+        depends on SND_SOC_ODROID_MAX98090
+        help
+          Provides support for detecting max98090 jack_sw
