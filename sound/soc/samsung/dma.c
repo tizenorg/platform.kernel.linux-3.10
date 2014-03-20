@@ -88,7 +88,7 @@ static void dma_enqueue(struct snd_pcm_substream *substream)
 	dma_info.fp = audio_buffdone;
 	dma_info.fp_param = substream;
 	dma_info.period = prtd->dma_period;
-	dma_info.len = prtd->dma_period*limit;
+	dma_info.len = prtd->dma_period;
 
 	while (prtd->dma_loaded < limit) {
 		pr_debug("dma_loaded: %d\n", prtd->dma_loaded);
