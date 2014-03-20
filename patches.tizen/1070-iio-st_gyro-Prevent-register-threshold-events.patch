@@ -1,0 +1,42 @@
+From 4774c5e717cfb69c40bbf46a122e5a72c9635236 Mon Sep 17 00:00:00 2001
+From: Beomho Seo <beomho.seo@samsung.com>
+Date: Fri, 10 Jan 2014 17:32:05 +0900
+Subject: [PATCH 1070/1302] iio:st_gyro: Prevent register threshold events
+
+Currently, st_gyro sensor driver doesn't support threshold events.
+If event_mask is not zero, driver is register threshold events.
+As a result, Null pointer dereference at iio_ev_* functions.
+This patch set zero event_mask of st_gyro sensor.
+
+Change-Id: Ie39b43624ef764d3c8626f41dc4611ad09d72302
+Signed-off-by: Beomho Seo <beomho.seo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/iio/gyro/st_gyro_core.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/iio/gyro/st_gyro_core.c b/drivers/iio/gyro/st_gyro_core.c
+index fa9b242..419c838 100644
+--- a/drivers/iio/gyro/st_gyro_core.c
++++ b/drivers/iio/gyro/st_gyro_core.c
+@@ -300,6 +300,7 @@ static const struct iio_trigger_ops st_gyro_trigger_ops = {
+ int st_gyro_common_probe(struct iio_dev *indio_dev)
+ {
+ 	int err;
++	int i;
+ 	struct st_sensor_data *gdata = iio_priv(indio_dev);
+ 
+ 	indio_dev->modes = INDIO_DIRECT_MODE;
+@@ -331,6 +332,9 @@ int st_gyro_common_probe(struct iio_dev *indio_dev)
+ 						  ST_GYRO_TRIGGER_OPS);
+ 		if (err < 0)
+ 			goto st_gyro_probe_trigger_error;
++
++		for (i = 0; i < indio_dev->num_channels; i++)
++			gdata->sensor->ch[i].event_mask = 0;
+ 	}
+ 
+ 	err = iio_device_register(indio_dev);
+-- 
+1.8.3.2
+

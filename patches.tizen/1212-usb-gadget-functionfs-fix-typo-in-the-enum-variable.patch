@@ -1,0 +1,136 @@
+From d18dab294a1630f14e1387d88fde1c3b6640c37d Mon Sep 17 00:00:00 2001
+From: Michal Nazarewicz <mina86@mina86.com>
+Date: Mon, 10 Feb 2014 10:42:40 +0100
+Subject: [PATCH 1212/1302] usb: gadget: functionfs: fix typo in the enum
+ variable
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Since “cancelled” is spelled with two “l”s, rename FFS_SETUP_CANCELED
+to FFS_SETUP_CANCELLED.
+
+Signed-off-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Robert Baldyga <r.baldyga@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 16 ++++++++--------
+ drivers/usb/gadget/u_fs.h | 12 ++++++------
+ 2 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index 984374e..bfb52f6 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -246,7 +246,7 @@ static ssize_t ffs_ep0_write(struct file *file, const char __user *buf,
+ 	ENTER();
+ 
+ 	/* Fast check if setup was canceled */
+-	if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELED)
++	if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELLED)
+ 		return -EIDRM;
+ 
+ 	/* Acquire mutex */
+@@ -313,7 +313,7 @@ static ssize_t ffs_ep0_write(struct file *file, const char __user *buf,
+ 		 */
+ 		spin_lock_irq(&ffs->ev.waitq.lock);
+ 		switch (FFS_SETUP_STATE(ffs)) {
+-		case FFS_SETUP_CANCELED:
++		case FFS_SETUP_CANCELLED:
+ 			ret = -EIDRM;
+ 			goto done_spin;
+ 
+@@ -348,7 +348,7 @@ static ssize_t ffs_ep0_write(struct file *file, const char __user *buf,
+ 		/*
+ 		 * We are guaranteed to be still in FFS_ACTIVE state
+ 		 * but the state of setup could have changed from
+-		 * FFS_SETUP_PENDING to FFS_SETUP_CANCELED so we need
++		 * FFS_SETUP_PENDING to FFS_SETUP_CANCELLED so we need
+ 		 * to check for that.  If that happened we copied data
+ 		 * from user space in vain but it's unlikely.
+ 		 *
+@@ -357,7 +357,7 @@ static ssize_t ffs_ep0_write(struct file *file, const char __user *buf,
+ 		 * transition can be performed and it's protected by
+ 		 * mutex.
+ 		 */
+-		if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELED) {
++		if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELLED) {
+ 			ret = -EIDRM;
+ done_spin:
+ 			spin_unlock_irq(&ffs->ev.waitq.lock);
+@@ -423,7 +423,7 @@ static ssize_t ffs_ep0_read(struct file *file, char __user *buf,
+ 	ENTER();
+ 
+ 	/* Fast check if setup was canceled */
+-	if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELED)
++	if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELLED)
+ 		return -EIDRM;
+ 
+ 	/* Acquire mutex */
+@@ -444,7 +444,7 @@ static ssize_t ffs_ep0_read(struct file *file, char __user *buf,
+ 	spin_lock_irq(&ffs->ev.waitq.lock);
+ 
+ 	switch (FFS_SETUP_STATE(ffs)) {
+-	case FFS_SETUP_CANCELED:
++	case FFS_SETUP_CANCELLED:
+ 		ret = -EIDRM;
+ 		break;
+ 
+@@ -491,7 +491,7 @@ static ssize_t ffs_ep0_read(struct file *file, char __user *buf,
+ 		spin_lock_irq(&ffs->ev.waitq.lock);
+ 
+ 		/* See ffs_ep0_write() */
+-		if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELED) {
++		if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELLED) {
+ 			ret = -EIDRM;
+ 			break;
+ 		}
+@@ -1791,7 +1791,7 @@ static void __ffs_event_add(struct ffs_data *ffs,
+ 	 * the source does nothing.
+ 	 */
+ 	if (ffs->setup_state == FFS_SETUP_PENDING)
+-		ffs->setup_state = FFS_SETUP_CANCELED;
++		ffs->setup_state = FFS_SETUP_CANCELLED;
+ 
+ 	switch (type) {
+ 	case FUNCTIONFS_RESUME:
+diff --git a/drivers/usb/gadget/u_fs.h b/drivers/usb/gadget/u_fs.h
+index f418c25..38012bc 100644
+--- a/drivers/usb/gadget/u_fs.h
++++ b/drivers/usb/gadget/u_fs.h
+@@ -123,7 +123,7 @@ enum ffs_setup_state {
+ 	 * setup.  If this state is set read/write on ep0 return
+ 	 * -EIDRM.  This state is only set when adding event.
+ 	 */
+-	FFS_SETUP_CANCELED
++	FFS_SETUP_CANCELLED
+ };
+ 
+ struct ffs_data {
+@@ -166,18 +166,18 @@ struct ffs_data {
+ 
+ 	/*
+ 	 * Possible transitions:
+-	 * + FFS_NO_SETUP       -> FFS_SETUP_PENDING  -- P: ev.waitq.lock
++	 * + FFS_NO_SETUP        -> FFS_SETUP_PENDING  -- P: ev.waitq.lock
+ 	 *               happens only in ep0 read which is P: mutex
+-	 * + FFS_SETUP_PENDING  -> FFS_NO_SETUP       -- P: ev.waitq.lock
++	 * + FFS_SETUP_PENDING   -> FFS_NO_SETUP       -- P: ev.waitq.lock
+ 	 *               happens only in ep0 i/o  which is P: mutex
+-	 * + FFS_SETUP_PENDING  -> FFS_SETUP_CANCELED -- P: ev.waitq.lock
+-	 * + FFS_SETUP_CANCELED -> FFS_NO_SETUP       -- cmpxchg
++	 * + FFS_SETUP_PENDING   -> FFS_SETUP_CANCELLED -- P: ev.waitq.lock
++	 * + FFS_SETUP_CANCELLED -> FFS_NO_SETUP        -- cmpxchg
+ 	 */
+ 	enum ffs_setup_state		setup_state;
+ 
+ #define FFS_SETUP_STATE(ffs)					\
+ 	((enum ffs_setup_state)cmpxchg(&(ffs)->setup_state,	\
+-				       FFS_SETUP_CANCELED, FFS_NO_SETUP))
++				       FFS_SETUP_CANCELLED, FFS_NO_SETUP))
+ 
+ 	/* Events & such. */
+ 	struct {
+-- 
+1.8.3.2
+

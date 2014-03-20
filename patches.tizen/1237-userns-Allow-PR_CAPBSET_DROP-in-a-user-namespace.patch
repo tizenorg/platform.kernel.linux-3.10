@@ -1,0 +1,35 @@
+From 202699cb7072a5d4f770ddf17805c40d8d4a453e Mon Sep 17 00:00:00 2001
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Tue, 2 Jul 2013 10:04:54 -0700
+Subject: [PATCH 1237/1302] userns: Allow PR_CAPBSET_DROP in a user namespace.
+
+As the capabilites and capability bounding set are per user namespace
+properties it is safe to allow changing them with just CAP_SETPCAP
+permission in the user namespace.
+
+Change-Id: I65d5c6ef80d4196cc6b8cbc86a9661764c5b3ab1
+Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+Tested-by: Richard Weinberger <richard@nod.at>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Dariusz Michaluk <d.michaluk@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ security/commoncap.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/security/commoncap.c b/security/commoncap.c
+index c44b6fe..9fccf71 100644
+--- a/security/commoncap.c
++++ b/security/commoncap.c
+@@ -824,7 +824,7 @@ int cap_task_setnice(struct task_struct *p, int nice)
+  */
+ static long cap_prctl_drop(struct cred *new, unsigned long cap)
+ {
+-	if (!capable(CAP_SETPCAP))
++	if (!ns_capable(current_user_ns(), CAP_SETPCAP))
+ 		return -EPERM;
+ 	if (!cap_valid(cap))
+ 		return -EINVAL;
+-- 
+1.8.3.2
+

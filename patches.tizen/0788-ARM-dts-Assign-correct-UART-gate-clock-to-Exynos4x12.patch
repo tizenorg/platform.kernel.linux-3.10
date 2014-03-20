@@ -1,0 +1,31 @@
+From 5677a753f38cef2614199c447e0f7f482f7a797f Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 13 Sep 2013 19:20:21 +0200
+Subject: [PATCH 0788/1302] ARM: dts: Assign correct UART gate clock to
+ Exynos4x12 FIMC-IS
+
+Use gate from CLK_GAT_IP_ISP register rather than MUX clock output gate
+from CLK_SRC_MASK_ISP.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 894a987..0eafcce 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -274,7 +274,7 @@
+ 				<&clock 356>, <&clock 342>, <&clock 17>,
+ 				<&clock 357>, <&clock 358>, <&clock 359>,
+ 				<&clock 360>, <&clock 450>,<&clock 451>,
+-				<&clock 452>, <&clock 453>, <&clock 176>,
++				<&clock 452>, <&clock 453>, <&clock 382>,
+ 				<&clock 13>, <&clock 454>, <&clock 395>,
+ 				<&clock 455>;
+ 			clock-names = "lite0", "lite1", "ppmuispx",
+-- 
+1.8.3.2
+

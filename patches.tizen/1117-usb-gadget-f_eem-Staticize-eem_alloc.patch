@@ -1,0 +1,30 @@
+From c5d7596824754cc57f6f3c18a03e2edb1be39217 Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Mon, 16 Sep 2013 11:44:46 +0530
+Subject: [PATCH 1117/1302] usb: gadget: f_eem: Staticize eem_alloc
+
+'eem_alloc' is local to this file. Make it static.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_eem.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_eem.c b/drivers/usb/gadget/f_eem.c
+index d00392d..d61c11d 100644
+--- a/drivers/usb/gadget/f_eem.c
++++ b/drivers/usb/gadget/f_eem.c
+@@ -624,7 +624,7 @@ static void eem_unbind(struct usb_configuration *c, struct usb_function *f)
+ 	usb_free_all_descriptors(f);
+ }
+ 
+-struct usb_function *eem_alloc(struct usb_function_instance *fi)
++static struct usb_function *eem_alloc(struct usb_function_instance *fi)
+ {
+ 	struct f_eem	*eem;
+ 	struct f_eem_opts *opts;
+-- 
+1.8.3.2
+

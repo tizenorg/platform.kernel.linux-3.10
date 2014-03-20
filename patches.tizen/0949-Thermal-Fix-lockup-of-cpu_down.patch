@@ -1,0 +1,43 @@
+From 389c34030afdb37201ef07cfc3e870979d62a601 Mon Sep 17 00:00:00 2001
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Tue, 16 Jul 2013 14:02:28 -0400
+Subject: [PATCH 0949/1302] Thermal: Fix lockup of cpu_down()
+
+Commit f1a18a105 "Thermal: CPU Package temperature thermal" had code
+that did a get_online_cpus(), run a loop and then do a
+put_online_cpus(). The problem is that the loop had an error exit that
+would skip the put_online_cpus() part.
+
+In the error exit part of the function, it also did a get_online_cpus(),
+run a loop and then put_online_cpus(). The only way to get to the error
+exit part is with get_online_cpus() already performed. If this error
+condition is hit, the system will be prevented from taking CPUs offline.
+The process taking the CPU offline will lock up hard.
+
+Removing the get_online_cpus() removes the lockup as the hotplug CPU
+refcount is back to zero.
+
+This was bisected with ktest.
+
+Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
+Signed-off-by: Zhang Rui <rui.zhang@intel.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/x86_pkg_temp_thermal.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/thermal/x86_pkg_temp_thermal.c b/drivers/thermal/x86_pkg_temp_thermal.c
+index eb2b045..cf59433 100644
+--- a/drivers/thermal/x86_pkg_temp_thermal.c
++++ b/drivers/thermal/x86_pkg_temp_thermal.c
+@@ -599,7 +599,6 @@ static int __init pkg_temp_thermal_init(void)
+ 	return 0;
+ 
+ err_ret:
+-	get_online_cpus();
+ 	for_each_online_cpu(i)
+ 		put_core_offline(i);
+ 	put_online_cpus();
+-- 
+1.8.3.2
+

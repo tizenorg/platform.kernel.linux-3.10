@@ -1,0 +1,34 @@
+From ff924ae33fa8404bddbcfe3c8fbc662bb2222cee Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 10 Sep 2013 18:07:12 +0200
+Subject: [PATCH 0772/1302] phy: Correct Exynos USB PHY device tree
+ documentation
+
+Some values (ranges, address-cells, size-cells) were not used hence
+they were removed.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ Documentation/devicetree/bindings/phy/samsung-usbphy.txt | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/phy/samsung-usbphy.txt b/Documentation/devicetree/bindings/phy/samsung-usbphy.txt
+index f112b37..f618e8d 100644
+--- a/Documentation/devicetree/bindings/phy/samsung-usbphy.txt
++++ b/Documentation/devicetree/bindings/phy/samsung-usbphy.txt
+@@ -31,10 +31,7 @@ For Exynos 4412 (compatible with Exynos 4212):
+ 
+ exynos_usbphy: exynos-usbphy@125B0000 {
+ 	compatible = "samsung,exynos4212-usbphy";
+-	reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
+-	ranges;
+-	#address-cells = <1>;
+-	#size-cells = <1>;
++	reg = <0x125B0000 0x100>, <0x10020704 0x0c>, <0x1001021c 0x4>;
+ 	clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+ 							<&clock 2>;
+ 	clock-names = "phy", "device", "host", "hsic0", "hsic1";
+-- 
+1.8.3.2
+

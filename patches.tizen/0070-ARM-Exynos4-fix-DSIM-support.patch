@@ -1,0 +1,60 @@
+From 774da9c5183102b16aaa6a1d660be84d4c0f7270 Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Mon, 11 Jun 2012 13:27:17 +0200
+Subject: [PATCH 0070/1302] ARM: Exynos4: fix DSIM support
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/include/mach/irqs.h | 2 ++
+ arch/arm/mach-exynos/include/mach/map.h  | 1 +
+ include/video/exynos_mipi_dsim.h         | 3 +++
+ 3 files changed, 6 insertions(+)
+
+diff --git a/arch/arm/mach-exynos/include/mach/irqs.h b/arch/arm/mach-exynos/include/mach/irqs.h
+index c72f59d..34ee14c 100644
+--- a/arch/arm/mach-exynos/include/mach/irqs.h
++++ b/arch/arm/mach-exynos/include/mach/irqs.h
+@@ -96,6 +96,7 @@
+ #define EXYNOS4_IRQ_DWMCI		IRQ_SPI(77)
+ 
+ #define EXYNOS4_IRQ_MIPI_CSIS0		IRQ_SPI(78)
++#define EXYNOS4_IRQ_MIPI_DSI0		IRQ_SPI(79)
+ #define EXYNOS4_IRQ_MIPI_CSIS1		IRQ_SPI(80)
+ 
+ #define EXYNOS4_IRQ_ONENAND_AUDI	IRQ_SPI(82)
+@@ -217,6 +218,7 @@
+ #define IRQ_HSMMC3			EXYNOS4_IRQ_HSMMC3
+ 
+ #define IRQ_MIPI_CSIS0			EXYNOS4_IRQ_MIPI_CSIS0
++#define IRQ_MIPI_DSI0			EXYNOS4_IRQ_MIPI_DSI0
+ 
+ #define IRQ_ONENAND_AUDI		EXYNOS4_IRQ_ONENAND_AUDI
+ 
+diff --git a/arch/arm/mach-exynos/include/mach/map.h b/arch/arm/mach-exynos/include/mach/map.h
+index 92b29bb..e721398 100644
+--- a/arch/arm/mach-exynos/include/mach/map.h
++++ b/arch/arm/mach-exynos/include/mach/map.h
+@@ -179,6 +179,7 @@
+ #define EXYNOS4_PA_MIPI_CSIS1		0x11890000
+ 
+ #define EXYNOS4_PA_FIMD0		0x11C00000
++#define EXYNOS4_PA_DSIM0		0x11C80000
+ 
+ #define EXYNOS4_PA_HSMMC(x)		(0x12510000 + ((x) * 0x10000))
+ #define EXYNOS4_PA_DWMCI		0x12550000
+diff --git a/include/video/exynos_mipi_dsim.h b/include/video/exynos_mipi_dsim.h
+index 89dc88a..c6b1bf5 100644
+--- a/include/video/exynos_mipi_dsim.h
++++ b/include/video/exynos_mipi_dsim.h
+@@ -356,4 +356,7 @@ int exynos_mipi_dsi_register_lcd_device(struct mipi_dsim_lcd_device
+  */
+ int exynos_mipi_dsi_register_lcd_driver(struct mipi_dsim_lcd_driver
+ 						*lcd_drv);
++
++int s5p_dsim_phy_enable(struct platform_device *pdev, bool on);
++
+ #endif /* _EXYNOS_MIPI_DSIM_H */
+-- 
+1.8.3.2
+

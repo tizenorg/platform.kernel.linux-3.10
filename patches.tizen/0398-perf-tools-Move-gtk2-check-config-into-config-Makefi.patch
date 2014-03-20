@@ -1,0 +1,88 @@
+From 0d9364dd1db659e3ed5240f9af985dc65cbbd93a Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 18 Mar 2013 00:09:24 +0100
+Subject: [PATCH 0398/1302] perf tools: Move gtk2 check config into
+ config/Makefile
+
+Moving gtk2 check config into config/Makefile.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-11-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        | 25 +++++++------------------
+ tools/perf/config/Makefile | 15 +++++++++++++++
+ 2 files changed, 22 insertions(+), 18 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index f0c23ce..8e59a4d 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -521,24 +521,13 @@ ifndef NO_SLANG
+ endif
+ 
+ ifndef NO_GTK2
+-	FLAGS_GTK2=$(ALL_CFLAGS) $(ALL_LDFLAGS) $(EXTLIBS) $(shell pkg-config --libs --cflags gtk+-2.0 2>/dev/null)
+-	ifneq ($(call try-cc,$(SOURCE_GTK2),$(FLAGS_GTK2),gtk2),y)
+-		msg := $(warning GTK2 not found, disables GTK2 support. Please install gtk2-devel or libgtk2.0-dev);
+-	else
+-		ifeq ($(call try-cc,$(SOURCE_GTK2_INFOBAR),$(FLAGS_GTK2),-DHAVE_GTK_INFO_BAR),y)
+-			BASIC_CFLAGS += -DHAVE_GTK_INFO_BAR
+-		endif
+-		BASIC_CFLAGS += -DGTK2_SUPPORT
+-		BASIC_CFLAGS += $(shell pkg-config --cflags gtk+-2.0 2>/dev/null)
+-		EXTLIBS += $(shell pkg-config --libs gtk+-2.0 2>/dev/null)
+-		LIB_OBJS += $(OUTPUT)ui/gtk/browser.o
+-		LIB_OBJS += $(OUTPUT)ui/gtk/hists.o
+-		LIB_OBJS += $(OUTPUT)ui/gtk/setup.o
+-		LIB_OBJS += $(OUTPUT)ui/gtk/util.o
+-		LIB_OBJS += $(OUTPUT)ui/gtk/helpline.o
+-		LIB_OBJS += $(OUTPUT)ui/gtk/progress.o
+-		LIB_OBJS += $(OUTPUT)ui/gtk/annotate.o
+-	endif
++	LIB_OBJS += $(OUTPUT)ui/gtk/browser.o
++	LIB_OBJS += $(OUTPUT)ui/gtk/hists.o
++	LIB_OBJS += $(OUTPUT)ui/gtk/setup.o
++	LIB_OBJS += $(OUTPUT)ui/gtk/util.o
++	LIB_OBJS += $(OUTPUT)ui/gtk/helpline.o
++	LIB_OBJS += $(OUTPUT)ui/gtk/progress.o
++	LIB_OBJS += $(OUTPUT)ui/gtk/annotate.o
+ endif
+ 
+ ifdef NO_LIBPERL
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index 06634be..8cf0958 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -225,3 +225,18 @@ ifndef NO_SLANG
+ 		EXTLIBS += -lslang
+ 	endif
+ endif
++
++ifndef NO_GTK2
++	FLAGS_GTK2=$(ALL_CFLAGS) $(ALL_LDFLAGS) $(EXTLIBS) $(shell pkg-config --libs --cflags gtk+-2.0 2>/dev/null)
++	ifneq ($(call try-cc,$(SOURCE_GTK2),$(FLAGS_GTK2),gtk2),y)
++		msg := $(warning GTK2 not found, disables GTK2 support. Please install gtk2-devel or libgtk2.0-dev);
++		NO_GTK2 := 1
++	else
++		ifeq ($(call try-cc,$(SOURCE_GTK2_INFOBAR),$(FLAGS_GTK2),-DHAVE_GTK_INFO_BAR),y)
++			BASIC_CFLAGS += -DHAVE_GTK_INFO_BAR
++		endif
++		BASIC_CFLAGS += -DGTK2_SUPPORT
++		BASIC_CFLAGS += $(shell pkg-config --cflags gtk+-2.0 2>/dev/null)
++		EXTLIBS += $(shell pkg-config --libs gtk+-2.0 2>/dev/null)
++	endif
++endif
+-- 
+1.8.3.2
+

@@ -1,0 +1,41 @@
+From 368633d7d4671798ce27bcfe15094f581f4b4d0a Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 15 Apr 2013 05:54:14 +0200
+Subject: [PATCH 0422/1302] perf tools: Add missing liblk.a dependency for
+ python/perf.so
+
+Adding missing liblk.a dependency for python/perf.so.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-26-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index b5f5c6d..203cb0e 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -149,7 +149,7 @@ export PYTHON_EXTBUILD_LIB PYTHON_EXTBUILD_TMP
+ python-clean := rm -rf $(PYTHON_EXTBUILD) $(OUTPUT)python/perf.so
+ 
+ PYTHON_EXT_SRCS := $(shell grep -v ^\# util/python-ext-sources)
+-PYTHON_EXT_DEPS := util/python-ext-sources util/setup.py $(LIBTRACEEVENT)
++PYTHON_EXT_DEPS := util/python-ext-sources util/setup.py $(LIBTRACEEVENT) $(LIBLK)
+ 
+ $(OUTPUT)python/perf.so: $(PYTHON_EXT_SRCS) $(PYTHON_EXT_DEPS)
+ 	$(QUIET_GEN)CFLAGS='$(CFLAGS)' $(PYTHON_WORD) util/setup.py \
+-- 
+1.8.3.2
+

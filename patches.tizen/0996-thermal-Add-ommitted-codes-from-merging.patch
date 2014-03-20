@@ -1,0 +1,86 @@
+From 2beeb87d2a585562e9c7cdd1e4193a4064c0844d Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 1 Nov 2013 18:44:14 +0900
+Subject: [PATCH 0996/1302] thermal: Add ommitted codes from merging.
+
+Add omitted codes from commits,
+
+<commit-id d9e6913d1> "drivers: thermal: add check when ~ ", and
+<commit-id efbf8d7a3> "thermal: thermal_core: allow binding with ~"
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ Documentation/thermal/sysfs-api.txt | 12 ++++++++++++
+ include/linux/thermal.h             | 18 ++++++++++++++++++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/Documentation/thermal/sysfs-api.txt b/Documentation/thermal/sysfs-api.txt
+index a71bd5b..87519cb 100644
+--- a/Documentation/thermal/sysfs-api.txt
++++ b/Documentation/thermal/sysfs-api.txt
+@@ -134,6 +134,13 @@ temperature) and throttle appropriate devices.
+                this thermal zone and cdev, for a particular trip point.
+                If nth bit is set, then the cdev and thermal zone are bound
+                for trip point n.
++    .limits: This is an array of cooling state limits. Must have exactly
++         2 * thermal_zone.number_of_trip_points. It is an array consisting
++         of tuples <lower-state upper-state> of state limits. Each trip
++         will be associated with one state limit tuple when binding.
++         A NULL pointer means <THERMAL_NO_LIMITS THERMAL_NO_LIMITS>
++         on all trips. These limits are used when binding a cdev to a
++         trip point.
+     .match: This call back returns success(0) if the 'tz and cdev' need to
+ 	    be bound, as per platform data.
+ 1.4.2 struct thermal_zone_params
+@@ -142,6 +149,11 @@ temperature) and throttle appropriate devices.
+     This is an optional feature where some platforms can choose not to
+     provide this data.
+     .governor_name: Name of the thermal governor used for this zone
++    .no_hwmon: a boolean to indicate if the thermal to hwmon sysfs interface
++               is required. when no_hwmon == false, a hwmon sysfs interface
++               will be created. when no_hwmon == true, nothing will be done.
++               In case the thermal_zone_params is NULL, the hwmon interface
++               will be created (for backward compatibility).
+     .num_tbps: Number of thermal_bind_params entries for this zone
+     .tbp: thermal_bind_params entries
+ 
+diff --git a/include/linux/thermal.h b/include/linux/thermal.h
+index f1aa3c2..b316bdf 100644
+--- a/include/linux/thermal.h
++++ b/include/linux/thermal.h
+@@ -209,6 +209,16 @@ struct thermal_bind_params {
+ 	 * See Documentation/thermal/sysfs-api.txt for more information.
+ 	 */
+ 	int trip_mask;
++
++	/*
++	 * This is an array of cooling state limits. Must have exactly
++	 * 2 * thermal_zone.number_of_trip_points. It is an array consisting
++	 * of tuples <lower-state upper-state> of state limits. Each trip
++	 * will be associated with one state limit tuple when binding.
++	 * A NULL pointer means <THERMAL_NO_LIMITS THERMAL_NO_LIMITS>
++	 * on all trips.
++	 */
++	unsigned long *binding_limits;
+ 	int (*match) (struct thermal_zone_device *tz,
+ 			struct thermal_cooling_device *cdev);
+ };
+@@ -216,6 +226,14 @@ struct thermal_bind_params {
+ /* Structure to define Thermal Zone parameters */
+ struct thermal_zone_params {
+ 	char governor_name[THERMAL_NAME_LENGTH];
++
++	/*
++	 * a boolean to indicate if the thermal to hwmon sysfs interface
++	 * is required. when no_hwmon == false, a hwmon sysfs interface
++	 * will be created. when no_hwmon == true, nothing will be done
++	 */
++	bool no_hwmon;
++
+ 	int num_tbps;	/* Number of tbp entries */
+ 	struct thermal_bind_params *tbp;
+ };
+-- 
+1.8.3.2
+

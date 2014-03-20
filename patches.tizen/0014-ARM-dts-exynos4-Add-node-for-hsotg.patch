@@ -1,0 +1,32 @@
+From 23b3d46f3bfbd2f3f1a53b5210a986667300e25b Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Tue, 11 Sep 2012 13:37:40 +0200
+Subject: [PATCH 0014/1302] ARM: dts: exynos4: Add node for hsotg
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index b90bab3..5f57f59 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -350,6 +350,13 @@
+ 		status = "disabled";
+ 	};
+ 
++	hsotg@12480000 {
++		compatible = "samsung,s3c-hsotg";
++		reg = <0x12480000 0x20000>;
++		interrupts = <0 71 0>;
++		status = "disabled";
++	};
++
+ 	amba {
+ 		#address-cells = <1>;
+ 		#size-cells = <1>;
+-- 
+1.8.3.2
+

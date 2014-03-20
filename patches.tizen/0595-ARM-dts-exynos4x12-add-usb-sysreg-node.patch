@@ -1,0 +1,29 @@
+From 40a9496c5c3d8161be2e53362c7091ecab298d14 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 30 Aug 2013 21:08:25 +0900
+Subject: [PATCH 0595/1302] ARM: dts: exynos4x12: add usb sysreg node
+
+The exynos4x12 can control usb mode by sysreg register.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index a0d85c3..6c1c5eb 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -199,7 +199,7 @@
+ 		status = "disabled";
+ 
+ 		usbphy-sys {
+-			reg = <0x10020704 0x0c>;
++			reg = <0x10020704 0x0c>, <0x1001021C 0x04>;
+ 		};
+ 	};
+ 
+-- 
+1.8.3.2
+

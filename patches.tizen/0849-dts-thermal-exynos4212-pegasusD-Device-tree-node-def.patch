@@ -1,0 +1,31 @@
+From 59c8b8b56ac301c2da55817979efb42ac0a94853 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Tue, 8 Oct 2013 12:14:28 +0200
+Subject: [PATCH 0849/1302] dts:thermal:exynos4212:pegasusD: Device tree node
+ definition for TMU
+
+Device tree nodes defined for Exynos4212 based PEGASUS D device.
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4212-slp_pd.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4212-slp_pd.dts b/arch/arm/boot/dts/exynos4212-slp_pd.dts
+index 831e72a..4c8d1a7 100644
+--- a/arch/arm/boot/dts/exynos4212-slp_pd.dts
++++ b/arch/arm/boot/dts/exynos4212-slp_pd.dts
+@@ -353,4 +353,9 @@
+ 			     950000 950000>;
+ 		status = "okay";
+ 	};
++
++	tmu@100C0000 {
++		vdd_ts-supply = <&ldo4_reg>;
++		status = "okay";
++	};
+ };
+-- 
+1.8.3.2
+

@@ -1,0 +1,326 @@
+From 9b756fabc71063044959f7246cf6c5ffbcda8aeb Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Fri, 23 Aug 2013 16:34:43 -0700
+Subject: [PATCH 1113/1302] USB: gadget: audit sysfs attribute permissions
+
+Convert all USB gadget sysfs attributes to use the _RO or _RW variants,
+to make them easier to audit and ensure that the permissions are
+correct.
+
+Note, two are left using the DEVICE_ATTR() macro, as there is no
+DEVICE_ATTR_WO() in Linus's tree, that will happen after 3.12-rc1 is
+out, a follow-on patch will be sent then.
+
+Reviewed-by: Felipe Balbi <balbi@ti.com>
+Acked-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
+--
+ drivers/usb/gadget/composite.c      |    8 +++-----
+ drivers/usb/gadget/dummy_hcd.c      |    8 ++++----
+ drivers/usb/gadget/f_mass_storage.c |   14 ++++++--------
+ drivers/usb/gadget/net2272.c        |    4 ++--
+ drivers/usb/gadget/net2280.c        |   18 +++++++++---------
+ drivers/usb/gadget/storage_common.c |   25 ++++++++++++-------------
+ drivers/usb/gadget/udc-core.c       |   14 +++++++-------
+ 7 files changed, 43 insertions(+), 48 deletions(-)
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/composite.c      |  8 +++-----
+ drivers/usb/gadget/dummy_hcd.c      |  8 ++++----
+ drivers/usb/gadget/f_mass_storage.c | 14 ++++++--------
+ drivers/usb/gadget/net2272.c        |  4 ++--
+ drivers/usb/gadget/net2280.c        | 18 +++++++++---------
+ drivers/usb/gadget/storage_common.c | 25 ++++++++++++-------------
+ drivers/usb/gadget/udc-core.c       | 14 +++++++-------
+ 7 files changed, 43 insertions(+), 48 deletions(-)
+
+diff --git a/drivers/usb/gadget/composite.c b/drivers/usb/gadget/composite.c
+index 55f4df6..d4f0f33 100644
+--- a/drivers/usb/gadget/composite.c
++++ b/drivers/usb/gadget/composite.c
+@@ -1497,17 +1497,15 @@ void composite_disconnect(struct usb_gadget *gadget)
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+-static ssize_t composite_show_suspended(struct device *dev,
+-					struct device_attribute *attr,
+-					char *buf)
++static ssize_t suspended_show(struct device *dev, struct device_attribute *attr,
++			      char *buf)
+ {
+ 	struct usb_gadget *gadget = dev_to_usb_gadget(dev);
+ 	struct usb_composite_dev *cdev = get_gadget_data(gadget);
+ 
+ 	return sprintf(buf, "%d\n", cdev->suspended);
+ }
+-
+-static DEVICE_ATTR(suspended, 0444, composite_show_suspended, NULL);
++static DEVICE_ATTR_RO(suspended);
+ 
+ static void __composite_unbind(struct usb_gadget *gadget, bool unbind_driver)
+ {
+diff --git a/drivers/usb/gadget/dummy_hcd.c b/drivers/usb/gadget/dummy_hcd.c
+index ac0e79e..b8a2376 100644
+--- a/drivers/usb/gadget/dummy_hcd.c
++++ b/drivers/usb/gadget/dummy_hcd.c
+@@ -868,7 +868,7 @@ static const struct usb_gadget_ops dummy_ops = {
+ /*-------------------------------------------------------------------------*/
+ 
+ /* "function" sysfs attribute */
+-static ssize_t show_function(struct device *dev, struct device_attribute *attr,
++static ssize_t function_show(struct device *dev, struct device_attribute *attr,
+ 		char *buf)
+ {
+ 	struct dummy	*dum = gadget_dev_to_dummy(dev);
+@@ -877,7 +877,7 @@ static ssize_t show_function(struct device *dev, struct device_attribute *attr,
+ 		return 0;
+ 	return scnprintf(buf, PAGE_SIZE, "%s\n", dum->driver->function);
+ }
+-static DEVICE_ATTR(function, S_IRUGO, show_function, NULL);
++static DEVICE_ATTR_RO(function);
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+@@ -2291,7 +2291,7 @@ static inline ssize_t show_urb(char *buf, size_t size, struct urb *urb)
+ 		urb->actual_length, urb->transfer_buffer_length);
+ }
+ 
+-static ssize_t show_urbs(struct device *dev, struct device_attribute *attr,
++static ssize_t urbs_show(struct device *dev, struct device_attribute *attr,
+ 		char *buf)
+ {
+ 	struct usb_hcd		*hcd = dev_get_drvdata(dev);
+@@ -2312,7 +2312,7 @@ static ssize_t show_urbs(struct device *dev, struct device_attribute *attr,
+ 
+ 	return size;
+ }
+-static DEVICE_ATTR(urbs, S_IRUGO, show_urbs, NULL);
++static DEVICE_ATTR_RO(urbs);
+ 
+ static int dummy_start_ss(struct dummy_hcd *dum_hcd)
+ {
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 4d4e96a..313b835 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -2578,14 +2578,12 @@ static int fsg_main_thread(void *common_)
+ 
+ /*************************** DEVICE ATTRIBUTES ***************************/
+ 
+-static DEVICE_ATTR(ro, 0644, fsg_show_ro, fsg_store_ro);
+-static DEVICE_ATTR(nofua, 0644, fsg_show_nofua, fsg_store_nofua);
+-static DEVICE_ATTR(file, 0644, fsg_show_file, fsg_store_file);
+-
+-static struct device_attribute dev_attr_ro_cdrom =
+-	__ATTR(ro, 0444, fsg_show_ro, NULL);
+-static struct device_attribute dev_attr_file_nonremovable =
+-	__ATTR(file, 0444, fsg_show_file, NULL);
++static DEVICE_ATTR_RW(ro);
++static DEVICE_ATTR_RW(nofua);
++static DEVICE_ATTR_RW(file);
++
++static struct device_attribute dev_attr_ro_cdrom = __ATTR_RO(ro);
++static struct device_attribute dev_attr_file_nonremovable = __ATTR_RO(file);
+ 
+ 
+ /****************************** FSG COMMON ******************************/
+diff --git a/drivers/usb/gadget/net2272.c b/drivers/usb/gadget/net2272.c
+index f1e50a3..bf2bb39 100644
+--- a/drivers/usb/gadget/net2272.c
++++ b/drivers/usb/gadget/net2272.c
+@@ -1184,7 +1184,7 @@ static const struct usb_gadget_ops net2272_ops = {
+ /*---------------------------------------------------------------------------*/
+ 
+ static ssize_t
+-net2272_show_registers(struct device *_dev, struct device_attribute *attr, char *buf)
++registers_show(struct device *_dev, struct device_attribute *attr, char *buf)
+ {
+ 	struct net2272 *dev;
+ 	char *next;
+@@ -1308,7 +1308,7 @@ net2272_show_registers(struct device *_dev, struct device_attribute *attr, char
+ 
+ 	return PAGE_SIZE - size;
+ }
+-static DEVICE_ATTR(registers, S_IRUGO, net2272_show_registers, NULL);
++static DEVICE_ATTR_RO(registers);
+ 
+ /*---------------------------------------------------------------------------*/
+ 
+diff --git a/drivers/usb/gadget/net2280.c b/drivers/usb/gadget/net2280.c
+index fbd006a..0781bff 100644
+--- a/drivers/usb/gadget/net2280.c
++++ b/drivers/usb/gadget/net2280.c
+@@ -1424,8 +1424,8 @@ static const struct usb_gadget_ops net2280_ops = {
+  */
+ 
+ /* "function" sysfs attribute */
+-static ssize_t
+-show_function (struct device *_dev, struct device_attribute *attr, char *buf)
++static ssize_t function_show(struct device *_dev, struct device_attribute *attr,
++			     char *buf)
+ {
+ 	struct net2280	*dev = dev_get_drvdata (_dev);
+ 
+@@ -1435,10 +1435,10 @@ show_function (struct device *_dev, struct device_attribute *attr, char *buf)
+ 		return 0;
+ 	return scnprintf (buf, PAGE_SIZE, "%s\n", dev->driver->function);
+ }
+-static DEVICE_ATTR (function, S_IRUGO, show_function, NULL);
++static DEVICE_ATTR_RO(function);
+ 
+-static ssize_t net2280_show_registers(struct device *_dev,
+-				struct device_attribute *attr, char *buf)
++static ssize_t registers_show(struct device *_dev,
++			      struct device_attribute *attr, char *buf)
+ {
+ 	struct net2280		*dev;
+ 	char			*next;
+@@ -1590,10 +1590,10 @@ static ssize_t net2280_show_registers(struct device *_dev,
+ 
+ 	return PAGE_SIZE - size;
+ }
+-static DEVICE_ATTR(registers, S_IRUGO, net2280_show_registers, NULL);
++static DEVICE_ATTR_RO(registers);
+ 
+-static ssize_t
+-show_queues (struct device *_dev, struct device_attribute *attr, char *buf)
++static ssize_t queues_show(struct device *_dev, struct device_attribute *attr,
++			   char *buf)
+ {
+ 	struct net2280		*dev;
+ 	char			*next;
+@@ -1690,7 +1690,7 @@ done:
+ 	spin_unlock_irqrestore (&dev->lock, flags);
+ 	return PAGE_SIZE - size;
+ }
+-static DEVICE_ATTR (queues, S_IRUGO, show_queues, NULL);
++static DEVICE_ATTR_RO(queues);
+ 
+ 
+ #else
+diff --git a/drivers/usb/gadget/storage_common.c b/drivers/usb/gadget/storage_common.c
+index 8c71212..08a1a32 100644
+--- a/drivers/usb/gadget/storage_common.c
++++ b/drivers/usb/gadget/storage_common.c
+@@ -547,8 +547,8 @@ static void store_cdrom_address(u8 *dest, int msf, u32 addr)
+ /*-------------------------------------------------------------------------*/
+ 
+ 
+-static ssize_t fsg_show_ro(struct device *dev, struct device_attribute *attr,
+-			   char *buf)
++static ssize_t ro_show(struct device *dev, struct device_attribute *attr,
++		       char *buf)
+ {
+ 	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+ 
+@@ -557,16 +557,16 @@ static ssize_t fsg_show_ro(struct device *dev, struct device_attribute *attr,
+ 				  : curlun->initially_ro);
+ }
+ 
+-static ssize_t fsg_show_nofua(struct device *dev, struct device_attribute *attr,
+-			      char *buf)
++static ssize_t nofua_show(struct device *dev, struct device_attribute *attr,
++			  char *buf)
+ {
+ 	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+ 
+ 	return sprintf(buf, "%u\n", curlun->nofua);
+ }
+ 
+-static ssize_t fsg_show_file(struct device *dev, struct device_attribute *attr,
+-			     char *buf)
++static ssize_t file_show(struct device *dev, struct device_attribute *attr,
++			 char *buf)
+ {
+ 	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+ 	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
+@@ -593,8 +593,8 @@ static ssize_t fsg_show_file(struct device *dev, struct device_attribute *attr,
+ }
+ 
+ 
+-static ssize_t fsg_store_ro(struct device *dev, struct device_attribute *attr,
+-			    const char *buf, size_t count)
++static ssize_t ro_store(struct device *dev, struct device_attribute *attr,
++			const char *buf, size_t count)
+ {
+ 	ssize_t		rc;
+ 	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+@@ -623,9 +623,8 @@ static ssize_t fsg_store_ro(struct device *dev, struct device_attribute *attr,
+ 	return rc;
+ }
+ 
+-static ssize_t fsg_store_nofua(struct device *dev,
+-			       struct device_attribute *attr,
+-			       const char *buf, size_t count)
++static ssize_t nofua_store(struct device *dev, struct device_attribute *attr,
++			   const char *buf, size_t count)
+ {
+ 	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+ 	unsigned	nofua;
+@@ -644,8 +643,8 @@ static ssize_t fsg_store_nofua(struct device *dev,
+ 	return count;
+ }
+ 
+-static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
+-			      const char *buf, size_t count)
++static ssize_t file_store(struct device *dev, struct device_attribute *attr,
++			  const char *buf, size_t count)
+ {
+ 	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+ 	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
+diff --git a/drivers/usb/gadget/udc-core.c b/drivers/usb/gadget/udc-core.c
+index dcaa5bf..b42edf1 100644
+--- a/drivers/usb/gadget/udc-core.c
++++ b/drivers/usb/gadget/udc-core.c
+@@ -539,31 +539,31 @@ static ssize_t usb_udc_softconn_store(struct device *dev,
+ }
+ static DEVICE_ATTR(soft_connect, S_IWUSR, NULL, usb_udc_softconn_store);
+ 
+-static ssize_t usb_gadget_state_show(struct device *dev,
+-		struct device_attribute *attr, char *buf)
++static ssize_t state_show(struct device *dev, struct device_attribute *attr,
++			  char *buf)
+ {
+ 	struct usb_udc		*udc = container_of(dev, struct usb_udc, dev);
+ 	struct usb_gadget	*gadget = udc->gadget;
+ 
+ 	return sprintf(buf, "%s\n", usb_state_string(gadget->state));
+ }
+-static DEVICE_ATTR(state, S_IRUGO, usb_gadget_state_show, NULL);
++static DEVICE_ATTR_RO(state);
+ 
+ #define USB_UDC_SPEED_ATTR(name, param)					\
+-ssize_t usb_udc_##param##_show(struct device *dev,			\
++ssize_t name##_show(struct device *dev,					\
+ 		struct device_attribute *attr, char *buf)		\
+ {									\
+ 	struct usb_udc *udc = container_of(dev, struct usb_udc, dev);	\
+ 	return snprintf(buf, PAGE_SIZE, "%s\n",				\
+ 			usb_speed_string(udc->gadget->param));		\
+ }									\
+-static DEVICE_ATTR(name, S_IRUGO, usb_udc_##param##_show, NULL)
++static DEVICE_ATTR_RO(name)
+ 
+ static USB_UDC_SPEED_ATTR(current_speed, speed);
+ static USB_UDC_SPEED_ATTR(maximum_speed, max_speed);
+ 
+ #define USB_UDC_ATTR(name)					\
+-ssize_t usb_udc_##name##_show(struct device *dev,		\
++ssize_t name##_show(struct device *dev,				\
+ 		struct device_attribute *attr, char *buf)	\
+ {								\
+ 	struct usb_udc		*udc = container_of(dev, struct usb_udc, dev); \
+@@ -571,7 +571,7 @@ ssize_t usb_udc_##name##_show(struct device *dev,		\
+ 								\
+ 	return snprintf(buf, PAGE_SIZE, "%d\n", gadget->name);	\
+ }								\
+-static DEVICE_ATTR(name, S_IRUGO, usb_udc_##name##_show, NULL)
++static DEVICE_ATTR_RO(name)
+ 
+ static USB_UDC_ATTR(is_otg);
+ static USB_UDC_ATTR(is_a_peripheral);
+-- 
+1.8.3.2
+

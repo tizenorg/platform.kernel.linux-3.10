@@ -1,0 +1,47 @@
+From be81cef05213009625c1e9dfa1fc4aac43d501b6 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Thu, 13 Dec 2012 14:09:00 +0100
+Subject: [PATCH 0383/1302] perf hists: Rename hist_entry__add_pair arguments
+
+The current logic is to attach pair to the leader hist_entry.
+
+Arguments of hist_entry__add_pair function were placed the other way
+round.. driving me crazy.
+
+I.e. list_add_tail expects (new_node, head).
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Link: http://lkml.kernel.org/r/1355404152-16523-3-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/util/sort.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/tools/perf/util/sort.h b/tools/perf/util/sort.h
+index 51f1b5a..45ac84c 100644
+--- a/tools/perf/util/sort.h
++++ b/tools/perf/util/sort.h
+@@ -117,10 +117,10 @@ static inline struct hist_entry *hist_entry__next_pair(struct hist_entry *he)
+ 	return NULL;
+ }
+ 
+-static inline void hist_entry__add_pair(struct hist_entry *he,
+-					struct hist_entry *pair)
++static inline void hist_entry__add_pair(struct hist_entry *pair,
++					struct hist_entry *he)
+ {
+-	list_add_tail(&he->pairs.head, &pair->pairs.node);
++	list_add_tail(&pair->pairs.node, &he->pairs.head);
+ }
+ 
+ enum sort_mode {
+-- 
+1.8.3.2
+

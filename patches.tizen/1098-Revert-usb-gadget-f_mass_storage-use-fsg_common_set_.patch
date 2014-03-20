@@ -1,0 +1,65 @@
+From a049580b53afb5c80afe867e41a5e2b129418565 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 14 Jan 2014 14:27:07 +0100
+Subject: [PATCH 1098/1302] Revert "usb/gadget: f_mass_storage: use
+ fsg_common_set_cdev in fsg_common_init"
+
+This reverts commit 03aec556a53d26977be1c16b3307eae731960cd8.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 23 +++++++++++++++++++++--
+ 1 file changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 9dde453..8aa6c86 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -3002,6 +3002,7 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 	struct usb_gadget *gadget = cdev->gadget;
+ 	struct fsg_lun **curlun_it;
+ 	struct fsg_lun_config *lcfg;
++	struct usb_string *us;
+ 	int nluns, i, rc;
+ 	char *pathbuf;
+ 
+@@ -3022,9 +3023,19 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 	fsg_common_set_ops(common, cfg->ops);
+ 	fsg_common_set_private_data(common, cfg->private_data);
+ 
+-	rc = fsg_common_set_cdev(common, cdev, cfg->can_stall);
+-	if (rc)
++	common->gadget = gadget;
++	common->ep0 = gadget->ep0;
++	common->ep0req = cdev->req;
++	common->cdev = cdev;
++
++	us = usb_gstrings_attach(cdev, fsg_strings_array,
++				 ARRAY_SIZE(fsg_strings));
++	if (IS_ERR(us)) {
++		rc = PTR_ERR(us);
+ 		goto error_release;
++	}
++	fsg_intf_desc.iInterface = us[FSG_STRING_INTERFACE].id;
++
+ 
+ 	rc = fsg_common_set_nluns(common, cfg->nluns);
+ 	if (rc)
+@@ -3106,6 +3117,14 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 				     : "File-Stor Gadget"),
+ 		 i);
+ 
++	/*
++	 * Some peripheral controllers are known not to be able to
++	 * halt bulk endpoints correctly.  If one of them is present,
++	 * disable stalls.
++	 */
++	common->can_stall = cfg->can_stall &&
++		!(gadget_is_at91(common->gadget));
++
+ 
+ 	/* Tell the thread to start working */
+ 	common->thread_task =
+-- 
+1.8.3.2
+

@@ -1,0 +1,49 @@
+From c56c752cc6de6bb066658c4c1e841942c6b656de Mon Sep 17 00:00:00 2001
+From: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Date: Mon, 26 Aug 2013 13:56:17 +0200
+Subject: [PATCH 0719/1302] [media] s5c73m3: s5c73m3_spi_write() clean up
+
+This path removes unnecessary transfer at the end of s5c73m3_spi_write()
+function.
+
+Signed-off-by: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/s5c73m3/s5c73m3-spi.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/media/i2c/s5c73m3/s5c73m3-spi.c b/drivers/media/i2c/s5c73m3/s5c73m3-spi.c
+index cd1074f..323b47b 100644
+--- a/drivers/media/i2c/s5c73m3/s5c73m3-spi.c
++++ b/drivers/media/i2c/s5c73m3/s5c73m3-spi.c
+@@ -73,10 +73,8 @@ int s5c73m3_spi_write(struct s5c73m3 *state, const void *addr,
+ 	u32 count = len / tx_size;
+ 	u32 extra = len % tx_size;
+ 	unsigned int i, j = 0;
+-	u8 padding[32];
+-	int r = 0;
+ 
+-	memset(padding, 0, sizeof(padding));
++	int r = 0;
+ 
+ 	for (i = 0; i < count ; i++) {
+ 		r = spi_xmit(spi_dev, (void *)addr + j, tx_size, SPI_DIR_TX);
+@@ -85,13 +83,10 @@ int s5c73m3_spi_write(struct s5c73m3 *state, const void *addr,
+ 		j += tx_size;
+ 	}
+ 
+-	if (extra > 0) {
++	if (extra > 0)
+ 		r = spi_xmit(spi_dev, (void *)addr + j, extra, SPI_DIR_TX);
+-		if (r < 0)
+-			return r;
+-	}
+ 
+-	return spi_xmit(spi_dev, padding, sizeof(padding), SPI_DIR_TX);
++	return r;
+ }
+ 
+ int s5c73m3_spi_read(struct s5c73m3 *state, void *addr,
+-- 
+1.8.3.2
+

@@ -1,0 +1,30 @@
+From 9205fe5c16b70cfdb2c67d3aa5910ef9e6aa2583 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 1 Mar 2013 15:22:45 +0100
+Subject: [PATCH 0149/1302] power: max8997-charger: Fix getting platform data
+
+This patch fixes incorrect way of getting platform data, which should be
+read from MFD private data structure instead.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/power/max8997_charger.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/power/max8997_charger.c b/drivers/power/max8997_charger.c
+index 4bdedfe..732a969 100644
+--- a/drivers/power/max8997_charger.c
++++ b/drivers/power/max8997_charger.c
+@@ -91,7 +91,7 @@ static int max8997_battery_probe(struct platform_device *pdev)
+ 	int ret = 0;
+ 	struct charger_data *charger;
+ 	struct max8997_dev *iodev = dev_get_drvdata(pdev->dev.parent);
+-	struct max8997_platform_data *pdata = dev_get_platdata(iodev->dev);
++	struct max8997_platform_data *pdata = iodev->pdata;
+ 
+ 	if (!pdata)
+ 		return -EINVAL;
+-- 
+1.8.3.2
+

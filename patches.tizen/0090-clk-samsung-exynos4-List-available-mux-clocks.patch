@@ -1,0 +1,42 @@
+From 79bcf0dae5ff46365a8ddd6e20665ac783319b4c Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 14 Feb 2013 11:01:18 +0100
+Subject: [PATCH 0090/1302] clk: samsung: exynos4: List available mux clocks
+
+This patch adds missing mux clocks to Device Tree binding documentation
+of Exynos4 clock driver.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ Documentation/devicetree/bindings/clock/exynos4-clock.txt | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/clock/exynos4-clock.txt b/Documentation/devicetree/bindings/clock/exynos4-clock.txt
+index ea5e26f..da82f71 100644
+--- a/Documentation/devicetree/bindings/clock/exynos4-clock.txt
++++ b/Documentation/devicetree/bindings/clock/exynos4-clock.txt
+@@ -267,6 +267,20 @@ Exynos4 SoC and this is specified where applicable.
+   div_aclk400_mcuisp	455	Exynos4x12
+ 
+ 
++			[Mux Clocks]
++
++	Clock		ID	SoC (if specific)
++	-----------------------------------------------
++
++	mout_fimc0	384
++	mout_fimc1	385
++	mout_fimc2	386
++	mout_fimc3	387
++	mout_cam0	388
++	mout_cam1	389
++	mout_csis0	390
++	mout_csis1	391
++
+ Example 1: An example of a clock controller node is listed below.
+ 
+ 	clock: clock-controller@0x10030000 {
+-- 
+1.8.3.2
+

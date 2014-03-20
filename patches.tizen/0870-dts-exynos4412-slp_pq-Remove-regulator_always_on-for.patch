@@ -1,0 +1,37 @@
+From 5f4b49bc14865b1f7b836d05cc5c408db8315eae Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 15 Oct 2013 15:41:32 +0200
+Subject: [PATCH 0870/1302] dts: exynos4412-slp_pq: Remove regulator_always_on
+ for HSIC regulator
+
+This regulator should be switched on/off by driver that use it.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 85fb0cb..e3c42e1 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -697,7 +697,6 @@
+ 					regulator-name = "VHSIC_1.0V";
+ 					regulator-min-microvolt = <1000000>;
+ 					regulator-max-microvolt = <1000000>;
+-					regulator-always-on;
+ 					regulator-mem-off;
+ 				};
+ 
+@@ -1083,7 +1082,6 @@
+ 		phy-names = "hsic0";
+ 	};
+ 
+-
+ 	spi_1: spi@13930000 {
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&spi1_bus>;
+-- 
+1.8.3.2
+

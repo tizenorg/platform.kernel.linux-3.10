@@ -1,0 +1,58 @@
+From 0647ddf4f77a7188d88c1fbaa04f207f0ffd9f7c Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Wed, 24 Apr 2013 11:37:29 +0200
+Subject: [PATCH 0371/1302] perf tools: Fix tab vs spaces issue in Makefile
+ ifdef/endif
+
+Unmatched spaces/tabs Makefile indentation could make the
+Makefile fails. While the tabed line could be considered
+sometimes as follow up for rule command, the mixed space
+tab meses up with makefile if conditions.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: David Ahern <dsahern@gmail.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1366796273-4780-3-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index b0f164b..c8fb0fd 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -90,7 +90,7 @@ endif
+ 
+ # Treat warnings as errors unless directed not to
+ ifneq ($(WERROR),0)
+-	CFLAGS_WERROR := -Werror
++  CFLAGS_WERROR := -Werror
+ endif
+ 
+ ifeq ("$(origin DEBUG)", "command line")
+@@ -819,10 +819,10 @@ endif
+ ifdef NO_DEMANGLE
+ 	BASIC_CFLAGS += -DNO_DEMANGLE
+ else
+-        ifdef HAVE_CPLUS_DEMANGLE
++	ifdef HAVE_CPLUS_DEMANGLE
+ 		EXTLIBS += -liberty
+ 		BASIC_CFLAGS += -DHAVE_CPLUS_DEMANGLE
+-        else
++	else
+ 		FLAGS_BFD=$(ALL_CFLAGS) $(ALL_LDFLAGS) $(EXTLIBS) -DPACKAGE='perf' -lbfd
+ 		has_bfd := $(call try-cc,$(SOURCE_BFD),$(FLAGS_BFD),libbfd)
+ 		ifeq ($(has_bfd),y)
+-- 
+1.8.3.2
+

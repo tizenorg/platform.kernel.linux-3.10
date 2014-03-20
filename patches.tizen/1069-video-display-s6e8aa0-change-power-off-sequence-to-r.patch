@@ -1,0 +1,49 @@
+From 7487ca3f5671466c88a26fb7b5a6b49b107a769f Mon Sep 17 00:00:00 2001
+From: Donghwa Lee <dh09.lee@samsung.com>
+Date: Fri, 10 Jan 2014 13:19:49 +0900
+Subject: [PATCH 1069/1302] video: display: s6e8aa0: change power off sequence
+ to remove noise
+
+It is need to turn off the panel more earlier than mipi dsi
+to remove noise and switch the sequence of display_off and sleep_in
+command following manufacturer's instruction.
+
+Change-Id: Id2e7bf63fb84a12673fa56d572ad63ae5cf80539
+Signed-off-by: Donghwa Lee <dh09.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/video/display/panel-s6e8aa0.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/video/display/panel-s6e8aa0.c b/drivers/video/display/panel-s6e8aa0.c
+index dce22d9..d6dbfef 100644
+--- a/drivers/video/display/panel-s6e8aa0.c
++++ b/drivers/video/display/panel-s6e8aa0.c
+@@ -1230,10 +1230,10 @@ static void s6e8aa0_power_off(struct s6e8aa0 *panel)
+ {
+ 	struct video_source *src = panel->entity.source;
+ 
+-	s6e8aa0_sleep_in(panel);
+ 	s6e8aa0_display_off(panel);
+-
+-	src->ops.dsi->disable(src);
++	s6e8aa0_sleep_in(panel);
++	/* power off delay */
++	msleep(120);
+ 
+ 	regulator_bulk_disable(ARRAY_SIZE(panel->supplies),
+ 						panel->supplies);
+@@ -1250,8 +1250,9 @@ static int s6e8aa0_set_state(struct display_entity *entity,
+ 	case DISPLAY_ENTITY_STATE_OFF:
+ 		if (entity->state != DISPLAY_ENTITY_STATE_ON)
+ 			break;
+-		src->common_ops->set_stream(src, DISPLAY_ENTITY_STREAM_STOPPED);
+ 		s6e8aa0_power_off(panel);
++		src->common_ops->set_stream(src, DISPLAY_ENTITY_STREAM_STOPPED);
++		src->ops.dsi->disable(src);
+ 		break;
+ 
+ 	case DISPLAY_ENTITY_STATE_ON:
+-- 
+1.8.3.2
+

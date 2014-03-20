@@ -1,0 +1,68 @@
+From 76dd2038da95de855c9d3b666f80f6dd7342727a Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Sat, 8 Mar 2014 14:04:57 +0900
+Subject: [PATCH 1293/1302] ARM: odroidx2: update defconfig to enable
+ ANDROID_LOGGER
+
+ANDROID_LOGGER needs to use dlogutil at tizen.
+
+Change-Id: Ibcad389c6edf8216441948931e9733aa45b04aa1
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_odroidx2_defconfig | 39 ++++++++++++++++++++++++++++++-
+ 1 file changed, 38 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/tizen_odroidx2_defconfig b/arch/arm/configs/tizen_odroidx2_defconfig
+index 0a8cce0..7c4d7aa 100644
+--- a/arch/arm/configs/tizen_odroidx2_defconfig
++++ b/arch/arm/configs/tizen_odroidx2_defconfig
+@@ -2384,7 +2384,44 @@ CONFIG_DMA_OF=y
+ #
+ # Microsoft Hyper-V guest support
+ #
+-# CONFIG_STAGING is not set
++CONFIG_STAGING=y
++# CONFIG_USBIP_CORE is not set
++# CONFIG_ECHO is not set
++# CONFIG_COMEDI is not set
++# CONFIG_ASUS_OLED is not set
++# CONFIG_RTLLIB is not set
++# CONFIG_R8712U is not set
++# CONFIG_RTS5139 is not set
++# CONFIG_TRANZPORT is not set
++# CONFIG_VT6656 is not set
++# CONFIG_ZSMALLOC is not set
++# CONFIG_USB_ENESTORAGE is not set
++# CONFIG_BCM_WIMAX is not set
++# CONFIG_FT1000 is not set
++
++#
++# Speakup console speech
++#
++# CONFIG_SPEAKUP is not set
++# CONFIG_TOUCHSCREEN_CLEARPAD_TM1217 is not set
++# CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 is not set
++# CONFIG_STAGING_MEDIA is not set
++
++#
++# Android
++#
++CONFIG_ANDROID=y
++# CONFIG_ANDROID_BINDER_IPC is not set
++# CONFIG_ASHMEM is not set
++CONFIG_ANDROID_LOGGER=y
++# CONFIG_ANDROID_TIMED_OUTPUT is not set
++# CONFIG_ANDROID_LOW_MEMORY_KILLER is not set
++# CONFIG_ANDROID_INTF_ALARM_DEV is not set
++# CONFIG_SYNC is not set
++# CONFIG_USB_WPAN_HCD is not set
++# CONFIG_WIMAX_GDM72XX is not set
++# CONFIG_CED1401 is not set
++# CONFIG_DGRP is not set
+ CONFIG_CLKDEV_LOOKUP=y
+ CONFIG_HAVE_CLK_PREPARE=y
+ CONFIG_COMMON_CLK=y
+-- 
+1.8.3.2
+

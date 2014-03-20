@@ -1,0 +1,28 @@
+From 99f31937216299fad107910423ee52d5a42f1d81 Mon Sep 17 00:00:00 2001
+From: Jacek Pielaszkiewicz <j.pielaszkie@samsung.com>
+Date: Mon, 20 Jan 2014 10:20:35 +0100
+Subject: [PATCH 1198/1302] Add dependency on kernel package in kernel-devel
+ package.
+
+Change-Id: Iba7d12ecac46b3e5985f412f4cc3f623162cf728
+Signed-off-by: Jacek Pielaszkiewicz <j.pielaszkie@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ packaging/linux-kernel.spec | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/packaging/linux-kernel.spec b/packaging/linux-kernel.spec
+index 211efd8..bc789fe 100644
+--- a/packaging/linux-kernel.spec
++++ b/packaging/linux-kernel.spec
+@@ -45,6 +45,7 @@ Summary: Prebuilt linux kernel for out-of-tree modules
+ Group: Development/System
+ Provides: kernel-devel = %{fullVersion}
+ Provides: kernel-devel-uname-r = %{fullVersion}
++Requires: %{name} = %{version}-%{release}
+ 
+ %description devel
+ Prebuilt linux kernel for out-of-tree modules.
+-- 
+1.8.3.2
+

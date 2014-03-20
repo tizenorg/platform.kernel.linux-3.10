@@ -1,0 +1,195 @@
+From 96c833ab84c190078efd6b24d9bb6ee6514d2d02 Mon Sep 17 00:00:00 2001
+From: Casey Schaufler <casey@schaufler-ca.com>
+Date: Fri, 11 Oct 2013 18:06:39 -0700
+Subject: [PATCH 1055/1302] Smack: Implement lock security mode
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Linux file locking does not follow the same rules
+as other mechanisms. Even though it is a write operation
+a process can set a read lock on files which it has open
+only for read access. Two programs with read access to
+a file can use read locks to communicate.
+
+This is not acceptable in a Mandatory Access Control
+environment. Smack treats setting a read lock as the
+write operation that it is. Unfortunately, many programs
+assume that setting a read lock is a read operation.
+These programs are unhappy in the Smack environment.
+
+This patch introduces a new access mode (lock) to address
+this problem. A process with lock access to a file can
+set a read lock. A process with write access to a file can
+set a read lock or a write lock. This prevents a situation
+where processes are granted write access just so they can
+set read locks.
+
+Targeted for git://git.gitorious.org/smack-next/kernel.git
+
+Change-Id: I9bf4df25088d2dd49aadfa0ced844b147ad1c81d
+Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
+Signed-off-by: Łukasz Stelmach <l.stelmach@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ security/smack/smack.h        | 12 ++++++++----
+ security/smack/smack_access.c | 10 ++++++++++
+ security/smack/smack_lsm.c    |  9 +++++++--
+ security/smack/smackfs.c      | 10 ++++++++--
+ 4 files changed, 33 insertions(+), 8 deletions(-)
+
+diff --git a/security/smack/smack.h b/security/smack/smack.h
+index 076b8e8..364cc64 100644
+--- a/security/smack/smack.h
++++ b/security/smack/smack.h
+@@ -177,9 +177,13 @@ struct smk_port_label {
+ #define SMACK_CIPSO_MAXCATNUM           184     /* 23 * 8 */
+ 
+ /*
+- * Flag for transmute access
++ * Flags for untraditional access modes.
++ * It shouldn't be necessary to avoid conflicts with definitions
++ * in fs.h, but do so anyway.
+  */
+-#define MAY_TRANSMUTE	64
++#define MAY_TRANSMUTE	0x00001000	/* Controls directory labeling */
++#define MAY_LOCK	0x00002000	/* Locks should be writes, but ... */
++
+ /*
+  * Just to make the common cases easier to deal with
+  */
+@@ -188,9 +192,9 @@ struct smk_port_label {
+ #define MAY_NOT		0
+ 
+ /*
+- * Number of access types used by Smack (rwxat)
++ * Number of access types used by Smack (rwxatl)
+  */
+-#define SMK_NUM_ACCESS_TYPE 5
++#define SMK_NUM_ACCESS_TYPE 6
+ 
+ /* SMACK data */
+ struct smack_audit_data {
+diff --git a/security/smack/smack_access.c b/security/smack/smack_access.c
+index b3b59b1..14293cd 100644
+--- a/security/smack/smack_access.c
++++ b/security/smack/smack_access.c
+@@ -84,6 +84,8 @@ int log_policy = SMACK_AUDIT_DENIED;
+  *
+  * Do the object check first because that is more
+  * likely to differ.
++ *
++ * Allowing write access implies allowing locking.
+  */
+ int smk_access_entry(char *subject_label, char *object_label,
+ 			struct list_head *rule_list)
+@@ -99,6 +101,11 @@ int smk_access_entry(char *subject_label, char *object_label,
+ 		}
+ 	}
+ 
++	/*
++	 * MAY_WRITE implies MAY_LOCK.
++	 */
++	if ((may & MAY_WRITE) == MAY_WRITE)
++		may |= MAY_LOCK;
+ 	return may;
+ }
+ 
+@@ -245,6 +252,7 @@ out_audit:
+ static inline void smack_str_from_perm(char *string, int access)
+ {
+ 	int i = 0;
++
+ 	if (access & MAY_READ)
+ 		string[i++] = 'r';
+ 	if (access & MAY_WRITE)
+@@ -255,6 +263,8 @@ static inline void smack_str_from_perm(char *string, int access)
+ 		string[i++] = 'a';
+ 	if (access & MAY_TRANSMUTE)
+ 		string[i++] = 't';
++	if (access & MAY_LOCK)
++		string[i++] = 'l';
+ 	string[i] = '\0';
+ }
+ /**
+diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+index 8825375..88d366e5 100644
+--- a/security/smack/smack_lsm.c
++++ b/security/smack/smack_lsm.c
+@@ -1146,7 +1146,7 @@ static int smack_file_ioctl(struct file *file, unsigned int cmd,
+  * @file: the object
+  * @cmd: unused
+  *
+- * Returns 0 if current has write access, error code otherwise
++ * Returns 0 if current has lock access, error code otherwise
+  */
+ static int smack_file_lock(struct file *file, unsigned int cmd)
+ {
+@@ -1154,7 +1154,7 @@ static int smack_file_lock(struct file *file, unsigned int cmd)
+ 
+ 	smk_ad_init(&ad, __func__, LSM_AUDIT_DATA_PATH);
+ 	smk_ad_setfield_u_fs_path(&ad, file->f_path);
+-	return smk_curacc(file->f_security, MAY_WRITE, &ad);
++	return smk_curacc(file->f_security, MAY_LOCK, &ad);
+ }
+ 
+ /**
+@@ -1178,8 +1178,13 @@ static int smack_file_fcntl(struct file *file, unsigned int cmd,
+ 
+ 	switch (cmd) {
+ 	case F_GETLK:
++		break;
+ 	case F_SETLK:
+ 	case F_SETLKW:
++		smk_ad_init(&ad, __func__, LSM_AUDIT_DATA_PATH);
++		smk_ad_setfield_u_fs_path(&ad, file->f_path);
++		rc = smk_curacc(file->f_security, MAY_LOCK, &ad);
++		break;
+ 	case F_SETOWN:
+ 	case F_SETSIG:
+ 		smk_ad_init(&ad, __func__, LSM_AUDIT_DATA_PATH);
+diff --git a/security/smack/smackfs.c b/security/smack/smackfs.c
+index 80f4b4a..160aa08 100644
+--- a/security/smack/smackfs.c
++++ b/security/smack/smackfs.c
+@@ -139,7 +139,7 @@ const char *smack_cipso_option = SMACK_CIPSO_OPTION;
+  * SMK_LOADLEN: Smack rule length
+  */
+ #define SMK_OACCESS	"rwxa"
+-#define SMK_ACCESS	"rwxat"
++#define SMK_ACCESS	"rwxatl"
+ #define SMK_OACCESSLEN	(sizeof(SMK_OACCESS) - 1)
+ #define SMK_ACCESSLEN	(sizeof(SMK_ACCESS) - 1)
+ #define SMK_OLOADLEN	(SMK_LABELLEN + SMK_LABELLEN + SMK_OACCESSLEN)
+@@ -282,6 +282,10 @@ static int smk_perm_from_str(const char *string)
+ 		case 'T':
+ 			perm |= MAY_TRANSMUTE;
+ 			break;
++		case 'l':
++		case 'L':
++			perm |= MAY_LOCK;
++			break;
+ 		default:
+ 			return perm;
+ 		}
+@@ -452,7 +456,7 @@ static ssize_t smk_write_rules_list(struct file *file, const char __user *buf,
+ 		/*
+ 		 * Minor hack for backward compatibility
+ 		 */
+-		if (count != SMK_OLOADLEN && count != SMK_LOADLEN)
++		if (count < SMK_OLOADLEN || count > SMK_LOADLEN)
+ 			return -EINVAL;
+ 	} else {
+ 		if (count >= PAGE_SIZE) {
+@@ -592,6 +596,8 @@ static void smk_rule_show(struct seq_file *s, struct smack_rule *srp, int max)
+ 		seq_putc(s, 'a');
+ 	if (srp->smk_access & MAY_TRANSMUTE)
+ 		seq_putc(s, 't');
++	if (srp->smk_access & MAY_LOCK)
++		seq_putc(s, 'l');
+ 
+ 	seq_putc(s, '\n');
+ }
+-- 
+1.8.3.2
+

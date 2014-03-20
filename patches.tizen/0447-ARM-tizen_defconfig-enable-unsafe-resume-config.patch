@@ -1,0 +1,37 @@
+From cc56ecb378bfda66c491968d0973bdfcb4af4c3a Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Thu, 25 Jul 2013 13:45:27 +0900
+Subject: [PATCH 0447/1302] ARM: tizen_defconfig: enable unsafe resume config
+
+Enabled the unsafe rsume configuration
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_defconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index 0b55856..7bc6e6e 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -535,6 +535,7 @@ CONFIG_CPU_FREQ=y
+ CONFIG_CPU_FREQ_TABLE=y
+ CONFIG_CPU_FREQ_GOV_COMMON=y
+ CONFIG_CPU_FREQ_STAT=y
++CONFIG_NR_CPU_LOAD_STORAGE=10
+ # CONFIG_CPU_FREQ_STAT_DETAILS is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE is not set
+@@ -2454,7 +2455,7 @@ CONFIG_USB_ETH_RNDIS=y
+ # CONFIG_USB_G_WEBCAM is not set
+ CONFIG_MMC=y
+ # CONFIG_MMC_DEBUG is not set
+-# CONFIG_MMC_UNSAFE_RESUME is not set
++CONFIG_MMC_UNSAFE_RESUME=y
+ # CONFIG_MMC_CLKGATE is not set
+ 
+ #
+-- 
+1.8.3.2
+

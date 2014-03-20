@@ -1,0 +1,31 @@
+From 68497a23742fedc0dd4b05df6a7d60c7464aec01 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 4 Oct 2012 12:11:55 +0200
+Subject: [PATCH 0029/1302] ARM: dts: exynos4210-trats: Add node for USB gadget
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index 9a14484..ce729c7 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -290,6 +290,12 @@
+ 		};
+ 	};
+ 
++	hsotg@12480000 {
++		status = "okay";
++		vusb_d-supply = <&vusb_reg>;
++		vusb_a-supply = <&vusbdac_reg>;
++	};
++
+ 	fixed-rate-clocks {
+ 		xxti {
+ 			compatible = "samsung,clock-xxti";
+-- 
+1.8.3.2
+

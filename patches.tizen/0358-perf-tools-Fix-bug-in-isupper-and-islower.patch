@@ -1,0 +1,39 @@
+From 13ac119034246d7b52a8edea3f6762575af170ce Mon Sep 17 00:00:00 2001
+From: Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>
+Date: Fri, 29 Mar 2013 12:14:43 -0700
+Subject: [PATCH 0358/1302] perf tools: Fix bug in isupper() and islower()
+
+One of the reasons 'perf test' is failing on Power appears to be due to
+a bug in isupper().
+
+isupper(c) and islower(c) should be checking 'c' against the mask 0x20.
+Instead they are checking sane_ctype[c] which causes isupper() to be
+true for lower case letters.
+
+Signed-off-by: Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>
+Acked-by: Namhyung Kim <namhyung@kernel.org>
+Link: http://lkml.kernel.org/r/20130329192950.GA9312@us.ibm.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/util/util.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tools/perf/util/util.h b/tools/perf/util/util.h
+index a45710b..7a484c9 100644
+--- a/tools/perf/util/util.h
++++ b/tools/perf/util/util.h
+@@ -221,8 +221,8 @@ extern unsigned char sane_ctype[256];
+ #define isalpha(x) sane_istest(x,GIT_ALPHA)
+ #define isalnum(x) sane_istest(x,GIT_ALPHA | GIT_DIGIT)
+ #define isprint(x) sane_istest(x,GIT_PRINT)
+-#define islower(x) (sane_istest(x,GIT_ALPHA) && sane_istest(x,0x20))
+-#define isupper(x) (sane_istest(x,GIT_ALPHA) && !sane_istest(x,0x20))
++#define islower(x) (sane_istest(x,GIT_ALPHA) && (x & 0x20))
++#define isupper(x) (sane_istest(x,GIT_ALPHA) && !(x & 0x20))
+ #define tolower(x) sane_case((unsigned char)(x), 0x20)
+ #define toupper(x) sane_case((unsigned char)(x), 0)
+ 
+-- 
+1.8.3.2
+

@@ -1,0 +1,28 @@
+From c1771a6e83689f51293e3531dd75fcab8a69f8e9 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Mon, 4 Mar 2013 13:13:47 +0100
+Subject: [PATCH 0110/1302] ARM: dts: exynos4412-slp_pq: Correct cpufreq device
+ node
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 69a6184..653ef3b 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -706,8 +706,7 @@
+ 	};
+ 
+ 	cpufreq {
+-		/* 4294967295 is a ~0 representation with u32 */
+-		freq_table = <4294967295 4294967295 4294967295 1100000 1000000
++		freq_table = <0xFFFFFFFF 0xFFFFFFFF 0xFFFFFFFF 1100000 1000000
+ 			     900000 800000 700000 600000 500000 400000 300000
+ 			     200000>;
+ 		vdd_arm-supply = <&buck2_reg>;
+-- 
+1.8.3.2
+

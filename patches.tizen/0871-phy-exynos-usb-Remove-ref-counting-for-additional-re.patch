@@ -1,0 +1,41 @@
+From 9e4e5c706b131abd8a774b2813901eeba97d9026 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 15 Oct 2013 15:41:41 +0200
+Subject: [PATCH 0871/1302] phy: exynos-usb: Remove ref counting for additional
+ reset for Exynos4212
+
+Reference counting in this case is not necessary.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/phy/phy-exynos4212-usb.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/phy/phy-exynos4212-usb.c b/drivers/phy/phy-exynos4212-usb.c
+index b7de33f..a9fa15d 100644
+--- a/drivers/phy/phy-exynos4212-usb.c
++++ b/drivers/phy/phy-exynos4212-usb.c
+@@ -262,9 +262,6 @@ static int exynos4212_power_on(struct uphy_instance *inst)
+ 	if (inst->cfg->id == EXYNOS4212_HSIC0) {
+ 		struct uphy_instance *device =
+ 					&drv->uphy_instances[EXYNOS4212_DEVICE];
+-		device->ref_cnt++;
+-		if (device->ref_cnt > 1)
+-			return 0;
+ 		exynos4212_phy_pwr(device, 1);
+ 		exynos4212_isol(device, 0);
+ 	}
+@@ -294,9 +291,6 @@ static int exynos4212_power_off(struct uphy_instance *inst)
+ 	if (inst->cfg->id == EXYNOS4212_HSIC0) {
+ 		struct uphy_instance *device =
+ 					&drv->uphy_instances[EXYNOS4212_DEVICE];
+-		device->ref_cnt--;
+-		if (device->ref_cnt > 0)
+-			return 0;
+ 		exynos4212_phy_pwr(device, 0);
+ 		exynos4212_isol(device, 1);
+ 	}
+-- 
+1.8.3.2
+

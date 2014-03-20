@@ -1,0 +1,68 @@
+From 8023188d747f89f7cc13fd2c2c19442d1a8e5cc8 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 18 Mar 2013 00:45:27 +0100
+Subject: [PATCH 0403/1302] perf tools: Move libnuma check config into
+ config/Makefile
+
+Moving libnuma check config into config/Makefile
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-16-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        |  9 +--------
+ tools/perf/config/Makefile | 11 +++++++++++
+ 2 files changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index 9276576..11525ac 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -545,14 +545,7 @@ ifeq ($(NO_PERF_REGS),0)
+ endif
+ 
+ ifndef NO_LIBNUMA
+-	FLAGS_LIBNUMA = $(ALL_CFLAGS) $(ALL_LDFLAGS) -lnuma
+-	ifneq ($(call try-cc,$(SOURCE_LIBNUMA),$(FLAGS_LIBNUMA),libnuma),y)
+-		msg := $(warning No numa.h found, disables 'perf bench numa mem' benchmark, please install numa-libs-devel or libnuma-dev);
+-	else
+-		BASIC_CFLAGS += -DLIBNUMA_SUPPORT
+-		BUILTIN_OBJS += $(OUTPUT)bench/numa.o
+-		EXTLIBS += -lnuma
+-	endif
++	BUILTIN_OBJS += $(OUTPUT)bench/numa.o
+ endif
+ 
+ ifdef ASCIIDOC8
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index 8c0e43f..124c344 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -379,3 +379,14 @@ ifndef NO_BACKTRACE
+ 		BASIC_CFLAGS += -DBACKTRACE_SUPPORT
+        endif
+ endif
++
++ifndef NO_LIBNUMA
++	FLAGS_LIBNUMA = $(ALL_CFLAGS) $(ALL_LDFLAGS) -lnuma
++	ifneq ($(call try-cc,$(SOURCE_LIBNUMA),$(FLAGS_LIBNUMA),libnuma),y)
++		msg := $(warning No numa.h found, disables 'perf bench numa mem' benchmark, please install numa-libs-devel or libnuma-dev);
++		NO_LIBNUMA := 1
++	else
++		BASIC_CFLAGS += -DLIBNUMA_SUPPORT
++		EXTLIBS += -lnuma
++	endif
++endif
+-- 
+1.8.3.2
+

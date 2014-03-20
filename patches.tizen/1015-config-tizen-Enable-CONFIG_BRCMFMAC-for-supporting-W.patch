@@ -1,0 +1,33 @@
+From 28357a308c59db990c3000c4d6e17a9020523ea1 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Thu, 7 Nov 2013 16:51:07 +0900
+Subject: [PATCH 1015/1302] config: tizen: Enable CONFIG_BRCMFMAC for
+ supporting WIFI on M0
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_defconfig | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index 41b4304..a6559b1 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -1379,7 +1379,12 @@ CONFIG_WLAN=y
+ # CONFIG_USB_ZD1201 is not set
+ # CONFIG_USB_NET_RNDIS_WLAN is not set
+ # CONFIG_ATH_CARDS is not set
+-# CONFIG_BRCMFMAC is not set
++CONFIG_BRCMUTIL=m
++CONFIG_BRCMFMAC=m
++CONFIG_BRCMFMAC_SDIO=y
++# CONFIG_BRCMFMAC_USB is not set
++# CONFIG_BRCM_TRACING is not set
++# CONFIG_BRCMDBG is not set
+ # CONFIG_HOSTAP is not set
+ # CONFIG_LIBERTAS is not set
+ # CONFIG_WL_TI is not set
+-- 
+1.8.3.2
+

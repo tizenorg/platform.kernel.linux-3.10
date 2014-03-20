@@ -1,0 +1,56 @@
+From 8bb430b75ff8ada5e3b666169f391badd5d84ffd Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Tue, 11 Mar 2014 14:07:29 +0900
+Subject: [PATCH 1297/1302] ARM: dts: odroidx2: remove fimd node
+
+Our odroidx2 board doesn't have any LCD panel, so it is unnecessary to
+use fimd.
+
+Change-Id: I1924ee52cd34d5763aab989035c51b387de98311
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-odroidx2.dts | 27 ---------------------------
+ 1 file changed, 27 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-odroidx2.dts b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+index d3339fd..bf9b204 100644
+--- a/arch/arm/boot/dts/exynos4412-odroidx2.dts
++++ b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+@@ -568,33 +568,6 @@
+ 		vdd_pll-supply = <&ldo8_reg>;
+ 		status = "okay";
+ 	};
+-
+-	/*
+-	 * FIMD node is required for DRM subsystem to initialize framebuffer
+-	 * It should be considered as hack until DRM/HDMI subsystem is fixed
+-	 */
+-	fimd@11c00000 {
+-		samsung,fimd-vidout-rgb;
+-		samsung,fimd-inv-vclk;
+-		samsung,fimd-frame-rate = <60>;
+-		samsung,default-window = <3>;
+-		samsung,fimd-win-bpp = <32>;
+-		status = "okay";
+-		display-timings {
+-			native-mode = <&timing0>;
+-			timing0: timing {
+-				clock-frequency = <0>;
+-				hfront-porch = <0>;
+-				hback-porch = <0>;
+-				hactive = <1920>;
+-				vactive = <1080>;
+-				hsync-len = <0>;
+-				vback-porch = <0>;
+-				vfront-porch = <0>;
+-				vsync-len = <0>;
+-			};
+-		};
+-	};
+ };
+ 
+ &pinctrl_1 {
+-- 
+1.8.3.2
+

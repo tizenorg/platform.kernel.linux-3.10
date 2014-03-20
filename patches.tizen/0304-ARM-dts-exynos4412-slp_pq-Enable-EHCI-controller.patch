@@ -1,0 +1,29 @@
+From 812a96a3c3b916301c7ae11020e9db75c315c3fc Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 8 Mar 2013 18:13:58 +0100
+Subject: [PATCH 0304/1302] ARM: dts: exynos4412-slp_pq: Enable EHCI controller
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index b7783cb..a9df9c6 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -831,6 +831,10 @@
+ 		vusb_a-supply = <&ldo12_reg>;
+ 	};
+ 
++	ehci@12580000 {
++		status = "okay";
++	};
++
+ 	spi_1: spi@13930000 {
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&spi1_bus>;
+-- 
+1.8.3.2
+

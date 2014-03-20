@@ -1,0 +1,42 @@
+From 7550167acf82df605ec9f0c0ad575a4630a60087 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 26 Jun 2013 19:04:13 +0200
+Subject: [PATCH 0329/1302] ARM: EXYNOS: pm: Move call to flush_cache_all()
+ before outer_flush_all()
+
+Flushing L1 cache might cause data to be stored to L2 cache, so it is
+more reasonable to flush L1 cache first and only then L2 cache.
+
+This patch moves call to flush_cache_all() in exynos_cpu_suspend()
+before outer_flush_all() to make sure that all data are flushed
+correctly. In addition flushing is enabled for all Exynos SoCs to
+prevent any data loss.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/pm.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/arch/arm/mach-exynos/pm.c b/arch/arm/mach-exynos/pm.c
+index e3faaa81..83c4999 100644
+--- a/arch/arm/mach-exynos/pm.c
++++ b/arch/arm/mach-exynos/pm.c
+@@ -82,13 +82,11 @@ static unsigned int save_arm_register[2];
+ 
+ static int exynos_cpu_suspend(unsigned long arg)
+ {
++	flush_cache_all();
+ #ifdef CONFIG_CACHE_L2X0
+ 	outer_flush_all();
+ #endif
+ 
+-	if (soc_is_exynos5250())
+-		flush_cache_all();
+-
+ 	/* issue the standby signal into the pm unit. */
+ 	cpu_do_idle();
+ 
+-- 
+1.8.3.2
+

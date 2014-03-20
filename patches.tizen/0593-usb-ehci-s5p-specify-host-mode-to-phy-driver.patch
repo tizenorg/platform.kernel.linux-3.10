@@ -1,0 +1,65 @@
+From 8e838837783fee2d39ba9dc259a19bd9d5546db5 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 30 Aug 2013 20:56:11 +0900
+Subject: [PATCH 0593/1302] usb: ehci-s5p: specify host mode to phy driver
+
+In otg mode, we can use it both host and device mode. Before initializing phy
+driver, we should specify which mode will be used for it.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/host/ehci-s5p.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/host/ehci-s5p.c b/drivers/usb/host/ehci-s5p.c
+index e7d26d6..671de95 100644
+--- a/drivers/usb/host/ehci-s5p.c
++++ b/drivers/usb/host/ehci-s5p.c
+@@ -51,6 +51,7 @@ struct s5p_ehci_hcd {
+ 	int power_on;
+ 	struct usb_phy *phy;
+ 	struct usb_otg *otg;
++	struct usb_bus *host;
+ 	struct s5p_ehci_platdata *pdata;
+ };
+ 
+@@ -59,8 +60,11 @@ struct s5p_ehci_hcd {
+ static void s5p_ehci_phy_enable(struct s5p_ehci_hcd *s5p_ehci,
+ 						struct platform_device *pdev)
+ {
+-	if (s5p_ehci->phy)
++	if (s5p_ehci->phy) {
++		if (s5p_ehci->otg)
++			otg_set_host(s5p_ehci->otg, s5p_ehci->host);
+ 		usb_phy_init(s5p_ehci->phy);
++	}
+ 	else if (s5p_ehci->pdata->phy_init)
+ 		s5p_ehci->pdata->phy_init(pdev, USB_PHY_TYPE_HOST);
+ }
+@@ -68,8 +72,11 @@ static void s5p_ehci_phy_enable(struct s5p_ehci_hcd *s5p_ehci,
+ static void s5p_ehci_phy_disable(struct s5p_ehci_hcd *s5p_ehci,
+ 						 struct platform_device *pdev)
+ {
+-	if (s5p_ehci->phy)
++	if (s5p_ehci->phy) {
++		if (s5p_ehci->otg)
++			otg_set_host(s5p_ehci->otg, NULL);
+ 		usb_phy_shutdown(s5p_ehci->phy);
++	}
+ 	else if (s5p_ehci->pdata->phy_exit)
+ 		s5p_ehci->pdata->phy_exit(pdev, USB_PHY_TYPE_HOST);
+ }
+@@ -266,8 +273,7 @@ static int s5p_ehci_probe(struct platform_device *pdev)
+ 		goto fail_io;
+ 	}
+ 
+-	if (s5p_ehci->otg)
+-		s5p_ehci->otg->set_host(s5p_ehci->otg, &hcd->self);
++	s5p_ehci->host = &hcd->self;
+ 
+ 	s5p_ehci_phy_enable(s5p_ehci, pdev);
+ 
+-- 
+1.8.3.2
+

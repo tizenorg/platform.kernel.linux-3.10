@@ -1,0 +1,30 @@
+From 7996ab62fbfcbfca981801fba0a85d620ea0c033 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 22 Aug 2013 17:49:18 +0200
+Subject: [PATCH 0575/1302] exynos4-is: Fix compressed format setting in
+ fimc-capture
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-capture.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-capture.c b/drivers/media/platform/exynos4-is/fimc-capture.c
+index fb27ff7..e946ba3 100644
+--- a/drivers/media/platform/exynos4-is/fimc-capture.c
++++ b/drivers/media/platform/exynos4-is/fimc-capture.c
+@@ -991,8 +991,8 @@ static int __video_try_or_set_format(struct fimc_dev *fimc,
+ 
+ 		sensor = __fimc_md_get_subdev(ve->pipe, IDX_SENSOR);
+ 		if (sensor)
+-			fimc_get_sensor_frame_desc(sensor, pix->plane_fmt,
+-						   (*out_fmt)->memplanes, try);
++			ret = fimc_get_sensor_frame_desc(sensor, pix->plane_fmt,
++						   (*out_fmt)->memplanes, true);
+ 		else
+ 			ret = -EPIPE;
+ 
+-- 
+1.8.3.2
+

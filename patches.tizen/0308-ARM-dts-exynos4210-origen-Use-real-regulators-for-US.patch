@@ -1,0 +1,43 @@
+From 3ced7a2eecc1352aafb23bba0a29af739bc40bf9 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 13 Mar 2013 20:03:15 +0100
+Subject: [PATCH 0308/1302] ARM: dts: exynos4210-origen: Use real regulators
+ for USB OTG
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-origen.dts | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4210-origen.dts b/arch/arm/boot/dts/exynos4210-origen.dts
+index 341717b..95bb61f 100644
+--- a/arch/arm/boot/dts/exynos4210-origen.dts
++++ b/arch/arm/boot/dts/exynos4210-origen.dts
+@@ -165,21 +165,14 @@
+ 		};
+ 	};
+ 
+-	vusb_reg: voltage-regulator-1 {
+-	        compatible = "regulator-fixed";
+-		regulator-name = "VUSB_DUMMY";
+-		regulator-min-microvolt = <3300000>;
+-		regulator-max-microvolt = <3300000>;
+-	};
+-
+ 	usbphy@125B0000 {
+ 		status = "okay";
+ 	};
+ 
+ 	hsotg@12480000 {
+ 		status = "okay";
+-		vusb_d-supply = <&vusb_reg>;
+-		vusb_a-supply = <&vusb_reg>;
++		vusb_d-supply = <&ldo8_reg>;
++		vusb_a-supply = <&ldo3_reg>;
+ 	};
+ 
+ 	ehci@12580000 {
+-- 
+1.8.3.2
+

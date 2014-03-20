@@ -1,0 +1,33 @@
+From ca9e9e1dcf7fc130825dd24d0fe788fdc6fb8f30 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 9 Jul 2013 08:14:39 +0200
+Subject: [PATCH 0649/1302] usb: gadget: Kconfig: Fix configfs-based RNDIS
+ function build
+
+USB_CONFIGFS_RNDIS depends on USB_U_RNDIS. Select it.
+
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index 4b4d748..c240a4a 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -637,6 +637,7 @@ config USB_CONFIGFS_RNDIS
+ 	depends on USB_CONFIGFS
+ 	depends on NET
+ 	select USB_U_ETHER
++	select USB_U_RNDIS
+ 	select USB_F_RNDIS
+ 	help
+ 	   Microsoft Windows XP bundles the "Remote NDIS" (RNDIS) protocol,
+-- 
+1.8.3.2
+

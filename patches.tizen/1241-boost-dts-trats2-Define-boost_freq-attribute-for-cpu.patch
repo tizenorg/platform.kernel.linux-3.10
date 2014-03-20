@@ -1,0 +1,31 @@
+From 6c59e76d9af6d8a7a5ac6c6f5544530dc345737a Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Wed, 19 Feb 2014 13:02:58 +0100
+Subject: [PATCH 1241/1302] boost: dts: trats2: Define boost_freq attribute for
+ cpufreq node
+
+This commit explicitly enables the boost frequency support for Exynos4412
+based Trats2 board.
+
+Change-Id: Ie51ad5c5d983578c33ede442d3f9d67ee9dfb4f7
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-trats2.dts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-trats2.dts b/arch/arm/boot/dts/exynos4412-trats2.dts
+index 4f2683c..7068328 100644
+--- a/arch/arm/boot/dts/exynos4412-trats2.dts
++++ b/arch/arm/boot/dts/exynos4412-trats2.dts
+@@ -1348,6 +1348,7 @@
+ 		freq_table = <1400000 1300000 1200000 1100000 1000000
+ 			     900000 800000 700000 600000 500000 400000 300000
+ 			     200000>;
++		boost_freq = <1500000>;
+ 		vdd_arm-supply = <&buck2_reg>;
+ 		status = "okay";
+ 	};
+-- 
+1.8.3.2
+

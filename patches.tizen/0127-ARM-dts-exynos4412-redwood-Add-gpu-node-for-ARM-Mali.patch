@@ -1,0 +1,32 @@
+From 31dc6d7bf6ecdb998e1abdadee9eca37015f57c6 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 21 Feb 2013 16:23:39 +0100
+Subject: [PATCH 0127/1302] ARM: dts: exynos4412-redwood: Add gpu node for ARM
+ Mali 400
+
+This patch adds gpu node with board-specific properties and status
+override to enable G3D on Redwood board.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index ac6ef14..5df54e8 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -525,4 +525,9 @@
+ 			memory-region = <&mfc_r_mem>;
+ 		};
+ 	};
++
++	gpu@13000000 {
++		status = "okay";
++		vdd_g3d-supply = <&buck4_reg>;
++	};
+ };
+-- 
+1.8.3.2
+

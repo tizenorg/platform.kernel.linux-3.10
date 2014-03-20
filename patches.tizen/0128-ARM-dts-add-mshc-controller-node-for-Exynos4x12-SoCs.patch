@@ -1,0 +1,51 @@
+From 57acac5957558f2d61c76e5af672a1911bd8bd31 Mon Sep 17 00:00:00 2001
+From: Thomas Abraham <thomas.abraham@linaro.org>
+Date: Wed, 27 Feb 2013 10:13:06 +0100
+Subject: [PATCH 0128/1302] ARM: dts: add mshc controller node for Exynos4x12
+ SoCs
+
+Commit cea0f256 ("ARM: dts: Add board dts file for ODROID-X") includes a node
+to describe the board level properties for mshc controller. But the mshc
+controller node was not added in the Exynos4x12 dtsi file which resulted
+in the following warning when compiling the dtb files.
+
+Warning (reg_format): "reg" property in /mshc@12550000/slot@0 has invalid length (4 bytes) (#address-cells == 2, #size-cells == 1)
+Warning (avoid_default_addr_size): Relying on default #address-cells value for /mshc@12550000/slot@0
+Warning (avoid_default_addr_size): Relying on default #size-cells value for /mshc@12550000/slot@0
+
+Fix this by adding the mshc controller node for Exynos4x12 SoCs.
+
+Cc: Dongjin Kim <tobetter@gmail.com>
+Cc: Kukjin Kim <kgene.kim@samsung.com>
+[s.nawrocki: resolved merge conflict]
+Signed-off-by: Thomas Abraham <thomas.abraham@linaro.org>
+Tested-by: Dongjin Kim <tobetter@gmail.com>
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 3872297..1e7784e 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -75,6 +75,14 @@
+ 		};
+ 	};
+ 
++	mshc@12550000 {
++		compatible = "samsung,exynos4412-dw-mshc";
++		reg = <0x12550000 0x1000>;
++		interrupts = <0 77 0>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++	};
++
+ 	pinctrl_2: pinctrl@03860000 {
+ 		compatible = "samsung,exynos4x12-pinctrl";
+ 		reg = <0x03860000 0x1000>;
+-- 
+1.8.3.2
+

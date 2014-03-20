@@ -1,0 +1,28 @@
+From 663b2c110e7f0c7f8cba19d23e39b610f4528689 Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Tue, 29 Jan 2013 17:02:04 +0900
+Subject: [PATCH 0089/1302] ARM: dts: exynos4210-trats: enable invert feature
+ of touchscreen
+
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index e316890..444474b 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -154,6 +154,8 @@
+ 			interrupts = <4 2>;
+ 			x-size = <720>;
+ 			y-size = <1280>;
++			x-invert;
++			y-invert;
+ 			avdd-supply = <&tsp_reg>;
+ 			vdd-supply = <&tsp_reg>;
+ 		};
+-- 
+1.8.3.2
+

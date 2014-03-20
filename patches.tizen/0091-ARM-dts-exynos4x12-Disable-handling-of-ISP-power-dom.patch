@@ -1,0 +1,36 @@
+From d8cb4d3221fa83513d86b4fee362f50bc71c5e0c Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 21 Feb 2013 12:34:22 +0100
+Subject: [PATCH 0091/1302] ARM: dts: exynos4x12: Disable handling of ISP power
+ domain
+
+ISP power domain needs special handling and in current state disabling
+it crashes the system. This patch disables ISP power domain handling
+until it gets fixed.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 636c2f4..8d0e3d83 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -31,7 +31,11 @@
+ 	};
+ 
+ 	pd_isp: isp-power-domain@10023CA0 {
+-		compatible = "samsung,exynos4210-pd";
++		/*
++		 * FIXME: ISP power domain needs special handling
++		 * (Implement proper ISP power domain on/off sequence)
++		 */
++		/* compatible = "samsung,exynos4210-pd"; */
+ 		reg = <0x10023CA0 0x20>;
+ 	};
+ 
+-- 
+1.8.3.2
+

@@ -1,0 +1,47 @@
+From c0487c2bfff971f598ce8f2f7453ff375ed55415 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Thu, 27 Feb 2014 13:38:51 +0100
+Subject: [PATCH 1275/1302] cpufreq:LAB:Kconfig: Do not allow LAB to be build
+ as a module
+
+Since LAB depends on ONDEMAND, one needs to prevent situation when both
+governors are compiled as modules.
+
+Change-Id: I5e4f65a856d548397ef53338a8949879bd34051c
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/Kconfig | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/cpufreq/Kconfig b/drivers/cpufreq/Kconfig
+index 4e11aac..08fbc96 100644
+--- a/drivers/cpufreq/Kconfig
++++ b/drivers/cpufreq/Kconfig
+@@ -211,19 +211,19 @@ config CPU_FREQ_GOV_CONSERVATIVE
+ 	  If in doubt, say N.
+ 
+ config CPU_FREQ_GOV_LAB
+-	tristate "'lab' cpufreq policy governor"
++	bool "'lab' cpufreq policy governor - ONDEMAND extension"
+ 	select CPU_FREQ_TABLE
+ 	select CPU_FREQ_GOV_COMMON
+ 	select CPU_FREQ_GOV_ONDEMAND
+ 	help
+ 	  'lab' - This driver adds a dynamic cpufreq policy governor.
+ 
+-	  To compile this driver as a module, choose M here: the
+-	  module will be called cpufreq_lab.
+-
+ 	  LAB governor shall be regarded as an extension of the ONDEMAND on
+ 	  platforms with very weak HW support for power management.
+ 
++	  LAB governor can be either compiled in or not. It is not possible to
++	  compile it as module because of explicit ONDEMAND dependency.
++
+ 	  If in doubt, say N.
+ 
+ config GENERIC_CPUFREQ_CPU0
+-- 
+1.8.3.2
+

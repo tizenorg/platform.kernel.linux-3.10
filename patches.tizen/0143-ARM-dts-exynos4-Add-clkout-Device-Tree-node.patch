@@ -1,0 +1,33 @@
+From c35dc5424c5b25cf8b3d60ce2dcd86eca44959c9 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 28 Feb 2013 18:57:07 +0100
+Subject: [PATCH 0143/1302] ARM: dts: exynos4: Add clkout Device Tree node
+
+This patch adds device tree node for CLKOUT clock controller (part of
+Exynos 4 PMU block).
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index f32e414..2d2df61 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -49,6 +49,11 @@
+ 		reg = <0x10000000 0x100>;
+ 	};
+ 
++	clkout: clock-controller@10020A00 {
++		compatible = "samsung,exynos4210-clkout";
++		reg = <0x10020A00 0x4>;
++	};
++
+ 	clock_audss: clock-controller@03810000 {
+ 		compatible = "samsung,exynos4-audss-clock";
+ 		reg = <0x03810000 0x0C>;
+-- 
+1.8.3.2
+

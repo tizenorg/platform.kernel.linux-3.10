@@ -1,0 +1,29 @@
+From a58d547de0bf7cbfa84fa98de3ccdb3cbe473a5a Mon Sep 17 00:00:00 2001
+From: Karol Lewandowski <k.lewandowsk@samsung.com>
+Date: Tue, 29 Oct 2013 14:00:53 +0100
+Subject: [PATCH 1023/1302] packaging: Bump version
+
+Modified version number, again.
+
+Change-Id: Idf67ccbf9c36030644be6c6f76f5fe0e2b857246
+Signed-off-by: Karol Lewandowski <k.lewandowsk@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ packaging/linux-kernel.spec | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/packaging/linux-kernel.spec b/packaging/linux-kernel.spec
+index dbd105f..bb7ef64 100644
+--- a/packaging/linux-kernel.spec
++++ b/packaging/linux-kernel.spec
+@@ -1,6 +1,6 @@
+ Name: linux-kernel
+ Summary: The Linux Kernel
+-Version: 3.8.3
++Version: 3.10.19
+ Release: 1
+ License: GPL
+ Group: System Environment/Kernel
+-- 
+1.8.3.2
+

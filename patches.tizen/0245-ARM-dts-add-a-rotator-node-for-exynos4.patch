@@ -1,0 +1,52 @@
+From 4ecea92d099121d850dd263243e0295c1f125a6f Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 31 May 2013 18:56:21 +0900
+Subject: [PATCH 0245/1302] ARM: dts: add a rotator node for exynos4
+
+This patch adds a device node of rotator for exynos4 platform. It has proper
+register and clock information. It also has limit table to get restrictions of
+the image size.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index b3dee47..a18cba6 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -131,6 +131,29 @@
+ 		status = "disabled";
+ 	};
+ 
++	rotator: rotator@12810000 {
++		compatible = "samsung,exynos4210-rotator";
++		reg = <0x12810000 0x1000>;
++		interrupts = <0 83 0>;
++		clocks = <&clock 278>;
++		clock-names = "rotator";
++		status = "disabled";
++		ycbcr420_2p {
++			min_w = <32>;
++			min_h = <32>;
++			max_w = <32768>;
++			max_h = <32768>;
++			align = <3>;
++		};
++		rgb888 {
++			min_w = <8>;
++			min_h = <8>;
++			max_w = <8192>;
++			max_h = <8192>;
++			align = <2>;
++		};
++	};
++
+ 	camera {
+ 		compatible = "samsung,fimc", "simple-bus";
+ 		status = "disabled";
+-- 
+1.8.3.2
+

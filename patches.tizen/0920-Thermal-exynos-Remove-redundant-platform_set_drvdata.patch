@@ -1,0 +1,42 @@
+From a2c0bc56c41c4437d9ac8ab601ed6604e795df0f Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Fri, 3 May 2013 09:57:10 +0000
+Subject: [PATCH 0920/1302] Thermal: exynos: Remove redundant
+ platform_set_drvdata()
+
+Commit 0998d06310 (device-core: Ensure drvdata = NULL when no
+driver is bound) removes the need to set driver data field to
+NULL.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Acked-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: Zhang Rui <rui.zhang@intel.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/exynos_thermal.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/thermal/exynos_thermal.c b/drivers/thermal/exynos_thermal.c
+index 788b1dd..03e4bbc 100644
+--- a/drivers/thermal/exynos_thermal.c
++++ b/drivers/thermal/exynos_thermal.c
+@@ -996,7 +996,6 @@ static int exynos_tmu_probe(struct platform_device *pdev)
+ 
+ 	return 0;
+ err_clk:
+-	platform_set_drvdata(pdev, NULL);
+ 	clk_unprepare(data->clk);
+ 	return ret;
+ }
+@@ -1011,8 +1010,6 @@ static int exynos_tmu_remove(struct platform_device *pdev)
+ 
+ 	clk_unprepare(data->clk);
+ 
+-	platform_set_drvdata(pdev, NULL);
+-
+ 	return 0;
+ }
+ 
+-- 
+1.8.3.2
+

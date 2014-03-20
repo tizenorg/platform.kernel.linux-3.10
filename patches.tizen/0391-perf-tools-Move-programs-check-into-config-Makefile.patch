@@ -1,0 +1,103 @@
+From f8966e1fe511405df6c4d7a830246ab232ba1a80 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 25 Mar 2013 00:32:01 +0100
+Subject: [PATCH 0391/1302] perf tools: Move programs check into
+ config/Makefile
+
+Moving programs check into config/Makefile.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-4-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        | 24 ++++++++----------------
+ tools/perf/config/Makefile | 10 ++++++++++
+ 2 files changed, 18 insertions(+), 16 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index a4abdaf..2a75476 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -58,6 +58,14 @@ $(OUTPUT)PERF-VERSION-FILE: .FORCE-PERF-VERSION-FILE
+ CC = $(CROSS_COMPILE)gcc
+ AR = $(CROSS_COMPILE)ar
+ 
++RM      = rm -f
++MKDIR   = mkdir
++FIND    = find
++INSTALL = install
++FLEX    = flex
++BISON   = bison
++STRIP  ?= strip
++
+ # include config/Makefile by default and rule out
+ # non-config cases
+ config := 1
+@@ -100,7 +108,6 @@ CFLAGS = -fno-omit-frame-pointer -ggdb3 -funwind-tables -Wall -Wextra -std=gnu99
+ EXTLIBS = -lpthread -lrt -lelf -lm
+ ALL_CFLAGS = $(CFLAGS) -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
+ ALL_LDFLAGS = $(LDFLAGS)
+-STRIP ?= strip
+ 
+ # Among the variables below, these:
+ #   perfexecdir
+@@ -137,13 +144,6 @@ lib = lib
+ 
+ export prefix bindir sharedir sysconfdir
+ 
+-RM = rm -f
+-MKDIR = mkdir
+-FIND = find
+-INSTALL = install
+-FLEX = flex
+-BISON= bison
+-
+ # sparse is architecture-neutral, which means that we need to tell it
+ # explicitly what architecture to check for. Fix this up for yours..
+ SPARSE_FLAGS = -D__BIG_ENDIAN__ -D__powerpc__
+@@ -152,14 +152,6 @@ ifneq ($(MAKECMDGOALS),clean)
+ ifneq ($(MAKECMDGOALS),tags)
+ -include config/feature-tests.mak
+ 
+-ifeq ($(call get-executable,$(FLEX)),)
+-	dummy := $(error Error: $(FLEX) is missing on this system, please install it)
+-endif
+-
+-ifeq ($(call get-executable,$(BISON)),)
+-	dummy := $(error Error: $(BISON) is missing on this system, please install it)
+-endif
+-
+ ifeq ($(call try-cc,$(SOURCE_HELLO),$(CFLAGS) -Werror -fstack-protector-all,-fstack-protector-all),y)
+ 	CFLAGS := $(CFLAGS) -fstack-protector-all
+ endif
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index fe317c2..04bf8ac 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -32,3 +32,13 @@ endif
+ ifeq ($(NO_PERF_REGS),0)
+         BASIC_CFLAGS += -DHAVE_PERF_REGS
+ endif
++
++-include config/feature-tests.mak
++
++ifeq ($(call get-executable,$(FLEX)),)
++	dummy := $(error Error: $(FLEX) is missing on this system, please install it)
++endif
++
++ifeq ($(call get-executable,$(BISON)),)
++	dummy := $(error Error: $(BISON) is missing on this system, please install it)
++endif
+-- 
+1.8.3.2
+

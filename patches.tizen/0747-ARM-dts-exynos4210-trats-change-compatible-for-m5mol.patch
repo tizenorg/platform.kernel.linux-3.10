@@ -1,0 +1,39 @@
+From 80934aeec09c7993cc53749eac3a3fa352d6b9e0 Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Tue, 23 Jul 2013 16:35:20 +0200
+Subject: [PATCH 0747/1302] ARM: dts: exynos4210-trats: change compatible for
+ m5mols
+
+Changes manufacturer from samsung to fujitsu.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index 6219b31..a4c377d 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -229,7 +229,7 @@
+ 		status = "okay";
+ 
+ 		m5mols@1f {
+-			compatible = "samsung,m5mols";
++			compatible = "fujitsu,m5mols";
+ 			reg = <0x1f>;
+ 			interrupt-parent = <&gpx1>;
+ 			interrupts = <5 1>;
+@@ -250,7 +250,6 @@
+ 		};
+ 	};
+ 
+-
+ 	i2c@13890000 {
+ 		samsung,i2c-sda-delay = <100>;
+ 		samsung,i2c-slave-addr = <0x10>;
+-- 
+1.8.3.2
+

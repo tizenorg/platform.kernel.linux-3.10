@@ -1,0 +1,150 @@
+From 42d9e9a68946c4e28a8ec744b8a82f3761bb0101 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 11 Oct 2013 22:15:16 +0900
+Subject: [PATCH 0864/1302] charger: max77693: Fix initial charger
+ configuration properly.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/power/max77693_charger.c       | 51 ++++++++--------------------------
+ include/linux/power/max77693_charger.h | 27 ++++++++++++------
+ 2 files changed, 31 insertions(+), 47 deletions(-)
+
+diff --git a/drivers/power/max77693_charger.c b/drivers/power/max77693_charger.c
+index 71a009d..87475e5 100644
+--- a/drivers/power/max77693_charger.c
++++ b/drivers/power/max77693_charger.c
+@@ -310,66 +310,39 @@ unlock_finish:
+ static void max77693_charger_reg_init(struct max77693_charger_data *chg_data)
+ {
+ 	struct regmap *rmap = chg_data->max77693->regmap;
+-	u8 reg_data;
+ 
+ 	/*
+ 	 * fast charge timer 10hrs
+ 	 * restart threshold disable
+ 	 * pre-qual charge enable(default)
+ 	 */
+-	reg_data = (0x04 << 0) | (0x03 << 4);
+-	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_01, reg_data);
++	max77693_update_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_01,
++			MAX77693_FCHGTIME_10HRS | MAX77693_CHG_RSTRT_MASK,
++			MAX77693_FCHGTIME_MASK | MAX77693_CHG_RSTRT_MASK);
+ 
+ 	/*
+ 	 * charge current 466mA(default)
+ 	 * otg current limit 900mA
+ 	 */
+-	reg_data = (1 << 7);
+-	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_02, reg_data);
+-
++	max77693_update_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_02,
++			MAX77693_OTG_ILIM_MASK, MAX77693_OTG_ILIM_MASK);
+ 	/*
+ 	 * top off current 100mA
+ 	 * top off timer 0min
+ 	 */
+-	reg_data = (0x00 << 0);	/* 100mA */
+-
+-	reg_data |= (0x00 << 3);
+-	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_03, reg_data);
++	max77693_update_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_03,
++			0x0, MAX77693_CHG_TO_ITHM | MAX77693_CHG_TO_TIMEM);
+ 
+ 	/*
+-	 * cv voltage 4.2V or 4.35V
++	 * cv voltage 4.35V
+ 	 * MINVSYS 3.6V(default)
+ 	 */
+-	reg_data &= (~MAX77693_CHG_MINVSYS_MASK);
+-	reg_data |= (MAX77693_CHG_MINVSYS_3_6V << MAX77693_CHG_MINVSYS_SHIFT);
+-	reg_data &= (~MAX77693_CHG_CV_PRM_MASK);
+-#if defined(CONFIG_MACH_M0)
+-	if ((system_rev != 3) && (system_rev >= 1))
+-		reg_data |= (MAX77693_CHG_CV_PRM_4_35V << 0);
+-	else
+-		reg_data |= (MAX77693_CHG_CV_PRM_4_20V << 0);
+-#else	/* C1, C2, M3, T0, ... */
+-		reg_data |= (MAX77693_CHG_CV_PRM_4_35V << 0);
+-#endif
+-
+-	/*
+-	 * For GC1 Model,  MINVSYS is 3.4V.
+-	 *  For GC1 Model  PRMV( Primary Charge Regn. Voltage) = 4.2V.
+-	 * Actual expected regulated voltage needs to be 4.2V but due to
+-	 * internal resistance and circuit deviation we might have to set the
+-	 * benchmark a bit higher sometimes. (4.225V now)
+-	 */
+-#if defined(CONFIG_MACH_GC1)
+-	reg_data &= (~MAX77693_CHG_CV_PRM_MASK);
+-	reg_data |= (0x17 << MAX77693_CHG_CV_PRM_SHIFT);
+-	reg_data &= (~MAX77693_CHG_MINVSYS_MASK);
+-	reg_data |= (0x4 << MAX77693_CHG_MINVSYS_SHIFT);
+-#endif
+-	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_04, reg_data);
++	max77693_update_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_04,
++			MAX77693_CHG_CV_PRM_4_35V, MAX77693_CHG_MINVSYS_MASK);
+ 
+ 	/* VBYPSET 5V */
+-	reg_data = 0x50;
+-	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_11, reg_data);
++	max77693_write_reg(rmap, MAX77693_CHG_REG_CHG_CNFG_11,
++					MAX77693_CHG_VBYPSET_5V);
+ }
+ 
+ /* Support property from charger */
+diff --git a/include/linux/power/max77693_charger.h b/include/linux/power/max77693_charger.h
+index 6f2b677..baaf20a 100644
+--- a/include/linux/power/max77693_charger.h
++++ b/include/linux/power/max77693_charger.h
+@@ -112,20 +112,28 @@
+ #define MAX77693_MODE_OTG       0x02
+ #define MAX77693_MODE_BUCK      0x04
+ 
++/* MAX77693_CHG_REG_CHG_CNFG_0i */
++#define MAX77693_FCHGTIME_MASK	0x7
++#define MAX77693_FCHGTIME_4HRS	0x1
++#define MAX77693_FCHGTIME_10HRS	0x4
++#define MAX77693_CHG_RSTRT_MASK	0x30
++
+ /* MAX77693_CHG_REG_CHG_CNFG_02 */
+ #define MAX77693_CHG_CC         0x3F
++#define MAX77693_OTG_ILIM_MASK	0x80
+ 
+ /* MAX77693_CHG_REG_CHG_CNFG_03 */
+-#define MAX77693_CHG_TO_ITH		0x07
++#define MAX77693_CHG_TO_ITHM	0x07
++#define MAX77693_CHG_TO_TIMEM	0x38
+ 
+ /* MAX77693_CHG_REG_CHG_CNFG_04 */
+-#define MAX77693_CHG_MINVSYS_MASK       0xE0
+-#define MAX77693_CHG_MINVSYS_SHIFT      5
+-#define MAX77693_CHG_PRM_MASK           0x1F
+-#define MAX77693_CHG_PRM_SHIFT          0
+-#define MAX77693_CHG_CV_PRM_4_20V		0x16
+-#define MAX77693_CHG_CV_PRM_4_35V		0x1D
+-#define MAX77693_CHG_CV_PRM_4_40V		0x1F
++#define MAX77693_CHG_MINVSYS_MASK	0xE0
++#define MAX77693_CHG_MINVSYS_SHIFT	5
++#define MAX77693_CHG_MINVSYS_3_6V	0x6
++#define MAX77693_CHG_CV_PRM_MASK	0x1F
++#define MAX77693_CHG_CV_PRM_4_20V	0x16
++#define MAX77693_CHG_CV_PRM_4_35V	0x1D
++#define MAX77693_CHG_CV_PRM_4_40V	0x1F
+ 
+ /* MAX77693_CHG_REG_CHG_CNFG_06 */
+ #define MAX77693_CHG_CHGPROT		0x0C
+@@ -135,6 +143,9 @@
+ /* MAX77693_CHG_REG_CHG_CNFG_09 */
+ #define MAX77693_CHG_CHGIN_LIM  0x7F
+ 
++/* MAX77693_CHG_REG_CHG_CNFG_11 */
++#define MAX77693_CHG_VBYPSET_5V	0x50
++
+ /* MAX77693_CHG_REG_CHG_CNFG_12 */
+ #define MAX77693_CHG_WCINSEL		0x40
+ 
+-- 
+1.8.3.2
+

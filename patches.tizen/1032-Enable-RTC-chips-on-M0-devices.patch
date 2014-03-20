@@ -1,0 +1,45 @@
+From e5739e5325c7f4c53a40ccbfd97bb7ed84676fe5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C5=81ukasz=20Stelmach?= <l.stelmach@samsung.com>
+Date: Wed, 27 Nov 2013 16:25:27 +0100
+Subject: [PATCH 1032/1302] Enable RTC chips on M0 devices
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Change-Id: Ide6d17af6d026230c48bededf32e8f15ca41b8e4
+Signed-off-by: Łukasz Stelmach <l.stelmach@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-m0.dts | 4 ++++
+ arch/arm/configs/tizen_defconfig    | 2 +-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+index 4bf6677..c6120bb 100644
+--- a/arch/arm/boot/dts/exynos4412-m0.dts
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -239,4 +239,8 @@
+ 		pulldown-ohm = <100000> ;
+ 		io-channels = <&adc 2>;
+ 	};
++
++	rtc@10070000 {
++		status = "okay";
++	};
+ };
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index 3714242..1b89de4 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -2700,7 +2700,7 @@ CONFIG_RTC_INTF_DEV=y
+ # CONFIG_RTC_DRV_DS3232 is not set
+ # CONFIG_RTC_DRV_MAX6900 is not set
+ # CONFIG_RTC_DRV_MAX8997 is not set
+-# CONFIG_RTC_DRV_MAX77686 is not set
++CONFIG_RTC_DRV_MAX77686=y
+ # CONFIG_RTC_DRV_RS5C372 is not set
+ # CONFIG_RTC_DRV_ISL1208 is not set
+ # CONFIG_RTC_DRV_ISL12022 is not set
+-- 
+1.8.3.2
+

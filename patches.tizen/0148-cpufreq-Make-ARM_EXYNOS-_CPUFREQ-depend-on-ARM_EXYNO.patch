@@ -1,0 +1,44 @@
+From df80e636d39ee0ff7bae0dd65c0c1674973fa8a4 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 28 Feb 2013 20:06:13 +0100
+Subject: [PATCH 0148/1302] cpufreq: Make ARM_EXYNOS*_CPUFREQ depend on
+ ARM_EXYNOS_CPUFREQ
+
+This patch adds dependency on ARM_EXYNOS_CPUFREQ to particular SoC
+drivers to avoid compilation errors when ARM_EXYNOS_CPUFREQ is disabled.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/Kconfig.arm | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/cpufreq/Kconfig.arm b/drivers/cpufreq/Kconfig.arm
+index 6e57543..85d3f39 100644
+--- a/drivers/cpufreq/Kconfig.arm
++++ b/drivers/cpufreq/Kconfig.arm
+@@ -27,18 +27,21 @@ config ARM_EXYNOS_CPUFREQ
+ 
+ config ARM_EXYNOS4210_CPUFREQ
+ 	def_bool CPU_EXYNOS4210
++	depends on ARM_EXYNOS_CPUFREQ
+ 	help
+ 	  This adds the CPUFreq driver for Samsung EXYNOS4210
+ 	  SoC (S5PV310 or S5PC210).
+ 
+ config ARM_EXYNOS4X12_CPUFREQ
+ 	def_bool (SOC_EXYNOS4212 || SOC_EXYNOS4412)
++	depends on ARM_EXYNOS_CPUFREQ
+ 	help
+ 	  This adds the CPUFreq driver for Samsung EXYNOS4X12
+ 	  SoC (EXYNOS4212 or EXYNOS4412).
+ 
+ config ARM_EXYNOS5250_CPUFREQ
+ 	def_bool SOC_EXYNOS5250
++	depends on ARM_EXYNOS_CPUFREQ
+ 	help
+ 	  This adds the CPUFreq driver for Samsung EXYNOS5250
+ 	  SoC.
+-- 
+1.8.3.2
+

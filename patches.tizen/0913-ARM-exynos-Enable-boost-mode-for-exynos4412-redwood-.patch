@@ -1,0 +1,27 @@
+From 376814c7cdc42387de9fd34c1106367183e4b240 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Mon, 10 Jun 2013 13:57:04 +0200
+Subject: [PATCH 0913/1302] ARM:exynos: Enable boost mode for exynos4412
+ redwood target
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index e03854e..a8c99fd 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -140,6 +140,7 @@
+ 
+ 	cpufreq {
+ 		freq_table;
++		boost_mode = "okay";
+ 		status = "okay";
+ 	};
+ 
+-- 
+1.8.3.2
+

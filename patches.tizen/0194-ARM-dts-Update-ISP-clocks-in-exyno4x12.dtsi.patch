@@ -1,0 +1,36 @@
+From 30d1d3f90ff38095e0977c2883c0990fc58ce4be Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 5 Apr 2013 18:50:54 +0200
+Subject: [PATCH 0194/1302] ARM: dts: Update ISP clocks in exyno4x12.dtsi
+
+Update fimc-is node clock properties to match changed div clocks
+base index.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 149c0dd..c0c75d9 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -282,10 +282,10 @@
+ 			clocks = <&clock 353>, <&clock 354>, <&clock 355>,
+ 				<&clock 356>, <&clock 342>, <&clock 17>,
+ 				<&clock 357>, <&clock 358>, <&clock 359>,
+-				<&clock 360>, <&clock 512>,<&clock 513>,
+-				<&clock 514>, <&clock 515>, <&clock 176>,
+-				<&clock 13>, <&clock 516>, <&clock 22>,
+-				<&clock 517>;
++				<&clock 360>, <&clock 450>,<&clock 451>,
++				<&clock 452>, <&clock 453>, <&clock 176>,
++				<&clock 13>, <&clock 454>, <&clock 396>,
++				<&clock 455>;
+ 			clock-names = "lite0", "lite1", "ppmuispx",
+ 				      "ppmuispmx", "sysreg", "mpll",
+ 				      "isp", "drc", "fd",
+-- 
+1.8.3.2
+

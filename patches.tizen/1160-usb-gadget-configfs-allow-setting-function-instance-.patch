@@ -1,0 +1,73 @@
+From c5249b3167b246b85fd62b78d9e2763d5c7c8f40 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 3 Dec 2013 15:15:21 +0100
+Subject: [PATCH 1160/1302] usb: gadget: configfs: allow setting function
+ instance's name
+
+USB function's configfs config group is created in a generic way in
+usb/gadget/configfs.c:function_make(), which in turn delegates actual
+allocation and setup of the USB function instance to a particular
+implementation, e.g. in f_acm.c. The said implementation does its job
+in a parameter-less function e.g. acm_alloc_instance(), which results
+in creating an unnamed config group, whose name is set later in
+function_make(). function_make() creates the name by parsing a string
+of the form:
+
+<function name>.<instance name>
+
+which comes from userspace as a parameter to mkdir invocation.
+
+Up to now only <function name> has been used, while <instance name>
+has been ignored. This patch adds a set_inst_name() operation to
+struct usb_function_instance which allows passing the <instance name>
+from function_make() so that it is not ignored. It is entirely up to the
+implementor of set_inst_name() what to do with the <instance name>.
+
+In a typical case, the struct usb_function_instance is embedded in a
+larger struct which is retrieved in set_inst_name() with container_of(),
+and the larger struct contains a field to store the <instance name>.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/configfs.c | 7 +++++++
+ include/linux/usb/composite.h | 2 ++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/drivers/usb/gadget/configfs.c b/drivers/usb/gadget/configfs.c
+index 2588511..d6c8ab4 100644
+--- a/drivers/usb/gadget/configfs.c
++++ b/drivers/usb/gadget/configfs.c
+@@ -564,6 +564,13 @@ static struct config_group *function_make(
+ 		usb_put_function_instance(fi);
+ 		return ERR_PTR(ret);
+ 	}
++	if (fi->set_inst_name) {
++		ret = fi->set_inst_name(fi, instance_name);
++		if (ret) {
++			usb_put_function_instance(fi);
++			return ERR_PTR(ret);
++		}
++	}
+ 
+ 	gi = container_of(group, struct gadget_info, functions_group);
+ 
+diff --git a/include/linux/usb/composite.h b/include/linux/usb/composite.h
+index 5e61589..dba63f5 100644
+--- a/include/linux/usb/composite.h
++++ b/include/linux/usb/composite.h
+@@ -468,6 +468,8 @@ struct usb_function_instance {
+ 	struct config_group group;
+ 	struct list_head cfs_list;
+ 	struct usb_function_driver *fd;
++	int (*set_inst_name)(struct usb_function_instance *inst,
++			      const char *name);
+ 	void (*free_func_inst)(struct usb_function_instance *inst);
+ };
+ 
+-- 
+1.8.3.2
+

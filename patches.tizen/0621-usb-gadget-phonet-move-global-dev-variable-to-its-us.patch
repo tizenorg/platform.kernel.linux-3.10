@@ -1,0 +1,146 @@
+From 9ac09507f1c2d88e895f15b929fb7509e0b8d785 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Thu, 23 May 2013 10:51:10 +0200
+Subject: [PATCH 0621/1302] usb: gadget: phonet: move global dev variable to
+ its user
+
+cleanup patch only in preparation for configfs.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_phonet.c | 20 +++++++++++---------
+ drivers/usb/gadget/nokia.c    | 14 +++++++++-----
+ drivers/usb/gadget/u_phonet.h |  6 +++---
+ 3 files changed, 23 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_phonet.c b/drivers/usb/gadget/f_phonet.c
+index b21ab55..f8df525 100644
+--- a/drivers/usb/gadget/f_phonet.c
++++ b/drivers/usb/gadget/f_phonet.c
+@@ -579,9 +579,8 @@ pn_unbind(struct usb_configuration *c, struct usb_function *f)
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+-static struct net_device *dev;
+-
+-int __init phonet_bind_config(struct usb_configuration *c)
++int __init phonet_bind_config(struct usb_configuration *c,
++			      struct net_device *dev)
+ {
+ 	struct f_phonet *fp;
+ 	int err, size;
+@@ -606,16 +605,16 @@ int __init phonet_bind_config(struct usb_configuration *c)
+ 	return err;
+ }
+ 
+-int __init gphonet_setup(struct usb_gadget *gadget)
++struct net_device __init *gphonet_setup(struct usb_gadget *gadget)
+ {
++	struct net_device *dev;
+ 	struct phonet_port *port;
+ 	int err;
+ 
+ 	/* Create net device */
+-	BUG_ON(dev);
+ 	dev = alloc_netdev(sizeof(*port), "upnlink%d", pn_net_setup);
+ 	if (!dev)
+-		return -ENOMEM;
++		return ERR_PTR(-ENOMEM);
+ 
+ 	port = netdev_priv(dev);
+ 	spin_lock_init(&port->lock);
+@@ -623,12 +622,15 @@ int __init gphonet_setup(struct usb_gadget *gadget)
+ 	SET_NETDEV_DEV(dev, &gadget->dev);
+ 
+ 	err = register_netdev(dev);
+-	if (err)
++	if (err) {
+ 		free_netdev(dev);
+-	return err;
++
++		return ERR_PTR(err);
++	}
++	return dev;
+ }
+ 
+-void gphonet_cleanup(void)
++void gphonet_cleanup(struct net_device *dev)
+ {
+ 	unregister_netdev(dev);
+ }
+diff --git a/drivers/usb/gadget/nokia.c b/drivers/usb/gadget/nokia.c
+index a69e8bf..5650ece 100644
+--- a/drivers/usb/gadget/nokia.c
++++ b/drivers/usb/gadget/nokia.c
+@@ -106,6 +106,8 @@ static struct usb_function *f_obex2_cfg1;
+ static struct usb_function *f_obex1_cfg2;
+ static struct usb_function *f_obex2_cfg2;
+ static struct eth_dev *the_dev;
++static struct net_device *phonet_dev;
++
+ 
+ static struct usb_configuration nokia_config_500ma_driver = {
+ 	.label		= "Bus Powered",
+@@ -136,7 +138,7 @@ static int __init nokia_bind_config(struct usb_configuration *c)
+ 	int obex1_stat = 0;
+ 	int obex2_stat = 0;
+ 
+-	status = phonet_bind_config(c);
++	status = phonet_bind_config(c, phonet_dev);
+ 	if (status)
+ 		pr_debug("could not bind phonet config\n");
+ 
+@@ -211,9 +213,11 @@ static int __init nokia_bind(struct usb_composite_dev *cdev)
+ 	struct usb_gadget	*gadget = cdev->gadget;
+ 	int			status;
+ 
+-	status = gphonet_setup(cdev->gadget);
+-	if (status < 0)
++	phonet_dev = gphonet_setup(cdev->gadget);
++	if (IS_ERR(phonet_dev)) {
++		status = PTR_ERR(phonet_dev);
+ 		goto err_phonet;
++	}
+ 
+ 	the_dev = gether_setup(cdev->gadget, dev_addr, host_addr, host_mac,
+ 			       qmult);
+@@ -278,7 +282,7 @@ err_obex2_inst:
+ err_usb:
+ 	gether_cleanup(the_dev);
+ err_ether:
+-	gphonet_cleanup();
++	gphonet_cleanup(phonet_dev);
+ err_phonet:
+ 	return status;
+ }
+@@ -300,7 +304,7 @@ static int __exit nokia_unbind(struct usb_composite_dev *cdev)
+ 	if (!IS_ERR(fi_obex2))
+ 		usb_put_function_instance(fi_obex2);
+ 	usb_put_function_instance(fi_acm);
+-	gphonet_cleanup();
++	gphonet_cleanup(phonet_dev);
+ 
+ 	gether_cleanup(the_dev);
+ 
+diff --git a/drivers/usb/gadget/u_phonet.h b/drivers/usb/gadget/u_phonet.h
+index 09a7525..459ee32 100644
+--- a/drivers/usb/gadget/u_phonet.h
++++ b/drivers/usb/gadget/u_phonet.h
+@@ -14,8 +14,8 @@
+ #include <linux/usb/composite.h>
+ #include <linux/usb/cdc.h>
+ 
+-int gphonet_setup(struct usb_gadget *gadget);
+-int phonet_bind_config(struct usb_configuration *c);
+-void gphonet_cleanup(void);
++struct net_device *gphonet_setup(struct usb_gadget *gadget);
++int phonet_bind_config(struct usb_configuration *c, struct net_device *dev);
++void gphonet_cleanup(struct net_device *dev);
+ 
+ #endif /* __U_PHONET_H */
+-- 
+1.8.3.2
+

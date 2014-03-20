@@ -1,0 +1,38 @@
+From ed148ee468d30a4b2cee76033e43c423be12b6c7 Mon Sep 17 00:00:00 2001
+From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Date: Tue, 2 Jul 2013 23:04:25 -0300
+Subject: [PATCH 0695/1302] [media] v4l: of: Use of_get_child_by_name()
+
+Replace a manual loop through child nodes with a call to
+of_get_child_by_name().
+
+Signed-off-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Acked-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/v4l2-core/v4l2-of.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/media/v4l2-core/v4l2-of.c b/drivers/media/v4l2-core/v4l2-of.c
+index aa59639..f64d953 100644
+--- a/drivers/media/v4l2-core/v4l2-of.c
++++ b/drivers/media/v4l2-core/v4l2-of.c
+@@ -173,12 +173,8 @@ struct device_node *v4l2_of_get_next_endpoint(const struct device_node *parent,
+ 		if (node)
+ 			parent = node;
+ 
+-		for_each_child_of_node(parent, node) {
+-			if (!of_node_cmp(node->name, "port")) {
+-				port = node;
+-				break;
+-			}
+-		}
++		port = of_get_child_by_name(parent, "port");
++
+ 		if (port) {
+ 			/* Found a port, get an endpoint. */
+ 			endpoint = of_get_next_child(port, NULL);
+-- 
+1.8.3.2
+

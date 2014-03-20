@@ -1,0 +1,55 @@
+From b06aa43792f87bf3c301669d8d4b332f364bf616 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Mon, 4 Nov 2013 16:12:26 +0900
+Subject: [PATCH 1000/1302] Revert "thermal: exynos: Set MUX bits in tmu's
+ control register to work correctly."
+
+This reverts commit e612d47f36eb9eb90ee88fd11addfe5aac8cdae4.
+This will be suppported later with Lukasz's pathches.
+
+Signed-off-by : Jonghwa Lee <jonghwa3.lee@samsung.com>
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/samsung/exynos_tmu.c      | 10 ----------
+ drivers/thermal/samsung/exynos_tmu_data.h |  3 ---
+ 2 files changed, 13 deletions(-)
+
+diff --git a/drivers/thermal/samsung/exynos_tmu.c b/drivers/thermal/samsung/exynos_tmu.c
+index fa6631a..b43afda 100644
+--- a/drivers/thermal/samsung/exynos_tmu.c
++++ b/drivers/thermal/samsung/exynos_tmu.c
+@@ -322,16 +322,6 @@ static void exynos_tmu_control(struct platform_device *pdev, bool on)
+ 		con |= pdata->reference_voltage << reg->buf_vref_sel_shift;
+ 	}
+ 
+-	/*
+-	 * In Exynos 4x12 and 5250,
+-	 * MUX bits should be set to 0x6 for normal operation.
+-	 * For ohters, it can be ignored.
+-	 */
+-	if (pdata->type == SOC_ARCH_EXYNOS) {
+-		con &= ~(EXYNOS_TMU_MUX_ADDR_MASK << EXYNOS_TMU_MUX_ADDR_SHIFT);
+-		con |= EXYNOS_TMU_MUX_ADDR_DEFAULT << EXYNOS_TMU_MUX_ADDR_SHIFT;
+-	}
+-
+ 	if (pdata->gain) {
+ 		con &= ~(reg->buf_slope_sel_mask << reg->buf_slope_sel_shift);
+ 		con |= (pdata->gain << reg->buf_slope_sel_shift);
+diff --git a/drivers/thermal/samsung/exynos_tmu_data.h b/drivers/thermal/samsung/exynos_tmu_data.h
+index 2144eaf..dc7feb5 100644
+--- a/drivers/thermal/samsung/exynos_tmu_data.h
++++ b/drivers/thermal/samsung/exynos_tmu_data.h
+@@ -35,9 +35,6 @@
+ #define EXYNOS_TMU_TEMP_MASK		0xff
+ #define EXYNOS_TMU_REF_VOLTAGE_SHIFT	24
+ #define EXYNOS_TMU_REF_VOLTAGE_MASK	0x1f
+-#define EXYNOS_TMU_MUX_ADDR_DEFAULT	0x6
+-#define EXYNOS_TMU_MUX_ADDR_MASK	0x7
+-#define EXYNOS_TMU_MUX_ADDR_SHIFT	20
+ #define EXYNOS_TMU_BUF_SLOPE_SEL_MASK	0xf
+ #define EXYNOS_TMU_BUF_SLOPE_SEL_SHIFT	8
+ #define EXYNOS_TMU_CORE_EN_SHIFT	0
+-- 
+1.8.3.2
+

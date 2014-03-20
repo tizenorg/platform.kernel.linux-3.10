@@ -1,0 +1,37 @@
+From 023f57bb00678ee04f588275c1a04e7a88e09c39 Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Tue, 11 Feb 2014 10:54:34 +0900
+Subject: [PATCH 1253/1302] au0828: fix i2c clock speed for DViCO FusionHDTV7
+
+DViCO FusionHDTV7 device that use au0828 can fail to communicate with
+xc5000 using i2c interface because of high i2c clock speed - i2c clock
+stretching bug. It causes to fail xc5000 firmware loading normally at
+the current driver.
+
+Already this problem fixed as changing to low i2c clock speed at
+HVR-950q device, also DViCO FusionHDTV7 device can solve it as using low
+i2c clock speed - 20KHz.
+
+Change-Id: Ie6fed3673081970a7d6aceeda584433f95c092a2
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/usb/au0828/au0828-cards.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/usb/au0828/au0828-cards.c b/drivers/media/usb/au0828/au0828-cards.c
+index dd32dec..6b569f4 100644
+--- a/drivers/media/usb/au0828/au0828-cards.c
++++ b/drivers/media/usb/au0828/au0828-cards.c
+@@ -108,7 +108,7 @@ struct au0828_board au0828_boards[] = {
+ 		.name	= "DViCO FusionHDTV USB",
+ 		.tuner_type = UNSET,
+ 		.tuner_addr = ADDR_UNSET,
+-		.i2c_clk_divider = AU0828_I2C_CLK_250KHZ,
++		.i2c_clk_divider = AU0828_I2C_CLK_20KHZ,
+ 	},
+ 	[AU0828_BOARD_HAUPPAUGE_WOODBURY] = {
+ 		.name = "Hauppauge Woodbury",
+-- 
+1.8.3.2
+

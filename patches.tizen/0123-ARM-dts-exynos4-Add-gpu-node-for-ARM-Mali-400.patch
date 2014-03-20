@@ -1,0 +1,74 @@
+From 1a4303e7c0c703e67bd43aa05b3d1e38dbe9d2f6 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 14 Feb 2013 12:24:07 +0100
+Subject: [PATCH 0123/1302] ARM: dts: exynos4: Add gpu node for ARM Mali 400
+
+This patch adds gpu node to exynos4 dtsi with properties common for all
+Exynos4 SoCs.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210.dtsi | 17 +++++++++++++++++
+ arch/arm/boot/dts/exynos4x12.dtsi | 17 +++++++++++++++++
+ 2 files changed, 34 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210.dtsi b/arch/arm/boot/dts/exynos4210.dtsi
+index 750b320..fe5aa7a 100644
+--- a/arch/arm/boot/dts/exynos4210.dtsi
++++ b/arch/arm/boot/dts/exynos4210.dtsi
+@@ -202,6 +202,23 @@
+ 		};
+ 	};
+ 
++	gpu@13000000 {
++		compatible = "samsung,exynos4210-g3d";
++		reg = <0x13001000 0x200>,
++			<0x13000000 0x100>, <0x13003000 0x100>,
++			<0x13008000 0x1100>, <0x13004000 0x100>,
++			<0x1300a000 0x1100>, <0x13005000 0x100>,
++			<0x1300c000 0x1100>, <0x13006000 0x100>,
++			<0x1300e000 0x1100>, <0x13007000 0x100>;
++		interrupts = <0 127 0>, <0 122 0>, <0 123 0>, <0 118 0>,
++				<0 124 0>, <0 119 0>, <0 125 0>, <0 120 0>,
++				<0 126 0>, <0 121 0>;
++		clock-names = "sclk_vpll", "mout_g3d1", "mout_g3d", "sclk_g3d";
++		clocks = <&clock 11>, <&clock 393>, <&clock 394>, <&clock 172>;
++		samsung,power-domain = <&pd_g3d>;
++		status = "disabled";
++	};
++
+ 	cpufreq {
+ 		compatible = "samsung,exynos-cpufreq";
+ 		clocks = <&clock 12>, <&clock 19>, <&clock 9>, <&clock 20>;
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index c0edb05..3872297 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -262,6 +262,23 @@
+ 		};
+ 	};
+ 
++	gpu@13000000 {
++		compatible = "samsung,exynos4x12-g3d";
++		reg = <0x13001000 0x200>,
++			<0x13000000 0x100>, <0x13003000 0x100>,
++			<0x13008000 0x1100>, <0x13004000 0x100>,
++			<0x1300a000 0x1100>, <0x13005000 0x100>,
++			<0x1300c000 0x1100>, <0x13006000 0x100>,
++			<0x1300e000 0x1100>, <0x13007000 0x100>;
++		interrupts = <0 127 0>, <0 122 0>, <0 123 0>, <0 118 0>,
++				<0 124 0>, <0 119 0>, <0 125 0>, <0 120 0>,
++				<0 126 0>, <0 121 0>;
++		clock-names = "sclk_vpll", "mout_g3d1", "mout_g3d", "sclk_g3d";
++		clocks = <&clock 11>, <&clock 393>, <&clock 394>, <&clock 172>;
++		samsung,power-domain = <&pd_g3d>;
++		status = "disabled";
++	};
++
+ 	cpufreq {
+ 		compatible = "samsung,exynos-cpufreq";
+ 		clocks = <&clock 12>, <&clock 19>, <&clock 9>, <&clock 20>;
+-- 
+1.8.3.2
+

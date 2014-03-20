@@ -1,0 +1,43 @@
+From 176a8dd1e6ddf00cd792faeaaaa614b44f88e963 Mon Sep 17 00:00:00 2001
+From: Eduardo Valentin <eduardo.valentin@ti.com>
+Date: Wed, 29 May 2013 21:37:00 +0000
+Subject: [PATCH 0941/1302] thermal: consider emul_temperature while computing
+ trend
+
+In case emulated temperature is in use, using the trend
+provided by driver layer can lead to bogus situation.
+In this case, debugger user would set a temperature value,
+but the trend would be from driver computation.
+
+To avoid this situation, this patch changes the get_tz_trend()
+to consider the emulated temperature whenever that is in use.
+
+Cc: Zhang Rui <rui.zhang@intel.com>
+Cc: Amit Daniel Kachhap <amit.daniel@samsung.com>
+Cc: Durgadoss R <durgadoss.r@intel.com>
+Cc: linux-pm@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: Zhang Rui <rui.zhang@intel.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/thermal_core.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/thermal/thermal_core.c b/drivers/thermal/thermal_core.c
+index cd9faa8..8f4be55 100644
+--- a/drivers/thermal/thermal_core.c
++++ b/drivers/thermal/thermal_core.c
+@@ -157,7 +157,8 @@ int get_tz_trend(struct thermal_zone_device *tz, int trip)
+ {
+ 	enum thermal_trend trend;
+ 
+-	if (!tz->ops->get_trend || tz->ops->get_trend(tz, trip, &trend)) {
++	if (tz->emul_temperature || !tz->ops->get_trend ||
++	    tz->ops->get_trend(tz, trip, &trend)) {
+ 		if (tz->temperature > tz->last_temperature)
+ 			trend = THERMAL_TREND_RAISING;
+ 		else if (tz->temperature < tz->last_temperature)
+-- 
+1.8.3.2
+

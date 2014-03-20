@@ -1,0 +1,111 @@
+From 78e3c415e8e571060179b0c47be61f733e29903f Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 20 Aug 2013 13:39:37 +0200
+Subject: [PATCH 0171/1302] ARM: dts: exynos4: Move fimc-lite nodes to root
+ level
+
+There is no need for the fimc-lite nodes to be children of
+fimc-is node. FIMC-LITE can work independently of the FIMC-IS.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 16 ++++++-------
+ arch/arm/boot/dts/exynos4x12.dtsi       | 40 ++++++++++++++++-----------------
+ 2 files changed, 28 insertions(+), 28 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index a832bc2..9fb3fc4 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -716,20 +716,20 @@
+ 			};
+ 		};
+ 
++		fimc_lite_0: fimc-lite@12390000 {
++			status = "okay";
++		};
++
++		fimc_lite_1: fimc-lite@123A0000 {
++			status = "okay";
++		};
++
+ 		fimc-is@12000000 {
+ 			status = "okay";
+ 			pinctrl-0 = <&fimc_is_uart>;
+ 			pinctrl-names = "default";
+ 			memory-region = <&fimc_mem>;
+ 
+-			fimc_lite_0: fimc-lite@12390000 {
+-				status = "okay";
+-			};
+-
+-			fimc_lite_1: fimc-lite@123A0000 {
+-				status = "okay";
+-			};
+-
+ 			i2c1_isp: i2c-isp@12140000 {
+ 				pinctrl-0 = <&fimc_is_i2c1>;
+ 				pinctrl-names = "default";
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index a3ed9ff..5ec7245 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -256,6 +256,26 @@
+ 			clock-names = "csis", "sclk_csis", "mux", "parent";
+ 		};
+ 
++		fimc_lite_0: fimc-lite@12390000 {
++			compatible = "samsung,exynos4212-fimc-lite";
++			reg = <0x12390000 0x1000>;
++			interrupts = <0 105 0>;
++			samsung,power-domain = <&pd_isp>;
++			clocks = <&clock 353>;
++			clock-names = "flite";
++			status = "disabled";
++		};
++
++		fimc_lite_1: fimc-lite@123A0000 {
++			compatible = "samsung,exynos4212-fimc-lite";
++			reg = <0x123A0000 0x1000>;
++			interrupts = <0 106 0>;
++			samsung,power-domain = <&pd_isp>;
++			clocks = <&clock 354>;
++			clock-names = "flite";
++			status = "disabled";
++		};
++
+ 		fimc_is: fimc-is@12000000 {
+ 			compatible = "samsung,exynos4212-fimc-is", "simple-bus";
+ 			reg = <0x12000000 0x260000>;
+@@ -273,26 +293,6 @@
+ 			pmu {
+ 				reg = <0x10020000 0x3000>;
+ 			};
+-
+-			fimc_lite_0: fimc-lite@12390000 {
+-				compatible = "samsung,exynos4212-fimc-lite";
+-				reg = <0x12390000 0x1000>;
+-				interrupts = <0 105 0>;
+-				samsung,power-domain = <&pd_isp>;
+-				clocks = <&clock 353>;
+-				clock-names = "flite";
+-				status = "disabled";
+-			};
+-
+-			fimc_lite_1: fimc-lite@123A0000 {
+-				compatible = "samsung,exynos4212-fimc-lite";
+-				reg = <0x123A0000 0x1000>;
+-				interrupts = <0 106 0>;
+-				samsung,power-domain = <&pd_isp>;
+-				clocks = <&clock 354>;
+-				clock-names = "flite";
+-				status = "disabled";
+-			};
+ 		};
+ 	};
+ 
+-- 
+1.8.3.2
+

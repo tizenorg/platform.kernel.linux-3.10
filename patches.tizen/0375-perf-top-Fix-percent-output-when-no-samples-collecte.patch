@@ -1,0 +1,69 @@
+From fc0914141006b72785cbc64b299f074abc837278 Mon Sep 17 00:00:00 2001
+From: Namhyung Kim <namhyung.kim@lge.com>
+Date: Tue, 14 May 2013 11:09:00 +0900
+Subject: [PATCH 0375/1302] perf top: Fix percent output when no samples
+ collected
+
+If there's no sample, kernel and exact percent output at the header
+looked like "-nan%".
+
+Tested-by: Jiri Olsa <jolsa@redhat.com>
+Signed-off-by: Namhyung Kim <namhyung@kernel.org>
+Cc: David Ahern <dsahern@gmail.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Jiri Olsa <jolsa@redhat.com>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1368497347-9628-3-git-send-email-namhyung@kernel.org
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/util/top.c | 23 +++++++++++++++++------
+ 1 file changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/tools/perf/util/top.c b/tools/perf/util/top.c
+index 54d37a4..f857b51 100644
+--- a/tools/perf/util/top.c
++++ b/tools/perf/util/top.c
+@@ -23,20 +23,31 @@
+ 
+ size_t perf_top__header_snprintf(struct perf_top *top, char *bf, size_t size)
+ {
+-	float samples_per_sec = top->samples / top->delay_secs;
+-	float ksamples_per_sec = top->kernel_samples / top->delay_secs;
+-	float esamples_percent = (100.0 * top->exact_samples) / top->samples;
++	float samples_per_sec;
++	float ksamples_per_sec;
++	float esamples_percent;
+ 	struct perf_record_opts *opts = &top->record_opts;
+ 	struct perf_target *target = &opts->target;
+ 	size_t ret = 0;
+ 
++	if (top->samples) {
++		samples_per_sec = top->samples / top->delay_secs;
++		ksamples_per_sec = top->kernel_samples / top->delay_secs;
++		esamples_percent = (100.0 * top->exact_samples) / top->samples;
++	} else {
++		samples_per_sec = ksamples_per_sec = esamples_percent = 0.0;
++	}
++
+ 	if (!perf_guest) {
++		float ksamples_percent = 0.0;
++
++		if (samples_per_sec)
++			ksamples_percent = (100.0 * ksamples_per_sec) /
++							samples_per_sec;
+ 		ret = SNPRINTF(bf, size,
+ 			       "   PerfTop:%8.0f irqs/sec  kernel:%4.1f%%"
+ 			       "  exact: %4.1f%% [", samples_per_sec,
+-			       100.0 - (100.0 * ((samples_per_sec - ksamples_per_sec) /
+-					samples_per_sec)),
+-				esamples_percent);
++			       ksamples_percent, esamples_percent);
+ 	} else {
+ 		float us_samples_per_sec = top->us_samples / top->delay_secs;
+ 		float guest_kernel_samples_per_sec = top->guest_kernel_samples / top->delay_secs;
+-- 
+1.8.3.2
+

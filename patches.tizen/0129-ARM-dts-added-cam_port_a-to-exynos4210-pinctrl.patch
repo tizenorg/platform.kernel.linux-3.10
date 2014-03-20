@@ -1,0 +1,50 @@
+From 123af196bbcd3f3b21442b0f44c8d8529bad2451 Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Wed, 27 Feb 2013 10:36:38 +0100
+Subject: [PATCH 0129/1302] ARM: dts: added cam_port_a to exynos4210 pinctrl
+
+Patch adds cam_port a to exynos4210.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-pinctrl.dtsi | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-pinctrl.dtsi b/arch/arm/boot/dts/exynos4210-pinctrl.dtsi
+index 55a2efb..00a1221 100644
+--- a/arch/arm/boot/dts/exynos4210-pinctrl.dtsi
++++ b/arch/arm/boot/dts/exynos4210-pinctrl.dtsi
+@@ -708,6 +708,29 @@
+ 			samsung,pin-pud = <0>;
+ 			samsung,pin-drv = <0>;
+ 		};
++
++		cam_port_a_io: cam-port-a-io {
++			samsung,pins = "gpj0-0", "gpj0-1", "gpj0-2", "gpj0-3",
++					"gpj0-4", "gpj0-5", "gpj0-6", "gpj0-7",
++					"gpj1-0", "gpj1-1", "gpj1-2", "gpj1-4";
++			samsung,pin-function = <2>;
++			samsung,pin-pud = <0>;
++			samsung,pin-drv = <0>;
++		};
++
++		cam_port_a_clk: cam-port-a-clk {
++			samsung,pins = "gpj1-3";
++			samsung,pin-function = <2>;
++			samsung,pin-pud = <0>;
++			samsung,pin-drv = <3>;
++		};
++
++		cam_port_a_clk_off: cam-port-a-clk-off {
++			samsung,pins = "gpj1-3";
++			samsung,pin-function = <0>;
++			samsung,pin-pud = <0>;
++			samsung,pin-drv = <0>;
++		};
+ 	};
+ 
+ 	pinctrl@03860000 {
+-- 
+1.8.3.2
+

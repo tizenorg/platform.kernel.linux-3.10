@@ -1,0 +1,86 @@
+From 019af219dcafc0ada7d4d9bc7dffbb58ee9d10b2 Mon Sep 17 00:00:00 2001
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Date: Fri, 14 Feb 2014 19:34:17 +0100
+Subject: [PATCH 1236/1302] mm/page_alloc: fix freeing of MIGRATE_RESERVE
+ migratetype pages
+
+Pages allocated from MIGRATE_RESERVE migratetype pageblocks
+are not freed back to MIGRATE_RESERVE migratetype free
+lists in free_pcppages_bulk()->__free_one_page() if we got
+to free_pcppages_bulk() through drain_[zone_]pages().
+The freeing through free_hot_cold_page() is okay because
+freepage migratetype is set to pageblock migratetype before
+calling free_pcppages_bulk().  If pages of MIGRATE_RESERVE
+migratetype end up on the free lists of other migratetype
+whole Reserved pageblock may be later changed to the other
+migratetype in __rmqueue_fallback() and it will be never
+changed back to be a Reserved pageblock.  Fix the issue by
+preserving freepage migratetype as a pageblock migratetype
+(instead of overriding it to the requested migratetype)
+for MIGRATE_RESERVE migratetype pages in rmqueue_bulk().
+
+The problem was introduced in v2.6.31 by commit ed0ae21
+("page allocator: do not call get_pageblock_migratetype()
+more than necessary").
+
+Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Reported-by: Yong-Taek Lee <ytk.lee@samsung.com>
+Cc: Marek Szyprowski <m.szyprowski@samsung.com>
+Cc: Mel Gorman <mgorman@suse.de>
+Cc: Hugh Dickins <hughd@google.com>
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: I1d4ab2a3241387160dd376b0ead864cd2b0c59f0
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ include/linux/mmzone.h |  5 +++++
+ mm/page_alloc.c        | 10 +++++++---
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 5c76737..dc40e42 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -63,6 +63,11 @@ enum {
+ 	MIGRATE_TYPES
+ };
+ 
++static inline bool is_migrate_reserve(int migratetype)
++{
++	return unlikely(migratetype == MIGRATE_RESERVE);
++}
++
+ #ifdef CONFIG_CMA
+ #  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
+ #else
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index bb92575..1138c55 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1138,7 +1138,7 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
+ 			unsigned long count, struct list_head *list,
+ 			int migratetype, int cold)
+ {
+-	int mt = migratetype, i;
++	int mt, i;
+ 
+ 	spin_lock(&zone->lock);
+ 	for (i = 0; i < count; ++i) {
+@@ -1159,9 +1159,13 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
+ 			list_add(&page->lru, list);
+ 		else
+ 			list_add_tail(&page->lru, list);
++		mt = get_pageblock_migratetype(page);
+ 		if (IS_ENABLED(CONFIG_CMA)) {
+-			mt = get_pageblock_migratetype(page);
+-			if (!is_migrate_cma(mt) && !is_migrate_isolate(mt))
++			if (!is_migrate_cma(mt) && !is_migrate_isolate(mt) &&
++			    !is_migrate_reserve(mt))
++				mt = migratetype;
++		} else {
++			if (!is_migrate_reserve(mt))
+ 				mt = migratetype;
+ 		}
+ 		set_freepage_migratetype(page, mt);
+-- 
+1.8.3.2
+

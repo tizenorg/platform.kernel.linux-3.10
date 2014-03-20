@@ -1,0 +1,61 @@
+From bbe3f016e7af0062d8d93372036c4c1b5ed935bc Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 13 Feb 2013 15:56:30 +0100
+Subject: [PATCH 0086/1302] ARM: dts: Add missing MIPI-CSIS clock properties
+ for Exynos4 SoCs
+
+Add MIPI-CSIS clock properties missing in commit
+c266c6dc5fb3c597d0e1a706438aa64797ca249b
+ARM: dts: Correct FIMC clocks definitions for Exynos4210
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210.dtsi | 10 ++++++++++
+ arch/arm/boot/dts/exynos4x12.dtsi | 10 ++++++++++
+ 2 files changed, 20 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210.dtsi b/arch/arm/boot/dts/exynos4210.dtsi
+index 5f1a54b..99cb43e 100644
+--- a/arch/arm/boot/dts/exynos4210.dtsi
++++ b/arch/arm/boot/dts/exynos4210.dtsi
+@@ -190,5 +190,15 @@
+ 			clocks = <&clock 259>, <&clock 131>, <&clock 387>, <&clock 9>;
+ 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+ 		};
++
++		csis_0: csis@11880000 {
++			clocks = <&clock 260>, <&clock 134>, <&clock 390>, <&clock 9>;
++			clock-names = "csis", "sclk_csis", "mux", "parent";
++		};
++
++		csis_1: csis@11890000 {
++			clocks = <&clock 261>, <&clock 135>, <&clock 391>, <&clock 9>;
++			clock-names = "csis", "sclk_csis", "mux", "parent";
++		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 1ae99fc..636c2f4 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -212,6 +212,16 @@
+ 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+ 		};
+ 
++		csis_0: csis@11880000 {
++			clocks = <&clock 260>, <&clock 134>, <&clock 390>, <&clock 17>;
++			clock-names = "csis", "sclk_csis", "mux", "parent";
++		};
++
++		csis_1: csis@11890000 {
++			clocks = <&clock 261>, <&clock 135>, <&clock 391>, <&clock 17>;
++			clock-names = "csis", "sclk_csis", "mux", "parent";
++		};
++
+ 		fimc_is: fimc-is@12000000 {
+ 			compatible = "samsung,exynos4212-fimc-is", "simple-bus";
+ 			reg = <0x12000000 0x260000>;
+-- 
+1.8.3.2
+

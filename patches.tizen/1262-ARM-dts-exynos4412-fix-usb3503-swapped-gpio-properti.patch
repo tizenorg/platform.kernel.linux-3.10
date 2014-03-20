@@ -1,0 +1,35 @@
+From 9dd207548abf27493dca0c73954dc021ab2ed30d Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 4 Mar 2014 08:18:06 +0100
+Subject: [PATCH 1262/1302] ARM: dts: exynos4412: fix usb3503 swapped gpio
+ properties
+
+GPIO properties were swapped in the USB3503 driver. This has been fixed
+by mainline commit 42416cc81f4990ad8d425b41a0fc8cd985eb5fa5, so now also
+fix the DTS using this driver.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: I42416cc81f4990ad8d425b41a0fc8cd985eb5fa6
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-odroidx2.dts | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-odroidx2.dts b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+index c4c01bb..e10200b 100644
+--- a/arch/arm/boot/dts/exynos4412-odroidx2.dts
++++ b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+@@ -149,8 +149,8 @@
+ 			compatible = "smsc,usb3503";
+ 			reg = <0x08>;
+ 
+-			connect-gpios = <&gpx3 0 0>;
+-			intn-gpios = <&gpx3 4 0>;
++			connect-gpios = <&gpx3 4 0>;
++			intn-gpios = <&gpx3 0 0>;
+ 			reset-gpios = <&gpx3 5 0>;
+ 			initial-mode = <1>;
+ 
+-- 
+1.8.3.2
+

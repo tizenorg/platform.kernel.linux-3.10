@@ -1,0 +1,48 @@
+From ce343c80c2ac872e2cc074e8b8c859346610652a Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 2 Sep 2013 15:17:12 +0200
+Subject: [PATCH 0728/1302] ARM: dts: Update s5c73m3 sensor gpio properties for
+ exynos4412 boards
+
+For synchronization with the latest driver update for mainline.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwoodlte.dts | 4 ++--
+ arch/arm/boot/dts/exynos4412-slp_pq.dts     | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwoodlte.dts b/arch/arm/boot/dts/exynos4412-redwoodlte.dts
+index 4da7157..bc61f1c 100644
+--- a/arch/arm/boot/dts/exynos4412-redwoodlte.dts
++++ b/arch/arm/boot/dts/exynos4412-redwoodlte.dts
+@@ -160,8 +160,8 @@
+ 		s5c73m3@3c {
+ 			compatible = "samsung,s5c73m3";
+ 			reg = <0x3c>;
+-			gpios = <&gpm0 1 1>, /* ISP_STANDBY */
+-				<&gpf1 3 1>; /* ISP_RESET */
++			standby-gpios = <&gpm0 1 1>;	/* ISP_STANDBY */
++			xshutdown-gpios = <&gpf1 3 1>;	/* ISP_RESET */
+ 			vdd-int-supply = <&buck9_reg>;
+ 			vddio-cis-supply = <&ldo9_reg>;
+ 			vdda-supply = <&ldo17_reg>;
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 03f53a4..4291f0c 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -407,8 +407,8 @@
+ 		s5c73m3@3c {
+ 			compatible = "samsung,s5c73m3";
+ 			reg = <0x3c>;
+-			gpios = <&gpm0 1 1>, /* ISP_STANDBY */
+-				<&gpf1 3 1>; /* ISP_RESET */
++			standby-gpios = <&gpm0 1 1>;	/* ISP_STANDBY */
++			xshutdown-gpios = <&gpf1 3 1>;	/* ISP_RESET */
+ 			vdd-int-supply = <&buck9_reg>;
+ 			vddio-cis-supply = <&ldo9_reg>;
+ 			vdda-supply = <&ldo17_reg>;
+-- 
+1.8.3.2
+

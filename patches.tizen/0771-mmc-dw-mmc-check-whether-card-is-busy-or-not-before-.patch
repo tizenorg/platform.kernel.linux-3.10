@@ -1,0 +1,82 @@
+From e07f849566a05d85e31b69fa00cf0cf0f407316b Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Tue, 10 Sep 2013 17:43:03 +0900
+Subject: [PATCH 0771/1302] mmc: dw-mmc: check whether card is busy or not,
+ before clock disabled.
+
+Before disable the clock, must check whether card is busy or not.
+(Refer to DesignWare TRM)
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/dw_mmc.c | 39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
+
+diff --git a/drivers/mmc/host/dw_mmc.c b/drivers/mmc/host/dw_mmc.c
+index 564c9fb..c6deb2b 100644
+--- a/drivers/mmc/host/dw_mmc.c
++++ b/drivers/mmc/host/dw_mmc.c
+@@ -310,6 +310,27 @@ static void dw_mci_stop_dma(struct dw_mci *host)
+ 	}
+ }
+ 
++static bool dw_mci_wait_reset(struct device *dev, struct dw_mci *host,
++		unsigned int reset_val)
++{
++	unsigned long timeout = jiffies + msecs_to_jiffies(500);
++	unsigned int ctrl;
++
++	ctrl = mci_readl(host, CTRL);
++	ctrl |= reset_val;
++	mci_writel(host, CTRL, ctrl);
++
++	/* wait till resets clear */
++	do {
++		if (!(mci_readl(host, CTRL) & reset_val))
++			return true;
++	} while (time_before(jiffies, timeout));
++
++	dev_err(dev, "Timeout resetting block (ctrl %#x)\n", ctrl);
++
++	return false;
++}
++
+ static int dw_mci_get_dma_dir(struct mmc_data *data)
+ {
+ 	if (data->flags & MMC_DATA_WRITE)
+@@ -634,6 +655,7 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
+ 	struct dw_mci *host = slot->host;
+ 	u32 div;
+ 	u32 clk_en_a;
++	int timeout = 1000;
+ 
+ 	if (slot->clock != host->current_speed || force_clkinit) {
+ 		div = host->bus_hz / slot->clock;
+@@ -651,6 +673,23 @@ static void dw_mci_setup_bus(struct dw_mci_slot *slot, bool force_clkinit)
+ 			 " div = %d)\n", slot->id, host->bus_hz, slot->clock,
+ 			 div ? ((host->bus_hz / div) >> 1) : host->bus_hz, div);
+ 
++		/*
++		 * Before disable the clock,
++		 * must check whether the card is busy or not.
++		 */
++		do {
++			if (!(mci_readl(host, STATUS) & BIT(9)))
++				break;
++			if (timeout-- < 0) {
++				dev_err(host->dev, "Can't disable clock"
++						"because Card is busy!!\n");
++				return;
++			}
++			host->cur_slot = slot;
++			dw_mci_wait_reset(host->dev, host, SDMMC_CTRL_RESET);
++
++		} while (1);
++
+ 		/* disable clock */
+ 		mci_writel(host, CLKENA, 0);
+ 		mci_writel(host, CLKSRC, 0);
+-- 
+1.8.3.2
+

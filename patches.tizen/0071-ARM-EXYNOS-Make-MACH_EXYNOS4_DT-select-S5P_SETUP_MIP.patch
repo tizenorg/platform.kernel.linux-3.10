@@ -1,0 +1,30 @@
+From 550324cea23c113ae343a7c3e27111811ee95a2b Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Mon, 3 Sep 2012 15:51:26 +0200
+Subject: [PATCH 0071/1302] ARM: EXYNOS: Make MACH_EXYNOS4_DT select
+ S5P_SETUP_MIPIPHY
+
+S5P_SETUP_MIPIPHY is needed for device tree support of MIPI DSI on
+Exynos4.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/mach-exynos/Kconfig b/arch/arm/mach-exynos/Kconfig
+index 0020f87..3ea8c7d 100644
+--- a/arch/arm/mach-exynos/Kconfig
++++ b/arch/arm/mach-exynos/Kconfig
+@@ -416,6 +416,7 @@ config MACH_EXYNOS4_DT
+ 	select PINCTRL
+ 	select PINCTRL_EXYNOS
+ 	select S5P_DEV_MFC
++	select S5P_SETUP_MIPIPHY
+ 	select USE_OF
+ 	select ARM_DMA_USE_IOMMU if EXYNOS_IOMMU
+ 	help
+-- 
+1.8.3.2
+

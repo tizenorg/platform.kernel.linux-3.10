@@ -1,0 +1,47 @@
+From 7079855f42e08955fac651bc1124707fb59abcd5 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 9 May 2013 17:50:17 +0200
+Subject: [PATCH 0235/1302] ARM: dts: Modify lps331ap device node for PQ/M0
+ board
+
+This patch adds interrupt-map support for the lps331ap
+device node for PQ/M0 board, so that it facilitates
+passing information about device's interrupt sources used.
+
+Signed-off-by: Jacek Anaszewski <j.anaszewski@samsung.com>
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 672d720..d8d8351 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -163,10 +163,19 @@
+ 		#size-cells = <0>;
+ 		status = "okay";
+ 
+-		lps331ap@5D {
++		lps331ap@5d {
+ 			compatible = "lps331ap";
+-			reg = <0x5D>;
+-			gpios = <&gpf0 5 0>;
++			reg = <0x5d>;
++			gpios = <&gpf0 5 0>; /* Used only by legacy driver */
++			interrupt-parent = <&irq_map>;
++			interrupts = <0>, <1>;
++
++			irq_map: irq-map {
++				#interrupt-cells = <1>;
++				#address-cells = <0>;
++				#size-cells = <0>;
++				interrupt-map = <1 &gpf0 5 0>;
++			};
+ 		};
+ 	};
+ 
+-- 
+1.8.3.2
+

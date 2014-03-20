@@ -1,0 +1,52 @@
+From a66299a97599f083e5b867294c124af979b6c8db Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 15 Feb 2013 18:55:41 +0100
+Subject: [PATCH 0136/1302] ARM: dts: Use generic DMA bindings for Exynos4 SPI
+ devices
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 5a6bf05..d4c419a 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -392,8 +392,8 @@
+ 		compatible = "samsung,exynos4210-spi";
+ 		reg = <0x13920000 0x100>;
+ 		interrupts = <0 66 0>;
+-		tx-dma-channel = <&pdma0 7>; /* preliminary */
+-		rx-dma-channel = <&pdma0 6>; /* preliminary */
++		dmas = <&pdma0 7>, <&pdma0 6>;
++		dma-names = "tx", "rx";
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		clocks = <&clock 327>, <&clock 159>;
+@@ -407,8 +407,8 @@
+ 		compatible = "samsung,exynos4210-spi";
+ 		reg = <0x13930000 0x100>;
+ 		interrupts = <0 67 0>;
+-		tx-dma-channel = <&pdma1 7>; /* preliminary */
+-		rx-dma-channel = <&pdma1 6>; /* preliminary */
++		dmas = <&pdma1 7>, <&pdma1 6>;
++		dma-names = "tx", "rx";
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		clocks = <&clock 328>, <&clock 160>;
+@@ -422,8 +422,8 @@
+ 		compatible = "samsung,exynos4210-spi";
+ 		reg = <0x13940000 0x100>;
+ 		interrupts = <0 68 0>;
+-		tx-dma-channel = <&pdma0 9>; /* preliminary */
+-		rx-dma-channel = <&pdma0 8>; /* preliminary */
++		dmas = <&pdma0 9>, <&pdma0 8>;
++		dma-names = "tx", "rx";
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		clocks = <&clock 329>, <&clock 161>;
+-- 
+1.8.3.2
+

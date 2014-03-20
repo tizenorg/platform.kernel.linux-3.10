@@ -1,0 +1,63 @@
+From b8c914272fa254664973ba9e438b4f564596dede Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 10 May 2013 17:58:35 +0900
+Subject: [PATCH 0236/1302] arm: dts: Update max77686's device tree for M0/PQ.
+
+- IRQ type update : from 0 to 2 (FALLING_EDGE)
+- Remove unnecessary data : consumer supplies, min/max uV..
+- Change data of charger ldo from voltage to current.
+
+[s.nawrocki: redundant closing parenthesis removed to fix build break]
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 17 +++++------------
+ 1 file changed, 5 insertions(+), 12 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index d8d8351..7e89324 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -555,7 +555,7 @@
+ 		max77693@66 {
+ 			compatible = "maxim,max77693";
+ 			interrupt-parent = <&gpx1>;
+-			interrupts = <5 0>;
++			interrupts = <5 2>;
+ 			wakeup = <1>;
+ 			reg = <0x66>;
+ 
+@@ -563,25 +563,18 @@
+ 				esafeout@1 {
+ 					regulator-compatible = "ESAFEOUT1";
+ 					regulator-name = "ESAFEOUT1";
+-					regulator-min-microvolt = <4900000>;
+-					regulator-max-microvolt = <4900000>;
++					regulator-boot-on;
+ 				};
+ 				esafeout@2 {
+ 					regulator-compatible = "ESAFEOUT2";
+ 					regulator-name = "ESAFEOUT2";
+-					regulator-min-microvolt = <4900000>;
+-					regulator-max-microvolt = <4900000>;
+ 				};
+ 				charger@0 {
+ 					regulator-compatible = "CHARGER";
+ 					regulator-name = "CHARGER";
+-					regulator-min-microvolt = <100000>;
+-					regulator-max-microvolt = <2100000>;
+-					number-of-consumer-supplies = <1>;
+-					consumer-suppilies@0 {
+-						consumer-name = "vinchg1";
+-						supply-name = "charger-manager.0";
+-					};
++					regulator-min-microamp = <60000>;
++					regulator-max-microamp = <2580000>;
++					regulator-boot-on;
+ 				};
+ 			};
+ 			muic_regs {
+-- 
+1.8.3.2
+

@@ -1,0 +1,59 @@
+From 0432c42736661441f35e6e4161af41bca9af8ee1 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Tue, 5 Feb 2013 15:59:06 +0100
+Subject: [PATCH 0079/1302] ARM: dts: Add dts file for exynos4412-m0 board
+
+This patch adds a basic dts file for M0 board based on Exynos 4412
+SoC.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/Makefile          |  1 +
+ arch/arm/boot/dts/exynos4412-m0.dts | 22 ++++++++++++++++++++++
+ 2 files changed, 23 insertions(+)
+ create mode 100644 arch/arm/boot/dts/exynos4412-m0.dts
+
+diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
+index eb86706..00fe583 100644
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -50,6 +50,7 @@ dtb-$(CONFIG_ARCH_EXYNOS) += exynos4210-origen.dtb \
+ 	exynos4210-smdkv310.dtb \
+ 	exynos4210-trats.dtb \
+ 	exynos4210-universal_c210.dtb \
++	exynos4412-m0.dtb \
+ 	exynos4412-odroidx.dtb \
+ 	exynos4412-redwood.dtb \
+ 	exynos4412-smdk4412.dtb \
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+new file mode 100644
+index 0000000..300ce10
+--- /dev/null
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -0,0 +1,22 @@
++/*
++ * Samsung's Exynos4412 based M0 board device tree source
++ *
++ * Copyright (c) 2012 Samsung Electronics Co., Ltd.
++ *		http://www.samsung.com
++ *
++ * Device tree source file for Samsung's M0 board which is based on
++ * Samsung's Exynos4412 SoC.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++
++/include/ "exynos4412-slp_pq.dts"
++
++/ {
++	model = "Samsung M0 based on Exynos4412";
++	compatible = "samsung,m0", "samsung,exynos4412";
++
++	/* Nothing to override here yet. */
++};
+-- 
+1.8.3.2
+

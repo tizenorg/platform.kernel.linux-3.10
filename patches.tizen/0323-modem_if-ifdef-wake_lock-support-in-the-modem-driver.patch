@@ -1,0 +1,153 @@
+From ca76117bf238273c6b4c2e3aa64192a87528461b Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 21 May 2013 16:54:10 +0200
+Subject: [PATCH 0323/1302] modem_if: ifdef wake_lock support in the modem
+ driver
+
+Wake_locks are not supported outside of Android so it is essential to
+make their use optional.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/misc/modem_if/modem_link_device_hsic.h | 2 ++
+ drivers/misc/modem_if/modem_prj.h              | 8 ++++++++
+ drivers/misc/modem_if/modem_utils.c            | 2 ++
+ drivers/misc/modem_if/sipc5_io_device.c        | 4 ++++
+ drivers/misc/modem_if/sipc5_modem.c            | 4 ++++
+ 5 files changed, 20 insertions(+)
+
+diff --git a/drivers/misc/modem_if/modem_link_device_hsic.h b/drivers/misc/modem_if/modem_link_device_hsic.h
+index 604b067..50a6485 100644
+--- a/drivers/misc/modem_if/modem_link_device_hsic.h
++++ b/drivers/misc/modem_if/modem_link_device_hsic.h
+@@ -92,10 +92,12 @@ struct link_pm_data {
+ 	bool link_pm_active;
+ 	int resume_retry_cnt;
+ 
++#ifdef CONFIG_HAS_WAKELOCK
+ 	struct wake_lock l2_wake;
+ 	struct wake_lock boot_wake;
+ 	struct wake_lock rpm_wake;
+ 	struct wake_lock tx_async_wake;
++#endif
+ 	struct notifier_block pm_notifier;
+ 	bool dpm_suspending;
+ 
+diff --git a/drivers/misc/modem_if/modem_prj.h b/drivers/misc/modem_if/modem_prj.h
+index 4780bef..d7ab484 100644
+--- a/drivers/misc/modem_if/modem_prj.h
++++ b/drivers/misc/modem_if/modem_prj.h
+@@ -20,7 +20,9 @@
+ #include <linux/miscdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/completion.h>
++#ifdef CONFIG_HAS_WAKELOCK
+ #include <linux/wakelock.h>
++#endif
+ #include <linux/rbtree.h>
+ #include <linux/spinlock.h>
+ #include <linux/types.h>
+@@ -351,7 +353,9 @@ struct io_device {
+ 	struct modem_ctl *mc;
+ 	struct modem_shared *msd;
+ 
++#ifdef CONFIG_HAS_WAKELOCK
+ 	struct wake_lock wakelock;
++#endif
+ 	long waketime;
+ 
+ 	/* DO NOT use __current_link directly
+@@ -554,6 +558,8 @@ struct modem_ctl {
+ #endif /*CONFIG_LTE_MODEM_CMC221*/
+ #if defined(CONFIG_MACH_GRANDE)
+ 	struct delayed_work sim_det_dwork;
++#ifdef CONFIG_HAS_WAKELOCK
++#endif
+ #endif /* For checking sim detect pin */
+ 	struct work_struct work;
+ 
+@@ -570,7 +576,9 @@ struct modem_ctl {
+ 	struct io_device *bootd;
+ 
+ 	/* Wakelock for modem_ctl */
++#ifdef CONFIG_HAS_WAKELOCK
+ 	struct wake_lock mc_wake_lock;
++#endif
+ 
+ 	void (*gpio_revers_bias_clear)(void);
+ 	void (*gpio_revers_bias_restore)(void);
+diff --git a/drivers/misc/modem_if/modem_utils.c b/drivers/misc/modem_if/modem_utils.c
+index a2def11..229e93f 100644
+--- a/drivers/misc/modem_if/modem_utils.c
++++ b/drivers/misc/modem_if/modem_utils.c
+@@ -37,7 +37,9 @@
+ #include <linux/irq.h>
+ #include <linux/gpio.h>
+ #include <linux/delay.h>
++#ifdef CONFIG_HAS_WAKELOCK
+ #include <linux/wakelock.h>
++#endif
+ 
+ #include <linux/platform_data/modem.h>
+ #include "modem_prj.h"
+diff --git a/drivers/misc/modem_if/sipc5_io_device.c b/drivers/misc/modem_if/sipc5_io_device.c
+index 9e22e9c..636e191 100644
+--- a/drivers/misc/modem_if/sipc5_io_device.c
++++ b/drivers/misc/modem_if/sipc5_io_device.c
+@@ -855,8 +855,10 @@ static int io_dev_recv_data_from_link_dev(struct io_device *iod,
+ 	case IPC_RAW:
+ 	case IPC_RFS:
+ 	case IPC_MULTI_RAW:
++#ifdef CONFIG_HAS_WAKELOCK
+ 		if (iod->waketime)
+ 			wake_lock_timeout(&iod->wakelock, iod->waketime);
++#endif
+ 
+ 		if (ld->link_type == LINKDEV_DPRAM && ld->aligned)
+ 			err = rx_frame_from_mem(iod, ld, data, len);
+@@ -957,8 +959,10 @@ static int io_dev_recv_skb_from_link_dev(struct io_device *iod,
+ 	case IPC_RAW:
+ 	case IPC_RFS:
+ 	case IPC_MULTI_RAW:
++#ifdef CONFIG_HAS_WAKELOCK
+ 		if (iod->waketime)
+ 			wake_lock_timeout(&iod->wakelock, iod->waketime);
++#endif
+ 
+ 		err = rx_frame_from_skb(iod, ld, skb);
+ 		if (err < 0) {
+diff --git a/drivers/misc/modem_if/sipc5_modem.c b/drivers/misc/modem_if/sipc5_modem.c
+index ccfad5f..f7662df 100644
+--- a/drivers/misc/modem_if/sipc5_modem.c
++++ b/drivers/misc/modem_if/sipc5_modem.c
+@@ -31,7 +31,9 @@
+ #include <linux/irq.h>
+ #include <linux/gpio.h>
+ #include <linux/delay.h>
++#ifdef CONFIG_HAS_WAKELOCK
+ #include <linux/wakelock.h>
++#endif
+ #include <linux/rbtree.h>
+ 
+ #include <linux/platform_data/modem.h>
+@@ -196,6 +198,7 @@ static int attach_devices(struct io_device *iod, enum modem_link tx_link)
+ 		BUG();
+ 	}
+ 
++#ifdef CONFIG_HAS_WAKELOCK
+ 	switch (iod->format) {
+ 	case IPC_FMT:
+ 		wake_lock_init(&iod->wakelock, WAKE_LOCK_SUSPEND, iod->name);
+@@ -225,6 +228,7 @@ static int attach_devices(struct io_device *iod, enum modem_link tx_link)
+ 	default:
+ 		break;
+ 	}
++#endif
+ 
+ 	return 0;
+ }
+-- 
+1.8.3.2
+

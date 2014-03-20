@@ -1,0 +1,39 @@
+From 036c5088f828edbc7871b4e1ff78e7561b20348f Mon Sep 17 00:00:00 2001
+From: Gu Zheng <guz.fnst@cn.fujitsu.com>
+Date: Fri, 19 Jul 2013 16:24:06 +0800
+Subject: [PATCH 0515/1302] f2fs: use list_for_each rather than
+ list_for_each_safe, in remove_orphan_inode()
+
+As we remove the target single node, so list_for_each is enought, in order to
+clean up, we use list_for_each_entry instead.
+
+Signed-off-by: Gu Zheng <guz.fnst@cn.fujitsu.com>
+Signed-off-by: Jaegeuk Kim <jaegeuk.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ fs/f2fs/checkpoint.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/fs/f2fs/checkpoint.c b/fs/f2fs/checkpoint.c
+index 66a6b85..fe91773 100644
+--- a/fs/f2fs/checkpoint.c
++++ b/fs/f2fs/checkpoint.c
+@@ -237,13 +237,12 @@ out:
+ 
+ void remove_orphan_inode(struct f2fs_sb_info *sbi, nid_t ino)
+ {
+-	struct list_head *this, *next, *head;
++	struct list_head *head;
+ 	struct orphan_inode_entry *orphan;
+ 
+ 	mutex_lock(&sbi->orphan_inode_mutex);
+ 	head = &sbi->orphan_inode_list;
+-	list_for_each_safe(this, next, head) {
+-		orphan = list_entry(this, struct orphan_inode_entry, list);
++	list_for_each_entry(orphan, head, list) {
+ 		if (orphan->ino == ino) {
+ 			list_del(&orphan->list);
+ 			kmem_cache_free(orphan_entry_slab, orphan);
+-- 
+1.8.3.2
+

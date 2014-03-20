@@ -1,0 +1,28 @@
+From 434c634b344657bcc5b50793080d18b3987436e2 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 9 May 2013 17:21:56 +0200
+Subject: [PATCH 0117/1302] gpu: arm: mali400: ump: Do not use non-existent
+ VM_RESERVED flag
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/arm/mali400/ump/linux/ump_osk_low_level_mem.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/arm/mali400/ump/linux/ump_osk_low_level_mem.c b/drivers/gpu/arm/mali400/ump/linux/ump_osk_low_level_mem.c
+index 6f1b6ff..c47be67 100644
+--- a/drivers/gpu/arm/mali400/ump/linux/ump_osk_low_level_mem.c
++++ b/drivers/gpu/arm/mali400/ump/linux/ump_osk_low_level_mem.c
+@@ -149,7 +149,7 @@ _mali_osk_errcode_t _ump_osk_mem_mapregion_init( ump_memory_allocation * descrip
+ 
+ 	vma->vm_private_data = vma_usage_tracker;
+ 	vma->vm_flags |= VM_IO;
+-	vma->vm_flags |= VM_RESERVED;
++	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
+ 
+ 	if (0==descriptor->is_cached)
+ 	{
+-- 
+1.8.3.2
+

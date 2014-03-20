@@ -1,0 +1,54 @@
+From 7b40322d9a30b50473036ea25ba9ab5b063800f2 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 6 Sep 2013 12:20:31 +0200
+Subject: [PATCH 0760/1302] ARM: dts: Add common jpeg codec node for Exynos4
+ SoCs
+
+Add common JPEG codec device node for Exynos4 SoCs.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Jacek Anaszewski <j.anaszewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi    | 9 +++++++++
+ arch/arm/boot/dts/exynos4x12.dtsi | 4 ++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 1969580..c5c1516 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -232,6 +232,15 @@
+ 		status = "disabled";
+ 	};
+ 
++	jpeg-codec@11840000 {
++		compatible = "samsung,exynos4210-jpeg";
++		reg = <0x11840000 0x1000>;
++		interrupts = <0 88 0>;
++		clocks = <&clock 262>;
++		clock-names = "jpeg";
++		samsung,power-domain = <&pd_cam>;
++	};
++
+ 	sdhci@12510000 {
+ 		compatible = "samsung,exynos4210-sdhci";
+ 		reg = <0x12510000 0x100>;
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 77241e1..e37ced2 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -120,6 +120,10 @@
+ 		status = "ok";
+ 	};
+ 
++	jpeg-codec@11840000 {
++		compatible = "samsung,exynos4212-jpeg";
++	};
++
+ 	sysmmu_fimc_isp: sysmmu@12260000 {
+ 		compatible = "samsung,exynos4210-sysmmu";
+ 		reg = <0x12260000 0x1000>;
+-- 
+1.8.3.2
+

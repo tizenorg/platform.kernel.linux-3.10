@@ -1,0 +1,48 @@
+From f5103ad55a924effbc1d8df434fd89d007990eb2 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 13 Mar 2013 19:28:36 +0100
+Subject: [PATCH 0172/1302] ARM: dts: exynos4: Make ISP I2C1 device node a
+ child of fimc-is node
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 5ec7245..c2cdbffb 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -190,14 +190,6 @@
+ 		};
+ 	};
+ 
+-	i2c0_isp: i2c-isp@12130000 {
+-		compatible = "samsung,exynos4212-is-i2c",
+-			     "samsung,s3c2440-i2c";
+-		reg = <0x12130000 0x100>;
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-	};
+-
+ 	camera {
+ 		clocks = <&clock 132>, <&clock 133>, <&clock 351>, <&clock 352>,
+ 		         <&clock 388>, <&clock 389>, <&clock 17>;
+@@ -293,6 +285,13 @@
+ 			pmu {
+ 				reg = <0x10020000 0x3000>;
+ 			};
++
++			i2c1_isp: i2c-isp@12140000 {
++				compatible = "samsung,exynos4212-i2c-isp";
++				reg = <0x12130000 0x100>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++			};
+ 		};
+ 	};
+ 
+-- 
+1.8.3.2
+

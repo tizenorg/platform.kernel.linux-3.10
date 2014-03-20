@@ -1,0 +1,49 @@
+From 0b2dc66accfc533cf1405a391cda69a99a0fe3df Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Tue, 30 Apr 2013 00:51:33 -0300
+Subject: [PATCH 0207/1302] [media] exynos4-is: Remove redundant NULL check in
+ fimc-lite.c
+
+clk_unprepare checks for NULL pointer. Hence convert IS_ERR_OR_NULL
+to IS_ERR only.
+[s.nawrocki: replaced initialisations to NULL with ERR_PTR() value]
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-lite.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-lite.c b/drivers/media/platform/exynos4-is/fimc-lite.c
+index 2f11ae4..80ebf43 100644
+--- a/drivers/media/platform/exynos4-is/fimc-lite.c
++++ b/drivers/media/platform/exynos4-is/fimc-lite.c
+@@ -1417,12 +1417,12 @@ static void fimc_lite_unregister_capture_subdev(struct fimc_lite *fimc)
+ 
+ static void fimc_lite_clk_put(struct fimc_lite *fimc)
+ {
+-	if (IS_ERR_OR_NULL(fimc->clock))
++	if (IS_ERR(fimc->clock))
+ 		return;
+ 
+ 	clk_unprepare(fimc->clock);
+ 	clk_put(fimc->clock);
+-	fimc->clock = NULL;
++	fimc->clock = ERR_PTR(-EINVAL);
+ }
+ 
+ static int fimc_lite_clk_get(struct fimc_lite *fimc)
+@@ -1436,7 +1436,7 @@ static int fimc_lite_clk_get(struct fimc_lite *fimc)
+ 	ret = clk_prepare(fimc->clock);
+ 	if (ret < 0) {
+ 		clk_put(fimc->clock);
+-		fimc->clock = NULL;
++		fimc->clock = ERR_PTR(-EINVAL);
+ 	}
+ 	return ret;
+ }
+-- 
+1.8.3.2
+

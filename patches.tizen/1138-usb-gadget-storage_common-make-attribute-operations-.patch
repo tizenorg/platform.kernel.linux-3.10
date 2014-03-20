@@ -1,0 +1,217 @@
+From 219aa3514e98ed0e2c7063154734022e27dbc0bb Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Wed, 9 Oct 2013 10:06:03 +0200
+Subject: [PATCH 1138/1302] usb: gadget: storage_common: make attribute
+ operations more generic
+
+Show/store methods for sysfs attributes contain code which can be used
+also by configfs. Make them abstract the source the lun and rw_semaphore
+are taken from.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 27 +++++++++++++++++++++------
+ drivers/usb/gadget/storage_common.c | 31 ++++++-------------------------
+ drivers/usb/gadget/storage_common.h | 21 +++++++++++----------
+ 3 files changed, 38 insertions(+), 41 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index d6c2da0..d80be5f 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -2581,37 +2581,52 @@ static int fsg_main_thread(void *common_)
+ 
+ static ssize_t ro_show(struct device *dev, struct device_attribute *attr, char *buf)
+ {
+-	return fsg_show_ro(dev, attr, buf);
++	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
++
++	return fsg_show_ro(curlun, buf);
+ }
+ 
+ static ssize_t nofua_show(struct device *dev, struct device_attribute *attr,
+ 			  char *buf)
+ {
+-	return fsg_show_nofua(dev, attr, buf);
++	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
++
++	return fsg_show_nofua(curlun, buf);
+ }
+ 
+ static ssize_t file_show(struct device *dev, struct device_attribute *attr,
+ 			 char *buf)
+ {
+-	return fsg_show_file(dev, attr, buf);
++	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
++	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
++
++	return fsg_show_file(curlun, filesem, buf);
+ }
+ 
+ static ssize_t ro_store(struct device *dev, struct device_attribute *attr,
+ 			const char *buf, size_t count)
+ {
+-	return fsg_store_ro(dev, attr, buf, count);
++	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
++	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
++
++	return fsg_store_ro(curlun, filesem, buf, count);
+ }
+ 
+ static ssize_t nofua_store(struct device *dev, struct device_attribute *attr,
+ 			   const char *buf, size_t count)
+ {
+-	return fsg_store_nofua(dev, attr, buf, count);
++	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
++
++	return fsg_store_nofua(curlun, buf, count);
+ }
+ 
+ static ssize_t file_store(struct device *dev, struct device_attribute *attr,
+ 			  const char *buf, size_t count)
+ {
+-	return fsg_store_file(dev, attr, buf, count);
++	struct fsg_lun		*curlun = fsg_lun_from_dev(dev);
++	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
++
++	return fsg_store_file(curlun, filesem, buf, count);
+ }
+ 
+ static DEVICE_ATTR_RW(ro);
+diff --git a/drivers/usb/gadget/storage_common.c b/drivers/usb/gadget/storage_common.c
+index 3e2500f..969948d 100644
+--- a/drivers/usb/gadget/storage_common.c
++++ b/drivers/usb/gadget/storage_common.c
+@@ -31,11 +31,6 @@
+ 
+ #include "storage_common.h"
+ 
+-static inline struct fsg_lun *fsg_lun_from_dev(struct device *dev)
+-{
+-	return container_of(dev, struct fsg_lun, dev);
+-}
+-
+ /* There is only one interface. */
+ 
+ struct usb_interface_descriptor fsg_intf_desc = {
+@@ -324,31 +319,23 @@ EXPORT_SYMBOL(store_cdrom_address);
+ /*-------------------------------------------------------------------------*/
+ 
+ 
+-ssize_t fsg_show_ro(struct device *dev, struct device_attribute *attr,
+-		    char *buf)
++ssize_t fsg_show_ro(struct fsg_lun *curlun, char *buf)
+ {
+-	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+-
+ 	return sprintf(buf, "%d\n", fsg_lun_is_open(curlun)
+ 				  ? curlun->ro
+ 				  : curlun->initially_ro);
+ }
+ EXPORT_SYMBOL(fsg_show_ro);
+ 
+-ssize_t fsg_show_nofua(struct device *dev, struct device_attribute *attr,
+-		       char *buf)
++ssize_t fsg_show_nofua(struct fsg_lun *curlun, char *buf)
+ {
+-	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+-
+ 	return sprintf(buf, "%u\n", curlun->nofua);
+ }
+ EXPORT_SYMBOL(fsg_show_nofua);
+ 
+-ssize_t fsg_show_file(struct device *dev, struct device_attribute *attr,
++ssize_t fsg_show_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		      char *buf)
+ {
+-	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+-	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
+ 	char		*p;
+ 	ssize_t		rc;
+ 
+@@ -373,12 +360,10 @@ ssize_t fsg_show_file(struct device *dev, struct device_attribute *attr,
+ EXPORT_SYMBOL(fsg_show_file);
+ 
+ 
+-ssize_t fsg_store_ro(struct device *dev, struct device_attribute *attr,
++ssize_t fsg_store_ro(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		     const char *buf, size_t count)
+ {
+ 	ssize_t		rc;
+-	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+-	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
+ 	unsigned	ro;
+ 
+ 	rc = kstrtouint(buf, 2, &ro);
+@@ -404,10 +389,8 @@ ssize_t fsg_store_ro(struct device *dev, struct device_attribute *attr,
+ }
+ EXPORT_SYMBOL(fsg_store_ro);
+ 
+-ssize_t fsg_store_nofua(struct device *dev, struct device_attribute *attr,
+-			const char *buf, size_t count)
++ssize_t fsg_store_nofua(struct fsg_lun *curlun, const char *buf, size_t count)
+ {
+-	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+ 	unsigned	nofua;
+ 	int		ret;
+ 
+@@ -425,11 +408,9 @@ ssize_t fsg_store_nofua(struct device *dev, struct device_attribute *attr,
+ }
+ EXPORT_SYMBOL(fsg_store_nofua);
+ 
+-ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
++ssize_t fsg_store_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		       const char *buf, size_t count)
+ {
+-	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+-	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
+ 	int		rc = 0;
+ 
+ 	if (curlun->prevent_medium_removal && fsg_lun_is_open(curlun)) {
+diff --git a/drivers/usb/gadget/storage_common.h b/drivers/usb/gadget/storage_common.h
+index d8cc090..16cf07b 100644
+--- a/drivers/usb/gadget/storage_common.h
++++ b/drivers/usb/gadget/storage_common.h
+@@ -181,6 +181,11 @@ static inline u32 get_unaligned_be24(u8 *buf)
+ 	return 0xffffff & (u32) get_unaligned_be32(buf - 1);
+ }
+ 
++static inline struct fsg_lun *fsg_lun_from_dev(struct device *dev)
++{
++	return container_of(dev, struct fsg_lun, dev);
++}
++
+ enum {
+ 	FSG_STRING_INTERFACE
+ };
+@@ -205,18 +210,14 @@ void fsg_lun_close(struct fsg_lun *curlun);
+ int fsg_lun_open(struct fsg_lun *curlun, const char *filename);
+ int fsg_lun_fsync_sub(struct fsg_lun *curlun);
+ void store_cdrom_address(u8 *dest, int msf, u32 addr);
+-ssize_t fsg_show_ro(struct device *dev, struct device_attribute *attr,
+-		    char *buf);
+-ssize_t fsg_show_nofua(struct device *dev, struct device_attribute *attr,
+-		       char *buf);
+-ssize_t fsg_show_file(struct device *dev, struct device_attribute *attr,
++ssize_t fsg_show_ro(struct fsg_lun *curlun, char *buf);
++ssize_t fsg_show_nofua(struct fsg_lun *curlun, char *buf);
++ssize_t fsg_show_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		      char *buf);
+-ssize_t fsg_store_ro(struct device *dev, struct device_attribute *attr,
++ssize_t fsg_store_ro(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		     const char *buf, size_t count);
+-ssize_t fsg_store_nofua(struct device *dev,
+-			struct device_attribute *attr,
+-			const char *buf, size_t count);
+-ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
++ssize_t fsg_store_nofua(struct fsg_lun *curlun, const char *buf, size_t count);
++ssize_t fsg_store_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		       const char *buf, size_t count);
+ 
+ #endif /* USB_STORAGE_COMMON_H */
+-- 
+1.8.3.2
+

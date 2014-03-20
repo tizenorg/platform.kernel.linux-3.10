@@ -1,0 +1,52 @@
+From 2ae0363b0323b68e7ffb22e6e028962169d7aca8 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 8 May 2013 12:02:43 +0200
+Subject: [PATCH 0338/1302] clocksource: exynos_mct: Register sched_clock
+
+This patch adds sched_clock registration to Exynos MCT driver to
+improve scheduler precision by providing a high resolution clock source
+for scheduling purposes.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+
+Conflicts:
+	drivers/clocksource/exynos_mct.c
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clocksource/exynos_mct.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/clocksource/exynos_mct.c b/drivers/clocksource/exynos_mct.c
+index 662fcc0..9c2f9ab 100644
+--- a/drivers/clocksource/exynos_mct.c
++++ b/drivers/clocksource/exynos_mct.c
+@@ -25,6 +25,7 @@
+ #include <linux/clocksource.h>
+ 
+ #include <asm/localtimer.h>
++#include <asm/sched_clock.h>
+ #include <asm/mach/time.h>
+ 
+ #define EXYNOS4_MCTREG(x)		(x)
+@@ -190,10 +191,17 @@ struct clocksource mct_frc = {
+ 	.resume		= exynos4_frc_resume,
+ };
+ 
++static u32 notrace exynos4_mct_read_sched_clock(void)
++{
++	return __raw_readl(reg_base + EXYNOS4_MCT_G_CNT_L);
++}
++
+ static void __init exynos4_clocksource_init(void)
+ {
+ 	exynos4_mct_frc_start(0, 0);
+ 
++	setup_sched_clock(exynos4_mct_read_sched_clock, 32, clk_rate);
++
+ 	if (clocksource_register_hz(&mct_frc, clk_rate))
+ 		panic("%s: can't register clocksource\n", mct_frc.name);
+ }
+-- 
+1.8.3.2
+

@@ -1,0 +1,86 @@
+From ab665417cbc1cab2bf42674bcf97f8c827478522 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Tue, 19 Jun 2012 15:28:05 +0200
+Subject: [PATCH 0851/1302] usb:gadget: Refcount for gadget pullup
+
+This commit fixes the way gadget's pullup method (wrapped at
+usb_gadget_connect/disconnect) is called in the udc-core.
+
+The composite driver allows correct driver registration, even when it calls
+the usb_gadget_disconnect method (composite driver configuration is defered
+for user space - please look into the description of usb_composite_probe at
+composite.c - line: 1623)
+
+One such example is the CCG (Configurable Composite Gadget) driver (at
+drivers/staging/ccg), which after its registration has no usb descriptor
+(i.e. idProduct, idVendor etc.) and functions registered. Those are configured
+after writing to /sys/module/g_ccg/parameters/ or /sys/class/ccg_usb/ccg0/.
+
+Unfortunately, the code at 'usb_gadget_probe_driver' method (some code omitted):
+
+	if (udc_is_newstyle(udc)) {
+		bind(udc->gadget);
+		usb_gadget_udc_start(udc->gadget, driver);
+		usb_gadget_connect(udc->gadget);
+	}
+
+Explicitly calls the usb_gadget_connect method for this driver. It looks like
+the udc-core enables pullup for a driver, which has no functions and no
+descriptor filled (those values are feed from userspace).
+
+The USB composite driver API allows correct driver registration with calling
+usb_gadget_disconnect method, but as it is now, _ALL_ newstyle usb gadgets are
+connected by default. Therefore it violates the composite API.
+
+The solution (at least until the udc-core is reworked) is to add atomic
+variable, which helps in balancing the number of called usb_gadget_connect/
+disconnect functions.
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ include/linux/usb/gadget.h | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/usb/gadget.h b/include/linux/usb/gadget.h
+index f1b0dca..16892ab 100644
+--- a/include/linux/usb/gadget.h
++++ b/include/linux/usb/gadget.h
+@@ -533,6 +533,7 @@ struct usb_gadget {
+ 	unsigned			b_hnp_enable:1;
+ 	unsigned			a_hnp_support:1;
+ 	unsigned			a_alt_hnp_support:1;
++	atomic_t                        connect_count;
+ 	const char			*name;
+ 	struct device			dev;
+ 	unsigned			out_epnum;
+@@ -724,7 +725,11 @@ static inline int usb_gadget_connect(struct usb_gadget *gadget)
+ {
+ 	if (!gadget->ops->pullup)
+ 		return -EOPNOTSUPP;
+-	return gadget->ops->pullup(gadget, 1);
++
++	if (atomic_inc_return(&gadget->connect_count) == 1)
++		return gadget->ops->pullup(gadget, 1);
++
++	return 0;
+ }
+ 
+ /**
+@@ -746,7 +751,11 @@ static inline int usb_gadget_disconnect(struct usb_gadget *gadget)
+ {
+ 	if (!gadget->ops->pullup)
+ 		return -EOPNOTSUPP;
+-	return gadget->ops->pullup(gadget, 0);
++
++	if (atomic_dec_and_test(&gadget->connect_count))
++		return gadget->ops->pullup(gadget, 0);
++
++	return 0;
+ }
+ 
+ 
+-- 
+1.8.3.2
+

@@ -1,0 +1,126 @@
+From a7964b0f4b64e73b5b976ee49ec110248ea973a9 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 20 Mar 2013 12:24:57 +0100
+Subject: [PATCH 0178/1302] ARM: dts: exynos4210-trats: Adjust regulator
+ configuration
+
+This patch modifies configuration of voltage regulators to match those
+used in exynos-3.0-dev kernel.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 61 ++++++++++++++++++++++++++--------
+ 1 file changed, 48 insertions(+), 13 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index 6b7dd39..0508e6c0 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -320,15 +320,24 @@
+ 				};
+ 
+ 				vusb_reg: LDO3 {
+-				     regulator-name = "VUSB_1.1V_C210";
+-				     regulator-min-microvolt = <1100000>;
+-				     regulator-max-microvolt = <1100000>;
++					regulator-name = "VUSB_1.1V_C210";
++					regulator-min-microvolt = <1100000>;
++					regulator-max-microvolt = <1100000>;
++					regulator-always-on;
+ 				};
+ 
+ 				vmipi_reg: LDO4 {
+-				     regulator-name = "VMIPI_1.8V";
+-				     regulator-min-microvolt = <1800000>;
+-				     regulator-max-microvolt = <1800000>;
++					regulator-name = "VMIPI_1.8V";
++					regulator-min-microvolt = <1800000>;
++					regulator-max-microvolt = <1800000>;
++					regulator-always-on;
++				};
++
++				vhsic_reg: LDO5 {
++					regulator-name = "VHSIC_1.2V";
++					regulator-min-microvolt = <1200000>;
++					regulator-max-microvolt = <1200000>;
++					regulator-always-on;
+ 				};
+ 
+ 				vpda_reg: LDO6 {
+@@ -345,9 +354,10 @@
+ 				};
+ 
+ 				vusbdac_reg: LDO8 {
+-				     regulator-name = "VUSB/VDAC_3.3V_C210";
++				     regulator-name = "VUSB_3.3V";
+ 				     regulator-min-microvolt = <3300000>;
+ 				     regulator-max-microvolt = <3300000>;
++				     regulator-always-on;
+ 				};
+ 
+ 				vccpda_reg: LDO9 {
+@@ -364,6 +374,12 @@
+ 				     regulator-always-on;
+ 				};
+ 
++				vtouch_reg: LDO11 {
++					regulator-name = "TOUCH_2.8V";
++					regulator-min-microvolt = <2800000>;
++					regulator-max-microvolt = <2800000>;
++				};
++
+ 				vtcam_reg: LDO12 {
+ 				     regulator-name = "VT_CAM_1.8V";
+ 				     regulator-min-microvolt = <1800000>;
+@@ -371,15 +387,22 @@
+ 				};
+ 
+ 				vcclcd_reg: LDO13 {
+-				     regulator-name = "VCC_3.3V_LCD";
+-				     regulator-min-microvolt = <3300000>;
+-				     regulator-max-microvolt = <3300000>;
++				     regulator-name = "VCC_3.0V_LCD";
++				     regulator-min-microvolt = <3000000>;
++				     regulator-max-microvolt = <3000000>;
++				};
++
++				vmotor_reg: LDO14 {
++					regulator-name = "VCC_2.8V_MOTOR";
++					regulator-min-microvolt = <2800000>;
++					regulator-max-microvolt = <2800000>;
+ 				};
+ 
+ 				vlcd_reg: LDO15 {
+-				     regulator-name = "VLCD_2.2V";
+-				     regulator-min-microvolt = <2200000>;
+-				     regulator-max-microvolt = <2200000>;
++					regulator-name = "VLCD_2.2V";
++					regulator-min-microvolt = <2200000>;
++					regulator-max-microvolt = <2200000>;
++					regulator-always-on;
+ 				};
+ 
+ 				camsensor_reg: LDO16 {
+@@ -388,6 +411,18 @@
+ 				     regulator-max-microvolt = <1800000>;
+ 				};
+ 
++				vtf_reg: LDO17 {
++					regulator-name = "VTF_2.8V";
++					regulator-min-microvolt = <2800000>;
++					regulator-max-microvolt = <2800000>;
++				};
++
++				vtouch_led_reg: LDO18 {
++					regulator-name = "TOUCH_LED_3.3V";
++					regulator-min-microvolt = <3000000>;
++					regulator-max-microvolt = <3300000>;
++				};
++
+ 				vddq_reg: LDO21 {
+ 				     regulator-name = "VDDQ_M1M2_1.2V";
+ 				     regulator-min-microvolt = <1200000>;
+-- 
+1.8.3.2
+

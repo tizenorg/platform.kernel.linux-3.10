@@ -1,0 +1,28 @@
+From 902202e785482bf222804192f32b77bd1cf09b19 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 4 Sep 2013 12:53:48 +0200
+Subject: [PATCH 0750/1302] tizen_defconfig update
+
+Enable M0 front facing camera sensor driver.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index 79db035..2007fcd 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -2011,6 +2011,7 @@ CONFIG_VIDEO_SAMSUNG_S5P_MFC=y
+ # CONFIG_VIDEO_NOON010PC30 is not set
+ CONFIG_VIDEO_M5MOLS=y
+ # CONFIG_VIDEO_S5K6AA is not set
++CONFIG_VIDEO_S5K6A3=y
+ # CONFIG_VIDEO_S5K4ECGX is not set
+ CONFIG_VIDEO_S5K5BAF=y
+ # CONFIG_VIDEO_SMIAPP is not set
+-- 
+1.8.3.2
+

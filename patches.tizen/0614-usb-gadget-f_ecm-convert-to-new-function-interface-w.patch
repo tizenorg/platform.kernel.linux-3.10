@@ -1,0 +1,357 @@
+From cd4870c58f5c0f1a8711f7969c2e86e1a24501c2 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Thu, 23 May 2013 10:32:03 +0200
+Subject: [PATCH 0614/1302] usb: gadget: f_ecm: convert to new function
+ interface with backward compatibility
+
+Converting ecm to the new function interface requires converting
+the USB ecm's function code and its users.
+
+This patch converts the f_ecm.c to the new function interface.
+
+The file is now compiled into a separate usb_f_ecm.ko module.
+
+The old function interface is provided by means of a preprocessor
+conditional directives. After all users are converted, the old interface
+can be removed.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/Kconfig  |   3 +
+ drivers/usb/gadget/Makefile |   2 +
+ drivers/usb/gadget/cdc2.c   |   1 +
+ drivers/usb/gadget/ether.c  |   1 +
+ drivers/usb/gadget/f_ecm.c  | 149 ++++++++++++++++++++++++++++++++++++++++----
+ drivers/usb/gadget/g_ffs.c  |   1 +
+ drivers/usb/gadget/multi.c  |   1 +
+ drivers/usb/gadget/nokia.c  |   3 +-
+ drivers/usb/gadget/u_ecm.h  |  27 ++++++++
+ 9 files changed, 174 insertions(+), 14 deletions(-)
+ create mode 100644 drivers/usb/gadget/u_ecm.h
+
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index a79f09f..a2dbdcb 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -522,6 +522,9 @@ config USB_F_OBEX
+ config USB_F_NCM
+ 	tristate
+ 
++config USB_F_ECM
++	tristate
++
+ choice
+ 	tristate "USB Gadget Drivers"
+ 	default USB_ETH
+diff --git a/drivers/usb/gadget/Makefile b/drivers/usb/gadget/Makefile
+index 34b117e..66152f5 100644
+--- a/drivers/usb/gadget/Makefile
++++ b/drivers/usb/gadget/Makefile
+@@ -50,6 +50,8 @@ u_rndis-y			:= rndis.o
+ obj-$(CONFIG_USB_U_RNDIS)	+= u_rndis.o
+ usb_f_ncm-y			:= f_ncm.o
+ obj-$(CONFIG_USB_F_NCM)		+= usb_f_ncm.o
++usb_f_ecm-y			:= f_ecm.o
++obj-$(CONFIG_USB_F_ECM)		+= usb_f_ecm.o
+ 
+ #
+ # USB gadget drivers
+diff --git a/drivers/usb/gadget/cdc2.c b/drivers/usb/gadget/cdc2.c
+index bffa997..ceedaf7 100644
+--- a/drivers/usb/gadget/cdc2.c
++++ b/drivers/usb/gadget/cdc2.c
+@@ -44,6 +44,7 @@ USB_ETHERNET_MODULE_PARAMETERS();
+  * the runtime footprint, and giving us at least some parts of what
+  * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
+  */
++#define USBF_ECM_INCLUDED
+ #include "f_ecm.c"
+ 
+ /*-------------------------------------------------------------------------*/
+diff --git a/drivers/usb/gadget/ether.c b/drivers/usb/gadget/ether.c
+index 6bff24f..862ef65 100644
+--- a/drivers/usb/gadget/ether.c
++++ b/drivers/usb/gadget/ether.c
+@@ -102,6 +102,7 @@ static inline bool has_rndis(void)
+  * the runtime footprint, and giving us at least some parts of what
+  * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
+  */
++#define USBF_ECM_INCLUDED
+ #include "f_ecm.c"
+ #include "f_subset.c"
+ #ifdef	USB_ETH_RNDIS
+diff --git a/drivers/usb/gadget/f_ecm.c b/drivers/usb/gadget/f_ecm.c
+index abf8a31..1b5aeb2 100644
+--- a/drivers/usb/gadget/f_ecm.c
++++ b/drivers/usb/gadget/f_ecm.c
+@@ -14,10 +14,12 @@
+ 
+ #include <linux/slab.h>
+ #include <linux/kernel.h>
++#include <linux/module.h>
+ #include <linux/device.h>
+ #include <linux/etherdevice.h>
+ 
+ #include "u_ether.h"
++#include "u_ecm.h"
+ 
+ 
+ /*
+@@ -687,6 +689,40 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
+ 	int			status;
+ 	struct usb_ep		*ep;
+ 
++#ifndef USBF_ECM_INCLUDED
++	struct f_ecm_opts	*ecm_opts;
++
++	if (!can_support_ecm(cdev->gadget))
++		return -EINVAL;
++
++	ecm_opts = container_of(f->fi, struct f_ecm_opts, func_inst);
++
++	/*
++	 * in drivers/usb/gadget/configfs.c:configfs_composite_bind()
++	 * configurations are bound in sequence with list_for_each_entry,
++	 * in each configuration its functions are bound in sequence
++	 * with list_for_each_entry, so we assume no race condition
++	 * with regard to ecm_opts->bound access
++	 */
++	if (!ecm_opts->bound) {
++		gether_set_gadget(ecm_opts->net, cdev->gadget);
++		status = gether_register_netdev(ecm_opts->net);
++		if (status)
++			return status;
++		ecm_opts->bound = true;
++	}
++#endif
++	if (ecm_string_defs[0].id == 0) {
++		status = usb_string_ids_tab(c->cdev, ecm_string_defs);
++		if (status)
++			return status;
++
++		ecm_control_intf.iInterface = ecm_string_defs[0].id;
++		ecm_data_intf.iInterface = ecm_string_defs[2].id;
++		ecm_desc.iMACAddress = ecm_string_defs[1].id;
++		ecm_iad_descriptor.iFunction = ecm_string_defs[3].id;
++	}
++
+ 	/* allocate instance-specific interface IDs */
+ 	status = usb_interface_id(c, f);
+ 	if (status < 0)
+@@ -796,8 +832,10 @@ fail:
+ 	return status;
+ }
+ 
++#ifdef USBF_ECM_INCLUDED
++
+ static void
+-ecm_unbind(struct usb_configuration *c, struct usb_function *f)
++ecm_old_unbind(struct usb_configuration *c, struct usb_function *f)
+ {
+ 	struct f_ecm		*ecm = func_to_ecm(f);
+ 
+@@ -834,17 +872,6 @@ ecm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+ 	if (!can_support_ecm(c->cdev->gadget) || !ethaddr)
+ 		return -EINVAL;
+ 
+-	if (ecm_string_defs[0].id == 0) {
+-		status = usb_string_ids_tab(c->cdev, ecm_string_defs);
+-		if (status)
+-			return status;
+-
+-		ecm_control_intf.iInterface = ecm_string_defs[0].id;
+-		ecm_data_intf.iInterface = ecm_string_defs[2].id;
+-		ecm_desc.iMACAddress = ecm_string_defs[1].id;
+-		ecm_iad_descriptor.iFunction = ecm_string_defs[3].id;
+-	}
+-
+ 	/* allocate and initialize one new instance */
+ 	ecm = kzalloc(sizeof *ecm, GFP_KERNEL);
+ 	if (!ecm)
+@@ -861,7 +888,7 @@ ecm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+ 	ecm->port.func.strings = ecm_strings;
+ 	/* descriptors are per-instance copies */
+ 	ecm->port.func.bind = ecm_bind;
+-	ecm->port.func.unbind = ecm_unbind;
++	ecm->port.func.unbind = ecm_old_unbind;
+ 	ecm->port.func.set_alt = ecm_set_alt;
+ 	ecm->port.func.get_alt = ecm_get_alt;
+ 	ecm->port.func.setup = ecm_setup;
+@@ -872,3 +899,99 @@ ecm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+ 		kfree(ecm);
+ 	return status;
+ }
++
++#else
++
++static void ecm_free_inst(struct usb_function_instance *f)
++{
++	struct f_ecm_opts *opts;
++
++	opts = container_of(f, struct f_ecm_opts, func_inst);
++	if (opts->bound)
++		gether_cleanup(netdev_priv(opts->net));
++	else
++		free_netdev(opts->net);
++	kfree(opts);
++}
++
++static struct usb_function_instance *ecm_alloc_inst(void)
++{
++	struct f_ecm_opts *opts;
++
++	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
++	if (!opts)
++		return ERR_PTR(-ENOMEM);
++
++	opts->func_inst.free_func_inst = ecm_free_inst;
++	opts->net = gether_setup_default();
++	if (IS_ERR(opts->net))
++		return ERR_PTR(PTR_ERR(opts->net));
++
++	return &opts->func_inst;
++}
++
++static void ecm_free(struct usb_function *f)
++{
++	struct f_ecm *ecm;
++
++	ecm = func_to_ecm(f);
++	kfree(ecm);
++}
++
++static void ecm_unbind(struct usb_configuration *c, struct usb_function *f)
++{
++	struct f_ecm		*ecm = func_to_ecm(f);
++
++	DBG(c->cdev, "ecm unbind\n");
++
++	ecm_string_defs[0].id = 0;
++	usb_free_all_descriptors(f);
++
++	kfree(ecm->notify_req->buf);
++	usb_ep_free_request(ecm->notify, ecm->notify_req);
++}
++
++struct usb_function *ecm_alloc(struct usb_function_instance *fi)
++{
++	struct f_ecm	*ecm;
++	struct f_ecm_opts *opts;
++	int status;
++
++	/* allocate and initialize one new instance */
++	ecm = kzalloc(sizeof(*ecm), GFP_KERNEL);
++	if (!ecm)
++		return ERR_PTR(-ENOMEM);
++
++	opts = container_of(fi, struct f_ecm_opts, func_inst);
++
++	/* export host's Ethernet address in CDC format */
++	status = gether_get_host_addr_cdc(opts->net, ecm->ethaddr,
++					  sizeof(ecm->ethaddr));
++	if (status < 12) {
++		kfree(ecm);
++		return ERR_PTR(-EINVAL);
++	}
++	ecm_string_defs[1].s = ecm->ethaddr;
++
++	ecm->port.ioport = netdev_priv(opts->net);
++	ecm->port.cdc_filter = DEFAULT_FILTER;
++
++	ecm->port.func.name = "cdc_ethernet";
++	ecm->port.func.strings = ecm_strings;
++	/* descriptors are per-instance copies */
++	ecm->port.func.bind = ecm_bind;
++	ecm->port.func.unbind = ecm_unbind;
++	ecm->port.func.set_alt = ecm_set_alt;
++	ecm->port.func.get_alt = ecm_get_alt;
++	ecm->port.func.setup = ecm_setup;
++	ecm->port.func.disable = ecm_disable;
++	ecm->port.func.free_func = ecm_free;
++
++	return &ecm->port.func;
++}
++
++DECLARE_USB_FUNCTION_INIT(ecm, ecm_alloc_inst, ecm_alloc);
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("David Brownell");
++
++#endif
+diff --git a/drivers/usb/gadget/g_ffs.c b/drivers/usb/gadget/g_ffs.c
+index fbfdb53..d38a073 100644
+--- a/drivers/usb/gadget/g_ffs.c
++++ b/drivers/usb/gadget/g_ffs.c
+@@ -28,6 +28,7 @@
+ #    define USB_ETH_RNDIS y
+ #  endif
+ 
++#define USBF_ECM_INCLUDED
+ #  include "f_ecm.c"
+ #  include "f_subset.c"
+ #  ifdef USB_ETH_RNDIS
+diff --git a/drivers/usb/gadget/multi.c b/drivers/usb/gadget/multi.c
+index ce21e9f..6164393 100644
+--- a/drivers/usb/gadget/multi.c
++++ b/drivers/usb/gadget/multi.c
+@@ -43,6 +43,7 @@ MODULE_LICENSE("GPL");
+  */
+ #include "f_mass_storage.c"
+ 
++#define USBF_ECM_INCLUDED
+ #include "f_ecm.c"
+ #include "f_subset.c"
+ #ifdef USB_ETH_RNDIS
+diff --git a/drivers/usb/gadget/nokia.c b/drivers/usb/gadget/nokia.c
+index 39f6cb5..8e42c88 100644
+--- a/drivers/usb/gadget/nokia.c
++++ b/drivers/usb/gadget/nokia.c
+@@ -37,8 +37,9 @@
+  * the runtime footprint, and giving us at least some parts of what
+  * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
+  */
+-#define USBF_OBEX_INCLUDED
++#define USBF_ECM_INCLUDED
+ #include "f_ecm.c"
++#define USBF_OBEX_INCLUDED
+ #include "f_obex.c"
+ #include "f_phonet.c"
+ #include "u_ether.h"
+diff --git a/drivers/usb/gadget/u_ecm.h b/drivers/usb/gadget/u_ecm.h
+new file mode 100644
+index 0000000..99b6b99
+--- /dev/null
++++ b/drivers/usb/gadget/u_ecm.h
+@@ -0,0 +1,27 @@
++/*
++ * u_ecm.h
++ *
++ * Utility definitions for the ecm function
++ *
++ * Copyright (c) 2013 Samsung Electronics Co., Ltd.
++ *		http://www.samsung.com
++ *
++ * Author: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#ifndef U_ECM_H
++#define U_ECM_H
++
++#include <linux/usb/composite.h>
++
++struct f_ecm_opts {
++	struct usb_function_instance	func_inst;
++	struct net_device		*net;
++	bool				bound;
++};
++
++#endif /* U_ECM_H */
+-- 
+1.8.3.2
+

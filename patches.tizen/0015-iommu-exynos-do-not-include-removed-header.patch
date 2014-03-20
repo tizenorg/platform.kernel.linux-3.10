@@ -1,0 +1,37 @@
+From cbffb3bc2d93c6b044332fc24fce091cedef80ff Mon Sep 17 00:00:00 2001
+From: Cho KyongHo <pullip.cho@samsung.com>
+Date: Fri, 26 Jul 2013 20:26:10 +0900
+Subject: [PATCH 0015/1302] iommu/exynos: do not include removed header
+
+This commit remove <mach/sysmmu.h> which is removed.
+
+Signed-off-by: Cho KyongHo <pullip.cho@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/iommu/exynos-iommu.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/iommu/exynos-iommu.c b/drivers/iommu/exynos-iommu.c
+index 3f32d64..233f382 100644
+--- a/drivers/iommu/exynos-iommu.c
++++ b/drivers/iommu/exynos-iommu.c
+@@ -12,6 +12,7 @@
+ #define DEBUG
+ #endif
+ 
++#include <linux/kernel.h>
+ #include <linux/io.h>
+ #include <linux/interrupt.h>
+ #include <linux/platform_device.h>
+@@ -29,8 +30,6 @@
+ #include <asm/cacheflush.h>
+ #include <asm/pgtable.h>
+ 
+-#include <mach/sysmmu.h>
+-
+ /* We does not consider super section mapping (16MB) */
+ #define SECT_ORDER 20
+ #define LPAGE_ORDER 16
+-- 
+1.8.3.2
+

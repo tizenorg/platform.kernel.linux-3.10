@@ -1,0 +1,75 @@
+From 5085ace810f31331e88a681ce4c8c126a5a96533 Mon Sep 17 00:00:00 2001
+From: Hyungwon Hwang <human.hwang@samsung.com>
+Date: Wed, 5 Mar 2014 14:44:41 +0900
+Subject: [PATCH 1288/1302] dts: arm: odroidx2: add support for external
+ buttons
+
+Add support for two external buttons (power & home buttons)
+
+Change-Id: I90544bf89c804329dfc78709d48d9eedc2c4a181
+Signed-off-by: Hyungwon Hwang <human.hwang@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-odroidx2.dts | 37 +++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-odroidx2.dts b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+index 063243d..d3339fd 100644
+--- a/arch/arm/boot/dts/exynos4412-odroidx2.dts
++++ b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+@@ -71,6 +71,32 @@
+ 		};
+ 	};
+ 
++	gpio_keys {
++		compatible = "gpio-keys";
++		pinctrl-names = "default";
++		pinctrl-0 = <&gpio_power_key &gpio_home_key>;
++
++		power_key {
++			interrupt-parent = <&gpx1>;
++			interrupts = <3 0>;
++			gpios = <&gpx1 3 1>;
++			linux,code = <116>;
++			label = "power key";
++			debounce-interval = <10>;
++			gpio-key,wakeup;
++		};
++
++		home_key {
++			interrupt-parent = <&gpx2>;
++			interrupts = <2 0>;
++			gpios = <&gpx2 2 0>;
++			linux,code = <139>;
++			label = "home key";
++			debounce-interval = <10>;
++			gpio-key,wakeup;
++		};
++	};
++
+ 	mshc@12550000 {
+ 		pinctrl-0 = <&sd4_clk &sd4_cmd &sd4_bus4 &sd4_bus8>;
+ 		pinctrl-names = "default";
+@@ -572,8 +598,19 @@
+ };
+ 
+ &pinctrl_1 {
++	gpio_power_key: power_key {
++		samsung,pins = "gpx1-3";
++		samsung,pin-pud = <0>;
++	};
++
++	gpio_home_key: home_key {
++		samsung,pins = "gpx2-2";
++		samsung,pin-pud = <1>;
++	};
++
+ 	hdmi_hpd: hdmi-hpd {
+ 		samsung,pins = "gpx3-7";
+ 		samsung,pin-pud = <1>;
+ 	};
+ };
++
+-- 
+1.8.3.2
+

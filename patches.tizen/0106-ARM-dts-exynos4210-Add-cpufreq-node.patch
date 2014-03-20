@@ -1,0 +1,33 @@
+From 7aafa05910f47ffe21886eceaebb943003ae9080 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 1 Mar 2013 18:15:05 +0100
+Subject: [PATCH 0106/1302] ARM: dts: exynos4210: Add cpufreq node
+
+This patch adds cpufreq node with SoC specific parameters of cpufreq
+driver.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210.dtsi | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210.dtsi b/arch/arm/boot/dts/exynos4210.dtsi
+index 99cb43e..750b320 100644
+--- a/arch/arm/boot/dts/exynos4210.dtsi
++++ b/arch/arm/boot/dts/exynos4210.dtsi
+@@ -201,4 +201,11 @@
+ 			clock-names = "csis", "sclk_csis", "mux", "parent";
+ 		};
+ 	};
++
++	cpufreq {
++		compatible = "samsung,exynos-cpufreq";
++		clocks = <&clock 12>, <&clock 19>, <&clock 9>, <&clock 20>;
++		clock-names = "armclk", "moutcore", "mout_mpll", "mout_apll";
++		status = "disabled";
++	};
+ };
+-- 
+1.8.3.2
+

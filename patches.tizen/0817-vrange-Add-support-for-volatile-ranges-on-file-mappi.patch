@@ -1,0 +1,84 @@
+From 504a1f15ee695aac07b60e89d6c140980f22ed34 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Thu, 25 Jul 2013 13:37:51 -0700
+Subject: [PATCH 0817/1302] vrange: Add support for volatile ranges on file
+ mappings
+
+Like with the mm struct, this patch add basic support for
+volatile ranges on file address_space structures. This allows
+for volatile ranges to be set on mmapped files that can be
+shared between processes.
+
+The semantics on the volatile range sharing is that the
+volatility is shared, just as the data is shared. Thus
+if one process marks the range as volatile, the data is
+volatile in all processes that have those pages mapped.
+
+It is advised that processes coodinate when using volatile
+ranges on shared mappings (much as they must coordinate when
+writing to shared data).
+
+XXX: Likely squish down file parts of dynamic vroot allocation into
+this patch
+
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ fs/inode.c         | 4 ++++
+ include/linux/fs.h | 4 ++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/fs/inode.c b/fs/inode.c
+index 00d5fc3..a4a6844 100644
+--- a/fs/inode.c
++++ b/fs/inode.c
+@@ -17,6 +17,7 @@
+ #include <linux/prefetch.h>
+ #include <linux/buffer_head.h> /* for inode_has_buffers */
+ #include <linux/ratelimit.h>
++#include <linux/vrange.h>
+ #include "internal.h"
+ 
+ /*
+@@ -350,6 +351,7 @@ void address_space_init_once(struct address_space *mapping)
+ 	spin_lock_init(&mapping->private_lock);
+ 	mapping->i_mmap = RB_ROOT;
+ 	INIT_LIST_HEAD(&mapping->i_mmap_nonlinear);
++	vrange_root_init(&mapping->vroot, VRANGE_FILE);
+ }
+ EXPORT_SYMBOL(address_space_init_once);
+ 
+@@ -1417,6 +1419,8 @@ static void iput_final(struct inode *inode)
+ 		inode_lru_list_del(inode);
+ 	spin_unlock(&inode->i_lock);
+ 
++	vrange_root_cleanup(&inode->i_mapping->vroot);
++
+ 	evict(inode);
+ }
+ 
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 65c2be2..925714d 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -27,6 +27,7 @@
+ #include <linux/lockdep.h>
+ #include <linux/percpu-rwsem.h>
+ #include <linux/blk_types.h>
++#include <linux/vrange_types.h>
+ 
+ #include <asm/byteorder.h>
+ #include <uapi/linux/fs.h>
+@@ -411,6 +412,9 @@ struct address_space {
+ 	struct rb_root		i_mmap;		/* tree of private and shared mappings */
+ 	struct list_head	i_mmap_nonlinear;/*list VM_NONLINEAR mappings */
+ 	struct mutex		i_mmap_mutex;	/* protect tree, count, list */
++#ifdef CONFIG_MMU
++	struct vrange_root	vroot;
++#endif
+ 	/* Protected by tree_lock together with the radix tree */
+ 	unsigned long		nrpages;	/* number of total pages */
+ 	pgoff_t			writeback_index;/* writeback starts here */
+-- 
+1.8.3.2
+

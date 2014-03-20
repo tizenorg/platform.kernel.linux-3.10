@@ -1,0 +1,37 @@
+From e9bde59790d0cd2f705c3bd98c89e4854dde79a9 Mon Sep 17 00:00:00 2001
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Thu, 23 May 2013 12:08:38 +0200
+Subject: [PATCH 0384/1302] perf test: Fix typo
+
+Its 'multiple', not 'mutliple', noticed while preparing a talk for
+Linuxtag'13.
+
+Cc: David Ahern <dsahern@gmail.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Mike Galbraith <efault@gmx.de>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/n/tip-dzy9nl1ku7a5umddvdic4ibl@git.kernel.org
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/tests/builtin-test.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/perf/tests/builtin-test.c b/tools/perf/tests/builtin-test.c
+index 0918ada..35b45f1466 100644
+--- a/tools/perf/tests/builtin-test.c
++++ b/tools/perf/tests/builtin-test.c
+@@ -70,7 +70,7 @@ static struct test {
+ 		.func = test__attr,
+ 	},
+ 	{
+-		.desc = "Test matching and linking mutliple hists",
++		.desc = "Test matching and linking multiple hists",
+ 		.func = test__hists_link,
+ 	},
+ 	{
+-- 
+1.8.3.2
+

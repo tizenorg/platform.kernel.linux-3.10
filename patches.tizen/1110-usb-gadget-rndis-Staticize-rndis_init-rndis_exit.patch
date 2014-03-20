@@ -1,0 +1,44 @@
+From 8c46b9e2cc7896332a09d0b5d3b630c9836559ff Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Mon, 5 Aug 2013 12:12:42 +0900
+Subject: [PATCH 1110/1302] usb: gadget: rndis: Staticize
+ rndis_init()/rndis_exit()
+
+rndis_init() and rndis_exit() are used only in this file.
+Fix the following sparse warnings:
+
+drivers/usb/gadget/rndis.c:1145:5: warning: symbol 'rndis_init' was not declared. Should it be static?
+drivers/usb/gadget/rndis.c:1179:6: warning: symbol 'rndis_exit' was not declared. Should it be static?
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/rndis.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/rndis.c b/drivers/usb/gadget/rndis.c
+index 3e3ea72..9575085 100644
+--- a/drivers/usb/gadget/rndis.c
++++ b/drivers/usb/gadget/rndis.c
+@@ -1142,7 +1142,7 @@ static struct proc_dir_entry *rndis_connect_state [RNDIS_MAX_CONFIGS];
+ #endif /* CONFIG_USB_GADGET_DEBUG_FILES */
+ 
+ 
+-int rndis_init(void)
++static int rndis_init(void)
+ {
+ 	u8 i;
+ 
+@@ -1176,7 +1176,7 @@ int rndis_init(void)
+ }
+ module_init(rndis_init);
+ 
+-void rndis_exit(void)
++static void rndis_exit(void)
+ {
+ #ifdef CONFIG_USB_GADGET_DEBUG_FILES
+ 	u8 i;
+-- 
+1.8.3.2
+

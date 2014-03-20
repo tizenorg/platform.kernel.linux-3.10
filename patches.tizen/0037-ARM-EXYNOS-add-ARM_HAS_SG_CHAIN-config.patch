@@ -1,0 +1,26 @@
+From a0a270f57148a54699e09241278a211397909862 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Thu, 3 Jan 2013 14:00:30 +0900
+Subject: [PATCH 0037/1302] ARM: EXYNOS: add ARM_HAS_SG_CHAIN config
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/plat-samsung/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/plat-samsung/Kconfig b/arch/arm/plat-samsung/Kconfig
+index f8ed2de..a072524 100644
+--- a/arch/arm/plat-samsung/Kconfig
++++ b/arch/arm/plat-samsung/Kconfig
+@@ -22,6 +22,7 @@ config PLAT_S5P
+ 	select ARM_VIC if !ARCH_EXYNOS
+ 	select GIC_NON_BANKED if ARCH_EXYNOS4
+ 	select NO_IOPORT
++	select ARM_HAS_SG_CHAIN
+ 	select PLAT_SAMSUNG
+ 	select S3C_GPIO_TRACK
+ 	select S5P_GPIO_DRVSTR
+-- 
+1.8.3.2
+

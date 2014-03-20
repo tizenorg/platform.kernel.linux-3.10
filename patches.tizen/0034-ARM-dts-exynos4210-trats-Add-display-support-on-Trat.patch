@@ -1,0 +1,74 @@
+From 128e292dc4439c5584af2479841157a985d0c2e7 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 31 Aug 2012 12:32:35 +0200
+Subject: [PATCH 0034/1302] ARM: dts: exynos4210-trats: Add display support on
+ Trats
+
+This commit adds nodes and attributes necessary to enable support of
+MIPI DSIM, LCD and FIMD on Trats board.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+
+Conflicts:
+	arch/arm/boot/dts/exynos4210-trats.dts
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 43 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 43 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index a413897..39fcc8a 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -311,4 +311,47 @@
+ 			clock-frequency = <24000000>;
+ 		};
+ 	};
++
++	fimd0_lcd: panel {
++		compatible = "s6e8ax0";
++		panel-reverse;
++		reset-gpio = <&gpy4 5 0>;
++		reset-delay = <25>;
++		power-off-delay = <0>;
++		power-on-delay= <0>;
++		vdd3-supply = <&vcclcd_reg>;
++		vci-supply = <&vlcd_reg>;
++		lcd-htiming = <5 5 5 720>;
++		lcd-vtiming = <1 13 2 1280>;
++		supports-mipi-panel;
++	};
++
++	mipi-dsim@11C80000 {
++		video-interface;
++		virtual-channel = <0>;
++		pixel-format = <7>;
++		burst-mode = <1>;
++		bus-width = <4>;
++		cmd-allow = <0xf>;
++		pms-setting = <12 250 0>;
++		pll-stable-time = <500>;
++		escape-clock = <10000000>;
++		stop-holding-count = <0x7ff>;
++		bta-timeout = <0xff>;
++		rx-timeout = <0xffff>;
++		vdd11-supply = <&vusb_reg>;
++		vdd18-supply = <&vmipi_reg>;
++		panel-info = <&fimd0_lcd>;
++		status = "okay";
++	};
++
++	fimd@11c00000 {
++		samsung,fimd-display = <&fimd0_lcd>;
++		samsung,fimd-vidout-rgb;
++		samsung,fimd-inv-vclk;
++		samsung,fimd-frame-rate = <60>;
++		samsung,default-window = <3>;
++		samsung,fimd-win-bpp = <32>;
++		status = "okay";
++	};
+ };
+-- 
+1.8.3.2
+

@@ -1,0 +1,39 @@
+From c392349182225b7927617a885f58a543ff6caf09 Mon Sep 17 00:00:00 2001
+From: Jacek Anaszewski <j.anaszewski@samsung.com>
+Date: Wed, 11 Sep 2013 12:11:48 +0200
+Subject: [PATCH 0808/1302] s5p-jpeg: Initialize vfd_decoder->vfl_dir field
+
+This patch fixes regression introduced in the commit
+5c77879ff9ab9e7 and caused by not initializing the
+vfl_dir field of the vfd_decoder instance of the struct
+video_device, after the field was introduced. It precluded
+calling the driver ioctls which require vfl_dir not to be
+equal to VFL_DIR_RX which is defined as 0 and uninitialized
+vfl_dir field is interpreted as such. In effect the unlikely()
+condition in the v4l_s_fmt function failed for the ioctls that
+expect is_tx to be false, which prevented the ioctl callbacks
+registered by the driver from being called.
+
+Signed-off-by: Jacek Anaszewski <j.anaszewski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Cc: Hans Verkuil <hverkuil@xs4all.nl>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/s5p-jpeg/jpeg-core.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/s5p-jpeg/jpeg-core.c b/drivers/media/platform/s5p-jpeg/jpeg-core.c
+index 88c5beb..1db4736 100644
+--- a/drivers/media/platform/s5p-jpeg/jpeg-core.c
++++ b/drivers/media/platform/s5p-jpeg/jpeg-core.c
+@@ -1424,6 +1424,7 @@ static int s5p_jpeg_probe(struct platform_device *pdev)
+ 	jpeg->vfd_decoder->release	= video_device_release;
+ 	jpeg->vfd_decoder->lock		= &jpeg->lock;
+ 	jpeg->vfd_decoder->v4l2_dev	= &jpeg->v4l2_dev;
++	jpeg->vfd_decoder->vfl_dir	= VFL_DIR_M2M;
+ 
+ 	ret = video_register_device(jpeg->vfd_decoder, VFL_TYPE_GRABBER, -1);
+ 	if (ret) {
+-- 
+1.8.3.2
+

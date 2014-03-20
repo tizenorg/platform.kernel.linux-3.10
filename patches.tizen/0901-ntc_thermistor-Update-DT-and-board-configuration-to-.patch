@@ -1,0 +1,58 @@
+From ca05947d4d6e0b81d3b1aa1009b4fdda45b10549 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 1 Nov 2013 00:34:32 +0900
+Subject: [PATCH 0901/1302] ntc_thermistor: Update DT and board configuration
+ to enable NTC thermistors.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-m0.dts | 18 ++++++++++++++++++
+ arch/arm/configs/tizen_defconfig    |  4 +++-
+ 2 files changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+index 30e34b4..4ec07fc 100644
+--- a/arch/arm/boot/dts/exynos4412-m0.dts
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -215,4 +215,22 @@
+ 			};
+ 		};
+ 	};
++
++	thermistor-ap@0 {
++		compatible = "ntc,ncp03wb473";
++		status = "ok";
++		pullup-uv = <1800000>;
++		pullup-ohm = <100000>;
++		pulldown-ohm = <100000> ;
++		io-channels = <&adc 1>;
++	};
++
++	thermistor-batt@0 {
++		compatible = "ntc,ncp03wb473";
++		status = "ok";
++		pullup-uv = <1800000>;
++		pullup-ohm = <100000>;
++		pulldown-ohm = <100000> ;
++		io-channels = <&adc 2>;
++	};
+ };
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index 184e67c..16598c6 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -1739,7 +1739,9 @@ CONFIG_CHARGER_MAX77693=y
+ # CONFIG_POWER_RESET is not set
+ # CONFIG_POWER_RESET_RESTART is not set
+ # CONFIG_POWER_AVS is not set
+-# CONFIG_HWMON is not set
++CONFIG_HWMON=y
++
++CONFIG_SENSORS_NTC_THERMISTOR=y
+ # CONFIG_THERMAL is not set
+ CONFIG_WATCHDOG=y
+ CONFIG_WATCHDOG_CORE=y
+-- 
+1.8.3.2
+

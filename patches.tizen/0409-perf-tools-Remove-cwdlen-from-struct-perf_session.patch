@@ -1,0 +1,37 @@
+From 2264cadbe97a468e52151cbc935a69986fdda990 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Fri, 24 May 2013 13:16:41 +0200
+Subject: [PATCH 0409/1302] perf tools: Remove cwdlen from struct perf_session
+
+Removing cwdlen from struct perf_session as it's no longer used.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: David Ahern <dsahern@gmail.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369394201-20044-6-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/util/session.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/tools/perf/util/session.h b/tools/perf/util/session.h
+index 6b51d47a..f3b235e 100644
+--- a/tools/perf/util/session.h
++++ b/tools/perf/util/session.h
+@@ -37,7 +37,6 @@ struct perf_session {
+ 	int			fd;
+ 	bool			fd_pipe;
+ 	bool			repipe;
+-	int			cwdlen;
+ 	char			*cwd;
+ 	struct ordered_samples	ordered_samples;
+ 	char			filename[1];
+-- 
+1.8.3.2
+

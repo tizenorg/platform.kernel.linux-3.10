@@ -1,0 +1,35 @@
+From fd20e132f43824be4f17bf89a66b5df9d60a16d4 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 12 Aug 2013 22:49:53 +0900
+Subject: [PATCH 0601/1302] ARM: dts: Add rotator node for exynos4x12
+
+This patch adds a rotator node for exynos4212 and 4412. These have different
+limitation of image size compared with the exynos4210. So, we should define
+new compatible to distinguish it from the exynos4210.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Cc: Thomas Abraham <thomas.abraham@linaro.org>
+Cc: Kukjin Kim <kgene.kim@samsung.com>
+Cc: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 6c1c5eb..7c11261 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -357,4 +357,8 @@
+ 		clock-names = "tmu_apbif";
+ 		status = "disabled";
+ 	};
++
++	rotator@12810000 {
++		compatible = "samsung,exynos4212-rotator";
++	};
+ };
+-- 
+1.8.3.2
+

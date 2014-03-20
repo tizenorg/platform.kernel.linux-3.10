@@ -1,0 +1,34 @@
+From 38d35de94bd0778f1b68b2183c04fef2b585629d Mon Sep 17 00:00:00 2001
+From: Sangjung Woo <sangjung.woo@samsung.com>
+Date: Tue, 5 Nov 2013 11:08:34 +0900
+Subject: [PATCH 1012/1302] pwm: samsung: memory leak bugfix in
+ pwm_samsung_free
+
+There is certainly a kind of memory leak since allocated data (i.e.
+chip_data) is set NULL before freeing it by calling devm_kfree().This
+patch fixes the memory leak bug by modifying its call order.
+
+Signed-off-by: Sangjung Woo <sangjung.woo@samsung.com>
+Reviewed-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/pwm/pwm-samsung.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/pwm/pwm-samsung.c b/drivers/pwm/pwm-samsung.c
+index fcc8b9a..07b2d9d 100644
+--- a/drivers/pwm/pwm-samsung.c
++++ b/drivers/pwm/pwm-samsung.c
+@@ -224,8 +224,8 @@ static int pwm_samsung_request(struct pwm_chip *chip, struct pwm_device *pwm)
+ 
+ static void pwm_samsung_free(struct pwm_chip *chip, struct pwm_device *pwm)
+ {
+-	pwm_set_chip_data(pwm, NULL);
+ 	devm_kfree(chip->dev, pwm_get_chip_data(pwm));
++	pwm_set_chip_data(pwm, NULL);
+ }
+ 
+ static int pwm_samsung_enable(struct pwm_chip *chip, struct pwm_device *pwm)
+-- 
+1.8.3.2
+

@@ -1,0 +1,35 @@
+From 54989ea0736973221ce9055d2c63c23887eef12b Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Mon, 4 Nov 2013 13:46:17 +0100
+Subject: [PATCH 1186/1302] usb: gadget: f_mass_storage: fix mass storage
+ dependency
+
+Legacy gadgets supporting mass storage (g_mass_storage, g_acm_ms, g_multi)
+all depend on BLOCK.
+
+Make the standalone compilation of f_mass_storage (without any legacy
+gadget) dependent no BLOCK, too.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index c864c884..085b11e 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -679,6 +679,7 @@ config USB_CONFIGFS_PHONET
+ config USB_CONFIGFS_MASS_STORAGE
+ 	boolean "Mass storage"
+ 	depends on USB_CONFIGFS
++	depends on BLOCK
+ 	select USB_F_MASS_STORAGE
+ 	help
+ 	  The Mass Storage Gadget acts as a USB Mass Storage disk drive.
+-- 
+1.8.3.2
+

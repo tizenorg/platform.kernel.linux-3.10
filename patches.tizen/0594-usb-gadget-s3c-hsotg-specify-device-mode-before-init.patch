@@ -1,0 +1,47 @@
+From bd6429a2f6f79d5d493726872d601efe6fdd9980 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 30 Aug 2013 20:58:55 +0900
+Subject: [PATCH 0594/1302] usb: gadget: s3c-hsotg: specify device mode before
+ initializing phy
+
+The otg module can be used both host and device mode. According to the boot
+sequence, device mode will be initialized first and host mode will be
+initialized later. Thus, the phy always remained in the host mode.
+To address this problem, we should clear the 'host' value before initializing
+the phy driver.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 5c8fe2d..5fc87ce 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -34,6 +34,7 @@
+ #include <linux/usb/ch9.h>
+ #include <linux/usb/gadget.h>
+ #include <linux/usb/phy.h>
++#include <linux/usb/otg.h>
+ #include <linux/platform_data/s3c-hsotg.h>
+ 
+ #include <mach/map.h>
+@@ -2824,8 +2825,12 @@ static void s3c_hsotg_phy_enable(struct s3c_hsotg *hsotg)
+ 
+ 	dev_dbg(hsotg->dev, "pdev 0x%p\n", pdev);
+ 
+-	if (hsotg->phy)
++	if (hsotg->phy) {
++		struct usb_otg *otg = hsotg->phy->otg;
++		if (otg && otg->set_host)
++			otg->set_host(otg, NULL);
+ 		usb_phy_init(hsotg->phy);
++	}
+ 	else if (hsotg->plat->phy_init)
+ 		hsotg->plat->phy_init(pdev, hsotg->plat->phy_type);
+ }
+-- 
+1.8.3.2
+

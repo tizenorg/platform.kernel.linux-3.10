@@ -1,0 +1,44 @@
+From 95e3cd0fff17bd02de1a9123956ad2fc8b7c8793 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 12 Sep 2013 18:49:09 +0200
+Subject: [PATCH 0784/1302] exynos4-is: Do not unnecessarily activate fimc-is
+ device in probe()
+
+There is no use of temporarily activating the device in probe()
+so remove the pm_runtime_get_sync(), pm_runtime_put() calls.
+This also fixes a bug on error path.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-is.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-is.c b/drivers/media/platform/exynos4-is/fimc-is.c
+index 5d3586d..fc4fda3 100644
+--- a/drivers/media/platform/exynos4-is/fimc-is.c
++++ b/drivers/media/platform/exynos4-is/fimc-is.c
+@@ -824,11 +824,6 @@ static int fimc_is_probe(struct platform_device *pdev)
+ 		dev_err(dev, "irq request failed\n");
+ 		goto err_clk;
+ 	}
+-	pm_runtime_enable(dev);
+-
+-	ret = pm_runtime_get_sync(dev);
+-	if (ret < 0)
+-		goto err_irq;
+ 
+ 	is->alloc_ctx = vb2_dma_contig_init_ctx(dev);
+ 	if (IS_ERR(is->alloc_ctx)) {
+@@ -851,7 +846,7 @@ static int fimc_is_probe(struct platform_device *pdev)
+ 	if (ret < 0)
+ 		goto err_dfs;
+ 
+-	pm_runtime_put_sync(dev);
++	pm_runtime_enable(dev);
+ 
+ 	dev_dbg(dev, "FIMC-IS registered successfully\n");
+ 	return 0;
+-- 
+1.8.3.2
+

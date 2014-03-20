@@ -1,0 +1,54 @@
+From 078a809ba09aaeaae24b9092fd6be033478b2b4a Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Tue, 14 May 2013 19:17:33 +0200
+Subject: [PATCH 0113/1302] clk: samsung: exynos4: Fix clock registration order
+
+This patch moves registration of fixed clocks and Exynos4210-specific
+mux clocks before PLL registration, because some of those clocks are
+needed for Exynos4210 PLL initialization.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/samsung/clk-exynos4.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/clk/samsung/clk-exynos4.c b/drivers/clk/samsung/clk-exynos4.c
+index 67685bf..8572652 100644
+--- a/drivers/clk/samsung/clk-exynos4.c
++++ b/drivers/clk/samsung/clk-exynos4.c
+@@ -1064,8 +1064,13 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
+ 			ext_clk_match);
+ 
+ 	exynos4_clk_register_finpll(xom);
++	samsung_clk_register_fixed_rate(exynos4_fixed_rate_clks,
++			ARRAY_SIZE(exynos4_fixed_rate_clks));
+ 
+ 	if (exynos4_soc == EXYNOS4210) {
++		samsung_clk_register_mux(exynos4210_mux_clks,
++					ARRAY_SIZE(exynos4210_mux_clks));
++
+ 		apll = samsung_clk_register_pll45xx("fout_apll", "fin_pll",
+ 					reg_base + APLL_LOCK, pll_4508,
+ 					pll45xx_exynos4210_pll45xx_pms);
+@@ -1092,8 +1097,6 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
+ 	samsung_clk_add_lookup(epll, fout_epll);
+ 	samsung_clk_add_lookup(vpll, fout_vpll);
+ 
+-	samsung_clk_register_fixed_rate(exynos4_fixed_rate_clks,
+-			ARRAY_SIZE(exynos4_fixed_rate_clks));
+ 	samsung_clk_register_mux(exynos4_mux_clks,
+ 			ARRAY_SIZE(exynos4_mux_clks));
+ 	samsung_clk_register_div(exynos4_div_clks,
+@@ -1104,8 +1107,6 @@ void __init exynos4_clk_init(struct device_node *np, enum exynos4_soc exynos4_so
+ 	if (exynos4_soc == EXYNOS4210) {
+ 		samsung_clk_register_fixed_rate(exynos4210_fixed_rate_clks,
+ 			ARRAY_SIZE(exynos4210_fixed_rate_clks));
+-		samsung_clk_register_mux(exynos4210_mux_clks,
+-			ARRAY_SIZE(exynos4210_mux_clks));
+ 		samsung_clk_register_div(exynos4210_div_clks,
+ 			ARRAY_SIZE(exynos4210_div_clks));
+ 		samsung_clk_register_gate(exynos4210_gate_clks,
+-- 
+1.8.3.2
+

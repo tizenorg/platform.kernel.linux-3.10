@@ -1,0 +1,38 @@
+From 88c3ee832e3ba6a96d5c83988fdeffbf3150d017 Mon Sep 17 00:00:00 2001
+From: Seung-Woo Kim <sw0312.kim@samsung.com>
+Date: Fri, 19 Jul 2013 16:52:29 +0900
+Subject: [PATCH 0426/1302] cpufreq: exynos: fix section mismatch
+
+Non init data, exynos_cpufreq_driver references init data,
+exynos_cpufreq_probe and exynos_cpufreq_of_match, and this causes
+section mismatch.
+
+Signed-off-by: Seung-Woo Kim <sw0312.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/exynos-cpufreq.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/cpufreq/exynos-cpufreq.c b/drivers/cpufreq/exynos-cpufreq.c
+index 3197d88..d748ada 100644
+--- a/drivers/cpufreq/exynos-cpufreq.c
++++ b/drivers/cpufreq/exynos-cpufreq.c
+@@ -351,13 +351,13 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
+ }
+ 
+ #ifdef CONFIG_OF
+-static struct of_device_id exynos_cpufreq_of_match[] __initconst = {
++static struct of_device_id exynos_cpufreq_of_match[] = {
+ 	{ .compatible = "samsung,exynos-cpufreq", },
+ 	{ },
+ };
+ #endif
+ 
+-static int __init exynos_cpufreq_probe(struct platform_device *pdev)
++static int exynos_cpufreq_probe(struct platform_device *pdev)
+ {
+ 	int ret = -EINVAL;
+ 
+-- 
+1.8.3.2
+

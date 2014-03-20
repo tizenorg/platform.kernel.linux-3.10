@@ -1,0 +1,29 @@
+From 0f0fce93bf74031922d9a6041f86b2e8b599f3f9 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 23 Jan 2013 12:37:03 +0100
+Subject: [PATCH 0046/1302] s5c73m3: Disable boot_from_rom
+
+Boot from FROM memory is only for the mainline kernel.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/s5c73m3/s5c73m3-core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/i2c/s5c73m3/s5c73m3-core.c b/drivers/media/i2c/s5c73m3/s5c73m3-core.c
+index e6ce92a..77f59fa 100644
+--- a/drivers/media/i2c/s5c73m3/s5c73m3-core.c
++++ b/drivers/media/i2c/s5c73m3/s5c73m3-core.c
+@@ -40,7 +40,7 @@
+ int s5c73m3_dbg;
+ module_param_named(debug, s5c73m3_dbg, int, 0644);
+ 
+-static int boot_from_rom = 1;
++static int boot_from_rom = 0;
+ module_param(boot_from_rom, int, 0644);
+ 
+ static int update_fw;
+-- 
+1.8.3.2
+

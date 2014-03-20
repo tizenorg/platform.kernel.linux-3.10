@@ -1,0 +1,43 @@
+From b7999561d987fd56497c0948d8de3b007f585e3b Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Mon, 5 Aug 2013 12:11:05 +0900
+Subject: [PATCH 1109/1302] usb: gadget: f_mass_storage: use NULL instead of 0
+
+The local variables such as 'filename', 'vendor_name', and
+'product_name' are pointers; thus, use NULL instead of 0 to fix
+the following sparse warnings
+
+drivers/usb/gadget/f_mass_storage.c:3046:27: warning: Using plain integer as NULL pointer
+drivers/usb/gadget/f_mass_storage.c:3050:28: warning: Using plain integer as NULL pointer
+drivers/usb/gadget/f_mass_storage.c:3051:29: warning: Using plain integer as NULL pointer
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 56f1fd1..4d4e96a 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -3043,12 +3043,12 @@ fsg_config_from_params(struct fsg_config *cfg,
+ 		lun->filename =
+ 			params->file_count > i && params->file[i][0]
+ 			? params->file[i]
+-			: 0;
++			: NULL;
+ 	}
+ 
+ 	/* Let MSF use defaults */
+-	cfg->vendor_name = 0;
+-	cfg->product_name = 0;
++	cfg->vendor_name = NULL;
++	cfg->product_name = NULL;
+ 
+ 	cfg->ops = NULL;
+ 	cfg->private_data = NULL;
+-- 
+1.8.3.2
+

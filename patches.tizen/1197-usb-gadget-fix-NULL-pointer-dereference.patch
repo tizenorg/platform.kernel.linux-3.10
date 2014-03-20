@@ -1,0 +1,62 @@
+From d648cb17fd2bd010ca1d9d9aedf88f9bcf44c414 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Mon, 20 Jan 2014 08:32:43 +0100
+Subject: [PATCH 1197/1302] usb: gadget: fix NULL pointer dereference
+
+Fix possible NULL pointer dereference introduced in
+
+219580e64f035bb9018dbb08d340f90b0ac50f8c
+usb: f_fs: check quirk to pad epout buf size when not aligned to
+maxpacketsize
+
+In cases we do wait with:
+
+wait_event_interruptible(epfile->wait, (ep = epfile->ep));
+
+for endpoint to be enabled, functionfs_bind() has not been called yet
+and epfile->ffs->gadget is still NULL and the automatic variable 'gadget'
+has been initialized with NULL at the point of its definition.
+Later on it is used as a parameter to:
+
+usb_ep_align_maybe(gadget, ep->ep, len)
+
+which in turn dereferences it.
+
+This patch fixes it by moving the actual assignment to the local 'gadget'
+variable after the potential waiting has completed.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index b28d62f..984374e 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -587,7 +587,6 @@ static ssize_t ffs_epfile_io(struct file *file,
+ 			     char __user *buf, size_t len, int read)
+ {
+ 	struct ffs_epfile *epfile = file->private_data;
+-	struct usb_gadget *gadget = epfile->ffs->gadget;
+ 	struct ffs_ep *ep;
+ 	char *data = NULL;
+ 	ssize_t ret, data_len;
+@@ -624,6 +623,12 @@ static ssize_t ffs_epfile_io(struct file *file,
+ 	/* Allocate & copy */
+ 	if (!halt) {
+ 		/*
++		 * if we _do_ wait above, the epfile->ffs->gadget might be NULL
++		 * before the waiting completes, so do not assign to 'gadget' earlier
++		 */
++		struct usb_gadget *gadget = epfile->ffs->gadget;
++
++		/*
+ 		 * Controller may require buffer size to be aligned to
+ 		 * maxpacketsize of an out endpoint.
+ 		 */
+-- 
+1.8.3.2
+

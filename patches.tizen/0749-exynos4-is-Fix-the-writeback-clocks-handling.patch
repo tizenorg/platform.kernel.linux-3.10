@@ -1,0 +1,74 @@
+From aafb873162a33fbe8a6a36101b71c7d317ac289b Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Fri, 30 Aug 2013 09:37:43 +0200
+Subject: [PATCH 0749/1302] exynos4-is: Fix the writeback clocks handling
+
+The patch fixes situation when during probe clk_get() on some clock did
+not succeed and the driver tries to clk_put() invalid clocks.
+The fix prevents faults as follows:
+
+[   43.785000] Unable to handle kernel NULL pointer dereference at virtual address 00000044
+[   43.785000] pgd = e6214000
+[   43.785000] [00000044] *pgd=00000000
+[   43.785000] Internal error: Oops: 5 [#1] PREEMPT SMP ARM
+[   43.785000] Modules linked in: s5p_fimc(+) ipv6 s5p_csis s5k5baf v4l2_mem2mem videobuf2_dma_contig videobuf2_memops exynos4_is_common videobuf2_core m5mols
+[   43.785000] CPU: 0 PID: 2496 Comm: modprobe Not tainted 3.11.0-rc2-00316-ga8cf411 #1612
+[   43.785000] task: e71a0000 ti: e6a08000 task.ti: e6a08000
+[   43.785000] PC is at __clk_put+0x1c/0x8c
+[   43.785000] LR is at clk_prepare_lock+0xc/0xd8
+[   43.785000] pc : [<c02f0d5c>]    lr : [<c02f00f0>]    psr: 60000013
+[   43.785000] sp : e6a09d20  ip : e6a09cd0  fp : c0d9df7c
+[   43.785000] r10: e6698940  r9 : e71b4a00  r8 : c0d9eca0
+[   43.785000] r7 : e71b5400  r6 : c0d9eacc  r5 : fffffdfb  r4 : 00000000
+[   43.785000] r3 : e71a0000  r2 : 00000001  r1 : 00000947  r0 : 00000044
+[   43.785000] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+[   43.785000] Control: 10c5387d  Table: 6621404a  DAC: 00000015
+[   43.785000] Process modprobe (pid: 2496, stack limit = 0xe6a08238)
+[   43.785000] Stack: (0xe6a09d20 to 0xe6a0a000)
+    	        ...
+[   43.785000] [<c02f0d5c>] (__clk_put+0x1c/0x8c) from [<bf0992a0>] (fimc_md_put_clocks+0x48/0x6c [s5p_fimc])
+[   43.785000] [<bf0992a0>] (fimc_md_put_clocks+0x48/0x6c [s5p_fimc]) from [<bf09a66c>] (fimc_md_probe+0x484/0x954 [s5p_fimc])
+[   43.785000] [<bf09a66c>] (fimc_md_probe+0x484/0x954 [s5p_fimc]) from [<c0219c78>] (platform_drv_probe+0x18/0x1c)
+[   43.785000] [<c0219c78>] (platform_drv_probe+0x18/0x1c) from [<c0218ab4>] (driver_probe_device+0x108/0x224)
+[   43.785000] [<c0218ab4>] (driver_probe_device+0x108/0x224) from [<c0218c5c>] (__driver_attach+0x8c/0x90)
+[   43.785000] [<c0218c5c>] (__driver_attach+0x8c/0x90) from [<c02171a8>] (bus_for_each_dev+0x54/0x88)
+[   43.785000] [<c02171a8>] (bus_for_each_dev+0x54/0x88) from [<c02181c4>] (bus_add_driver+0xd4/0x22c)
+[   43.785000] [<c02181c4>] (bus_add_driver+0xd4/0x22c) from [<c0219114>] (driver_register+0x78/0x14c)
+[   43.785000] [<c0219114>] (driver_register+0x78/0x14c) from [<c00087a0>] (do_one_initcall+0xe4/0x140)
+[   43.785000] [<c00087a0>] (do_one_initcall+0xe4/0x140) from [<c00672ac>] (load_module+0x17b4/0x1d4c)
+[   43.785000] [<c00672ac>] (load_module+0x17b4/0x1d4c) from [<c006791c>] (SyS_init_module+0xd8/0xec)
+[   43.785000] [<c006791c>] (SyS_init_module+0xd8/0xec) from [<c000e360>] (ret_fast_syscall+0x0/0x30)
+[   43.785000] Code: 8a000012 ebfffce3 e2840044 f57ff05f (e1903f9f)
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/media-dev.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/exynos4-is/media-dev.c b/drivers/media/platform/exynos4-is/media-dev.c
+index 68a3022..7125411 100644
+--- a/drivers/media/platform/exynos4-is/media-dev.c
++++ b/drivers/media/platform/exynos4-is/media-dev.c
+@@ -1145,6 +1145,9 @@ static int fimc_md_get_clocks(struct fimc_md *fmd)
+ 	for (i = 0; i < FIMC_MAX_CAMCLKS; i++)
+ 		fmd->camclk[i].clock = ERR_PTR(-EINVAL);
+ 
++	for (i = 0; i < FIMC_MAX_WBCLKS; i++)
++		fmd->wbclk[i] = ERR_PTR(-EINVAL);
++
+ 	if (fmd->pdev->dev.of_node)
+ 		dev = &fmd->pdev->dev;
+ 
+@@ -1169,8 +1172,6 @@ static int fimc_md_get_clocks(struct fimc_md *fmd)
+ 	 * For now get only PIXELASYNCM1 clock (Writeback B/ISP),
+ 	 * leave PIXELASYNCM0 out for the LCD Writeback driver.
+ 	 */
+-	fmd->wbclk[CLK_IDX_WB_A] = ERR_PTR(-EINVAL);
+-
+ 	for (i = CLK_IDX_WB_B; i < FIMC_MAX_WBCLKS; i++) {
+ 		snprintf(clk_name, sizeof(clk_name), "pxl_async%u", i);
+ 		clock = clk_get(dev, clk_name);
+-- 
+1.8.3.2
+

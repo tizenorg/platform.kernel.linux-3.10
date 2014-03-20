@@ -1,0 +1,51 @@
+From c606915595ff774eb6072c37fae7ef7da028c2e4 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Fri, 19 Apr 2013 17:31:16 +0200
+Subject: [PATCH 0231/1302] ARM: dts: thermal: exynos4: Add documentation for
+ Exynos SoC thermal bindings
+
+Proper description for Exynos4 bindings added to Documentation/devicetree/
+bindings
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../devicetree/bindings/thermal/exynos-thermal.txt | 25 ++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/thermal/exynos-thermal.txt
+
+diff --git a/Documentation/devicetree/bindings/thermal/exynos-thermal.txt b/Documentation/devicetree/bindings/thermal/exynos-thermal.txt
+new file mode 100644
+index 0000000..535fd0e
+--- /dev/null
++++ b/Documentation/devicetree/bindings/thermal/exynos-thermal.txt
+@@ -0,0 +1,25 @@
++* Exynos Thermal Management Unit (TMU)
++
++** Required properties:
++
++- compatible : One of the following:
++	       "samsung,exynos4412-tmu"
++	       "samsung,exynos4210-tmu"
++	       "samsung,exynos5250-tmu"
++- interrupt-parent : The phandle for the interrupt controller
++- reg : Address range of the thermal registers
++- interrupts : Should contain interrupt for thermal system
++- clocks : The main clock for TMU device
++- clock-names : Thermal system clock name
++
++Example:
++
++	tmu@100C0000 {
++		compatible = "samsung,exynos4412-tmu";
++		interrupt-parent = <&combiner>;
++		reg = <0x100C0000 0x100>;
++		interrupts = <2 4>;
++		clocks = <&clock 383>;
++		clock-names = "tmu_apbif";
++		status = "disabled";
++	};
+-- 
+1.8.3.2
+

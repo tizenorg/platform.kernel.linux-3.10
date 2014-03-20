@@ -1,0 +1,52 @@
+From 136413c6a101ece8d7ddfdc38d4ceb45b255384c Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 1 Nov 2013 18:53:09 +0900
+Subject: [PATCH 0997/1302] Introduce CONFIG_ARCH_HAS_BANDGAP and
+ ARCH_EXYNOS4/5 selects it.
+
+CONFIG_ARCH_HAS_BANDGAP is used for tmu driver in thermal fw.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/Kconfig             | 3 +++
+ arch/arm/mach-exynos/Kconfig | 2 ++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 18a9f5e..27194fa 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -174,6 +174,9 @@ config ARCH_HAS_CPUFREQ
+ 	  and that the relevant menu configurations are displayed for
+ 	  it.
+ 
++config ARCH_HAS_BANDGAP
++	bool
++
+ config GENERIC_HWEIGHT
+ 	bool
+ 	default y
+diff --git a/arch/arm/mach-exynos/Kconfig b/arch/arm/mach-exynos/Kconfig
+index 549cb32..3e53ad7 100644
+--- a/arch/arm/mach-exynos/Kconfig
++++ b/arch/arm/mach-exynos/Kconfig
+@@ -17,6 +17,7 @@ config ARCH_EXYNOS4
+ 	select HAVE_ARM_SCU if SMP
+ 	select HAVE_SMP
+ 	select MIGHT_HAVE_CACHE_L2X0
++	select ARCH_HAS_BANDGAP
+ 	help
+ 	  Samsung EXYNOS4 SoCs based systems
+ 
+@@ -24,6 +25,7 @@ config ARCH_EXYNOS5
+ 	bool "SAMSUNG EXYNOS5"
+ 	select HAVE_ARM_SCU if SMP
+ 	select HAVE_SMP
++	select ARCH_HAS_BANDGAP
+ 	help
+ 	  Samsung EXYNOS5 (Cortex-A15) SoC based systems
+ 
+-- 
+1.8.3.2
+

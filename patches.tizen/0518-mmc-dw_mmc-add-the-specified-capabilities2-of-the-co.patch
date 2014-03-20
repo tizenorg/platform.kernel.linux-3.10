@@ -1,0 +1,52 @@
+From 19e7236a5f3561f74d13bc1272b212f9cd16d22f Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Thu, 1 Aug 2013 22:37:29 +0900
+Subject: [PATCH 0518/1302] mmc: dw_mmc: add the specified capabilities2 of the
+ controller
+
+Add the capabilities2 of controller to use *_CAP2_*
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/dw_mmc.c | 3 +++
+ drivers/mmc/host/dw_mmc.h | 2 ++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/drivers/mmc/host/dw_mmc.c b/drivers/mmc/host/dw_mmc.c
+index ee5f167..564c9fb 100644
+--- a/drivers/mmc/host/dw_mmc.c
++++ b/drivers/mmc/host/dw_mmc.c
+@@ -1951,6 +1951,9 @@ static int dw_mci_init_slot(struct dw_mci *host, unsigned int id)
+ 	if (host->pdata->caps2)
+ 		mmc->caps2 = host->pdata->caps2;
+ 
++	if (drv_data && drv_data->caps2)
++		mmc->caps2 |= drv_data->caps2[ctrl_id];
++
+ 	if (host->pdata->get_bus_wd)
+ 		bus_width = host->pdata->get_bus_wd(slot->id);
+ 	else if (host->dev->of_node)
+diff --git a/drivers/mmc/host/dw_mmc.h b/drivers/mmc/host/dw_mmc.h
+index 2f52c87..90e2bab 100644
+--- a/drivers/mmc/host/dw_mmc.h
++++ b/drivers/mmc/host/dw_mmc.h
+@@ -185,6 +185,7 @@ extern int dw_mci_resume(struct dw_mci *host);
+ /**
+  * dw_mci driver data - dw-mshc implementation specific driver data.
+  * @caps: mmc subsystem specified capabilities of the controller(s).
++ * @caps2: mmc subsystem specified capabilities2 of the controller(s).
+  * @init: early implementation specific initialization.
+  * @setup_clock: implementation specific clock configuration.
+  * @prepare_command: handle CMD register extensions.
+@@ -197,6 +198,7 @@ extern int dw_mci_resume(struct dw_mci *host);
+  */
+ struct dw_mci_drv_data {
+ 	unsigned long	*caps;
++	unsigned long	*caps2;
+ 	int		(*init)(struct dw_mci *host);
+ 	int		(*setup_clock)(struct dw_mci *host);
+ 	void		(*prepare_command)(struct dw_mci *host, u32 *cmdr);
+-- 
+1.8.3.2
+

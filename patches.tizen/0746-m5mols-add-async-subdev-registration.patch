@@ -1,0 +1,38 @@
+From d77fb2a8649fee22dc13290da783522c6f5a5d5f Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Wed, 4 Sep 2013 08:31:48 +0200
+Subject: [PATCH 0746/1302] m5mols: add async subdev registration
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/m5mols/m5mols_core.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/media/i2c/m5mols/m5mols_core.c b/drivers/media/i2c/m5mols/m5mols_core.c
+index c0d3551..ad83a43 100644
+--- a/drivers/media/i2c/m5mols/m5mols_core.c
++++ b/drivers/media/i2c/m5mols/m5mols_core.c
+@@ -1067,6 +1067,10 @@ static int m5mols_probe(struct i2c_client *client,
+ 	if (ret < 0)
+ 		goto error;
+ 
++	ret = v4l2_async_register_subdev(&info->sd);
++	if (ret < 0)
++		goto error;
++
+ 	return 0;
+ error:
+ 	media_entity_cleanup(&sd->entity);
+@@ -1077,6 +1081,8 @@ static int m5mols_remove(struct i2c_client *client)
+ {
+ 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+ 
++	v4l2_async_unregister_subdev(sd);
++
+ 	v4l2_device_unregister_subdev(sd);
+ 	v4l2_ctrl_handler_free(sd->ctrl_handler);
+ 	media_entity_cleanup(&sd->entity);
+-- 
+1.8.3.2
+

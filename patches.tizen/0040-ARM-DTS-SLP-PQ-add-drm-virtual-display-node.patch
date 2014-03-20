@@ -1,0 +1,29 @@
+From ecfb835fff3829e3fa8da3ce5f81bf800a551cf2 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Fri, 4 Jan 2013 16:25:52 +0900
+Subject: [PATCH 0040/1302] ARM: DTS: SLP-PQ: add drm virtual display node.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index d506149..fe5a458 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -455,6 +455,10 @@
+ 		status = "okay";
+ 	};
+ 
++	vidi {
++		compatible = "samsung,exynos-drm-vidi";
++	};
++
+ 	sysmmu-fimd0 {
+ 		mmu-master = <&fimd>;
+ 	};
+-- 
+1.8.3.2
+

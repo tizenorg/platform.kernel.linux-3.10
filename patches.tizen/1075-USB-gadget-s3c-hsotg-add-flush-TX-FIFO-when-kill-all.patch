@@ -1,0 +1,36 @@
+From 4a19d28091034dc7d6a028139bcf578a6a1d8d70 Mon Sep 17 00:00:00 2001
+From: Robert Baldyga <r.baldyga@samsung.com>
+Date: Thu, 5 Dec 2013 15:04:19 +0100
+Subject: [PATCH 1075/1302] USB: gadget: s3c-hsotg: add flush TX FIFO when kill
+ all requests
+
+This patch adds flushing TX FIFO in kill_all_requests() function in
+dedicated-fifo mode. It's because when requests are killed (when endpoint is
+disabled or in case of device reset/disconnection) in FIFO can stay some
+unsent data. In the worst case FIFO can stay full, and then if endpoint will
+be back enabled, sending new data will be impossible.
+
+Signed-off-by: Robert Baldyga <r.baldyga@samsung.com>
+Change-Id: Ibdb3d3f14f665d096ad944fb3ad79d25ff11625a
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 3bab054..6e4aefe 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -2124,6 +2124,9 @@ static void kill_all_requests(struct s3c_hsotg *hsotg,
+ 		s3c_hsotg_complete_request(hsotg, ep, req,
+ 					   result);
+ 	}
++	if (hsotg->dedicated_fifos)
++		if ((readl(hsotg->regs + DTXFSTS(ep->index)) & 0xffff) * 4 < 3072)
++			s3c_hsotg_txfifo_flush(hsotg, ep->index);
+ }
+ 
+ #define call_gadget(_hs, _entry) \
+-- 
+1.8.3.2
+

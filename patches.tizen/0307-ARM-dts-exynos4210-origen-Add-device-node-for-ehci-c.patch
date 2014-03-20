@@ -1,0 +1,33 @@
+From ced71a514af10c9b71f219401d254ad93e6e1642 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 13 Mar 2013 20:09:01 +0100
+Subject: [PATCH 0307/1302] ARM: dts: exynos4210-origen: Add device node for
+ ehci controller
+
+This patch adds device tree node for ehci controller used on
+exynos4210-origen board.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-origen.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-origen.dts b/arch/arm/boot/dts/exynos4210-origen.dts
+index c28a4ad..341717b 100644
+--- a/arch/arm/boot/dts/exynos4210-origen.dts
++++ b/arch/arm/boot/dts/exynos4210-origen.dts
+@@ -182,6 +182,10 @@
+ 		vusb_a-supply = <&vusb_reg>;
+ 	};
+ 
++	ehci@12580000 {
++		status = "okay";
++	};
++
+ 	i2c@13860000 {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+-- 
+1.8.3.2
+

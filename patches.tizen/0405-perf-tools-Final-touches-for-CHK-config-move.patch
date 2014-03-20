@@ -1,0 +1,56 @@
+From abdef5f5459ba1ff35e276175d9bd8348e1aba76 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 18 Mar 2013 22:04:35 +0100
+Subject: [PATCH 0405/1302] perf tools: Final touches for CHK config move
+
+Removing no longer needed ifdefs.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-18-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile | 11 -----------
+ 1 file changed, 11 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index 240bf88..74fdd2b 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -422,14 +422,6 @@ BUILTIN_OBJS += $(OUTPUT)builtin-mem.o
+ 
+ PERFLIBS = $(LIB_FILE) $(LIBLK) $(LIBTRACEEVENT)
+ 
+-#
+-# Platform specific tweaks
+-#
+-ifneq ($(MAKECMDGOALS),clean)
+-ifneq ($(MAKECMDGOALS),tags)
+-
+--include config/feature-tests.mak
+-
+ # We choose to avoid "if .. else if .. else .. endif endif"
+ # because maintaining the nesting to match is a pain.  If
+ # we had "elif" things would have been much nicer...
+@@ -519,9 +511,6 @@ ifdef ASCIIDOC8
+ 	export ASCIIDOC8
+ endif
+ 
+-endif # MAKECMDGOALS != tags
+-endif # MAKECMDGOALS != clean
+-
+ LIBS = -Wl,--whole-archive $(PERFLIBS) -Wl,--no-whole-archive -Wl,--start-group $(EXTLIBS) -Wl,--end-group
+ 
+ ALL_CFLAGS += $(BASIC_CFLAGS)
+-- 
+1.8.3.2
+

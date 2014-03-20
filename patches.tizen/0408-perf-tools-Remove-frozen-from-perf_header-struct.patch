@@ -1,0 +1,58 @@
+From 39c35c78b1c15e19e076222aae0ab76467dbdcbd Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Fri, 24 May 2013 13:16:39 +0200
+Subject: [PATCH 0408/1302] perf tools: Remove frozen from perf_header struct
+
+Removing frozen from perf_header struct as it's no longer used.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: David Ahern <dsahern@gmail.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369394201-20044-4-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/util/header.c | 2 --
+ tools/perf/util/header.h | 1 -
+ 2 files changed, 3 deletions(-)
+
+diff --git a/tools/perf/util/header.c b/tools/perf/util/header.c
+index 326068a..738d3b8 100644
+--- a/tools/perf/util/header.c
++++ b/tools/perf/util/header.c
+@@ -2391,7 +2391,6 @@ out_err_write:
+ 	}
+ 	lseek(fd, header->data_offset + header->data_size, SEEK_SET);
+ 
+-	header->frozen = 1;
+ 	return 0;
+ }
+ 
+@@ -2871,7 +2870,6 @@ int perf_session__read_header(struct perf_session *session, int fd)
+ 						   session->pevent))
+ 		goto out_delete_evlist;
+ 
+-	header->frozen = 1;
+ 	return 0;
+ out_errno:
+ 	return -errno;
+diff --git a/tools/perf/util/header.h b/tools/perf/util/header.h
+index c9fc55c..16a3e83 100644
+--- a/tools/perf/util/header.h
++++ b/tools/perf/util/header.h
+@@ -84,7 +84,6 @@ struct perf_session_env {
+ };
+ 
+ struct perf_header {
+-	int			frozen;
+ 	bool			needs_swap;
+ 	s64			attr_offset;
+ 	u64			data_offset;
+-- 
+1.8.3.2
+

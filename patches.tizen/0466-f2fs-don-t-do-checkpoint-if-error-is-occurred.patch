@@ -1,0 +1,31 @@
+From 1316dd44da075e49e4ce9580573a48e94ca96803 Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk.kim@samsung.com>
+Date: Mon, 20 May 2013 14:48:49 +0900
+Subject: [PATCH 0466/1302] f2fs: don't do checkpoint if error is occurred
+
+If we met an error during the dentry recovery, we should not conduct checkpoint.
+Otherwise, some errorneous dentry blocks overwrites the existing blocks that
+contain the remaining recovery information.
+
+Signed-off-by: Jaegeuk Kim <jaegeuk.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ fs/f2fs/recovery.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/fs/f2fs/recovery.c b/fs/f2fs/recovery.c
+index 3a4b51c..5148d90 100644
+--- a/fs/f2fs/recovery.c
++++ b/fs/f2fs/recovery.c
+@@ -403,6 +403,7 @@ out:
+ 	destroy_fsync_dnodes(sbi, &inode_list);
+ 	kmem_cache_destroy(fsync_entry_slab);
+ 	sbi->por_doing = 0;
+-	write_checkpoint(sbi, false);
++	if (!err)
++		write_checkpoint(sbi, false);
+ 	return err;
+ }
+-- 
+1.8.3.2
+

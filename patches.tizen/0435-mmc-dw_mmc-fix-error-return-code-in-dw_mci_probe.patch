@@ -1,0 +1,36 @@
+From 4e7e9ad941af42a8cb7caff4c9756513309d04c8 Mon Sep 17 00:00:00 2001
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Date: Fri, 19 Apr 2013 09:25:45 +0800
+Subject: [PATCH 0435/1302] mmc: dw_mmc: fix error return code in
+ dw_mci_probe()
+
+Fix to return -ENOMEM in alloc workqueue error case instead
+of 0, as done elsewhere in this function.
+
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Acked-by: Seungwon Jeon <tgih.jun@samsung.com>
+Signed-off-by: Chris Ball <cjb@laptop.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/dw_mmc.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mmc/host/dw_mmc.c b/drivers/mmc/host/dw_mmc.c
+index bc3a1bc..0652690 100644
+--- a/drivers/mmc/host/dw_mmc.c
++++ b/drivers/mmc/host/dw_mmc.c
+@@ -2321,8 +2321,10 @@ int dw_mci_probe(struct dw_mci *host)
+ 	tasklet_init(&host->tasklet, dw_mci_tasklet_func, (unsigned long)host);
+ 	host->card_workqueue = alloc_workqueue("dw-mci-card",
+ 			WQ_MEM_RECLAIM | WQ_NON_REENTRANT, 1);
+-	if (!host->card_workqueue)
++	if (!host->card_workqueue) {
++		ret = -ENOMEM;
+ 		goto err_dmaunmap;
++	}
+ 	INIT_WORK(&host->card_work, dw_mci_work_routine_card);
+ 	ret = devm_request_irq(host->dev, host->irq, dw_mci_interrupt,
+ 			       host->irq_flags, "dw-mci", host);
+-- 
+1.8.3.2
+

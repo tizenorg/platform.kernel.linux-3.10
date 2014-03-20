@@ -1,0 +1,61 @@
+From 4048f4dfcde4950caf46680e8104bb781254e80c Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Tue, 15 Oct 2013 10:45:34 +0200
+Subject: [PATCH 1028/1302] arch: ARM: dts: add support for exynos4210-usbphy
+ driver to trats
+
+Change-Id: I9758e15225e86050b62068b1156709a71799e4f1
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 25 +++++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index bed4256..e783c05 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -523,14 +523,13 @@
+ 		};
+ 	};
+ 
+-	usbphy@125B0000 {
+-		status = "okay";
+-	};
+-
+ 	hsotg@12480000 {
+ 		status = "okay";
+ 		vusb_d-supply = <&vusb_reg>;
+ 		vusb_a-supply = <&vusbdac_reg>;
++		phys = <&exynos_usbphy 0>;
++		phy-names = "device";
++		status = "okay";
+ 	};
+ 
+ 	fixed-rate-clocks {
+@@ -695,4 +694,22 @@
+ 		status = "okay";
+ 		vdd_g3d-supply = <&vg3d_breg>;
+ 	};
++
++	ehci@12580000 {
++		status = "okay";
++		phys = <&exynos_usbphy 1>;
++		phy-names = "host";
++		vusb_d-supply = <&vusb_reg>;
++		vusb_a-supply = <&vusbdac_reg>;
++	};
++
++	exynos_usbphy: exynos-usbphy@125B0000 {
++		compatible = "samsung,exynos4210-usbphy";
++		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
++		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
++								<&clock 2>;
++		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++		status = "okay";
++		#phy-cells = <1>;
++	};
+ };
+-- 
+1.8.3.2
+

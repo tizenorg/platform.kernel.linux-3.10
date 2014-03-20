@@ -1,0 +1,30 @@
+From 020683975a2bf412987504ff9b7673af50dff239 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Tue, 26 Feb 2013 16:54:27 +0100
+Subject: [PATCH 0161/1302] ARM: dts: Add pmu subnode for Exynos4 fimc-is
+ device
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index a85d168..ceb7218 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -256,6 +256,10 @@
+ 			#size-cells = <1>;
+ 			ranges;
+ 
++			pmu {
++				reg = <0x10020000 0x3000>;
++			};
++
+ 			fimc_lite_0: fimc-lite@12390000 {
+ 				compatible = "samsung,exynos4212-fimc-lite";
+ 				reg = <0x12390000 0x1000>;
+-- 
+1.8.3.2
+

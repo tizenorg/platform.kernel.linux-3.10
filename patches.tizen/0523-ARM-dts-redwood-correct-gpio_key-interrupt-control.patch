@@ -1,0 +1,41 @@
+From 0b06e781372d4de9367dffa6ea8d1371ba365cec Mon Sep 17 00:00:00 2001
+From: Donghwa Lee <dh09.lee@samsung.com>
+Date: Wed, 7 Aug 2013 16:49:08 +0900
+Subject: [PATCH 0523/1302] ARM: dts: redwood: correct gpio_key interrupt
+ control
+
+Signed-off-by: Donghwa Lee <dh09.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index e6f50c9..b24caa8 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -35,8 +35,8 @@
+ 		compatible = "gpio-keys";
+ 
+ 		key@114 {
+-			interrupt-parent = <&gpj1>;
+-			interrupts = <2 0>;
++			interrupt-parent = <&gpx3>;
++			interrupts = <3 0>;
+ 			gpios = <&gpx3 3 1>;
+ 			linux,code = <114>;
+ 			label = "volume down";
+@@ -44,8 +44,8 @@
+ 		};
+ 
+ 		key@115 {
+-			interrupt-parent = <&gpj1>;
+-			interrupts = <1 0>;
++			interrupt-parent = <&gpx2>;
++			interrupts = <2 0>;
+ 			gpios = <&gpx2 2 1>;
+ 			linux,code = <115>;
+ 			label = "volume up";
+-- 
+1.8.3.2
+

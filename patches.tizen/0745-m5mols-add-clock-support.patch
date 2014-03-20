@@ -1,0 +1,77 @@
+From e862a08f39982b7613bc80864443d4a2973a2667 Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Tue, 3 Sep 2013 16:35:08 +0200
+Subject: [PATCH 0745/1302] m5mols: add clock support
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/m5mols/m5mols.h      |  1 +
+ drivers/media/i2c/m5mols/m5mols_core.c | 11 +++++++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/drivers/media/i2c/m5mols/m5mols.h b/drivers/media/i2c/m5mols/m5mols.h
+index d06e7fb..403d5e1 100644
+--- a/drivers/media/i2c/m5mols/m5mols.h
++++ b/drivers/media/i2c/m5mols/m5mols.h
+@@ -207,6 +207,7 @@ struct m5mols_info {
+ 	atomic_t irq_done;
+ 
+ 	struct m5mols_gpio reset_gpio;
++	struct clk *clock;
+ 	struct v4l2_ctrl_handler handle;
+ 	struct {
+ 		/* exposure/exposure bias/auto exposure cluster */
+diff --git a/drivers/media/i2c/m5mols/m5mols_core.c b/drivers/media/i2c/m5mols/m5mols_core.c
+index 5adc6fb..c0d3551 100644
+--- a/drivers/media/i2c/m5mols/m5mols_core.c
++++ b/drivers/media/i2c/m5mols/m5mols_core.c
+@@ -13,6 +13,7 @@
+  * (at your option) any later version.
+  */
+ 
++#include <linux/clk.h>
+ #include <linux/i2c.h>
+ #include <linux/slab.h>
+ #include <linux/irq.h>
+@@ -36,6 +37,7 @@ module_param(m5mols_debug, int, 0644);
+ 
+ #define MODULE_NAME		"m5mols"
+ #define M5MOLS_I2C_CHECK_RETRY	500
++#define M5MOLS_CLK_NAME 	"clkin"
+ 
+ /* The regulator consumer names for external voltage regulators */
+ static struct regulator_bulk_data supplies[] = {
+@@ -777,6 +779,9 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
+ 		ret = regulator_bulk_enable_sync(ARRAY_SIZE(supplies),
+ 						  supplies);
+ 
++		if (!ret)
++			ret = clk_prepare_enable(info->clock);
++
+ 		if (ret < 0) {
+ 			regulator_bulk_disable(ARRAY_SIZE(supplies), supplies);
+ 			info->set_power(dev, 0);
+@@ -790,6 +795,8 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
+ 		return ret;
+ 	}
+ 
++	clk_disable_unprepare(info->clock);
++
+ 	ret = regulator_bulk_disable(ARRAY_SIZE(supplies), supplies);
+ 	if (ret) {
+ 		v4l2_err(&info->sd, "error disabling regulators: %d\n", ret);
+@@ -1019,6 +1026,10 @@ static int m5mols_probe(struct i2c_client *client,
+ 		return ret;
+ 	}
+ 
++	info->clock = devm_clk_get(&client->dev, M5MOLS_CLK_NAME);
++	if (IS_ERR(info->clock))
++		return -EPROBE_DEFER;
++
+ 	sd = &info->sd;
+ 	v4l2_i2c_subdev_init(sd, client, &m5mols_ops);
+ 	strlcpy(sd->name, "M5MOLS", sizeof(sd->name));
+-- 
+1.8.3.2
+

@@ -1,0 +1,47 @@
+From 73a7ec7bd91c36a2101f9a5474b8e556a9ab1500 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 1 Mar 2013 15:25:55 +0100
+Subject: [PATCH 0151/1302] gpu: drm: exynos: fimd: Fix parsing video mode from
+ incorrect DT node
+
+This patch fixes the driver to parse video mode from display node
+received by parsing samsung,fimd-display phandle, falling back
+to parsing from fimd node only if no display phandle is specified.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_fimd.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimd.c b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+index 8ffbe2d..0d7e42b 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimd.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+@@ -913,14 +913,21 @@ static int fimd_probe(struct platform_device *pdev)
+ 	DRM_DEBUG_KMS("%s\n", __FILE__);
+ 
+ 	if (dev->of_node) {
++		struct device_node *display_np;
++
++		display_np = of_parse_phandle(dev->of_node,
++						"samsung,fimd-display", 0);
++		if (!display_np)
++			display_np = dev->of_node;
++
+ 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+ 		if (!pdata) {
+ 			DRM_ERROR("memory allocation for pdata failed\n");
+ 			return -ENOMEM;
+ 		}
+ 
+-		ret = of_get_fb_videomode(dev->of_node, &pdata->panel.timing,
+-					OF_USE_NATIVE_MODE);
++		ret = of_get_fb_videomode(display_np,
++				&pdata->panel.timing, OF_USE_NATIVE_MODE);
+ 		if (ret) {
+ 			DRM_ERROR("failed: of_get_fb_videomode() : %d\n", ret);
+ 			return ret;
+-- 
+1.8.3.2
+

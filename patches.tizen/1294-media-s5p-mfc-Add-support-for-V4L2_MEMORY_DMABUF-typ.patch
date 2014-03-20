@@ -1,0 +1,239 @@
+From 74767391fd525554c73b83cb1a3b6c290ab22c33 Mon Sep 17 00:00:00 2001
+From: Seung-Woo Kim <sw0312.kim@samsung.com>
+Date: Fri, 29 Nov 2013 16:57:34 +0900
+Subject: [PATCH 1294/1302] media: s5p-mfc: Add support for V4L2_MEMORY_DMABUF
+ type
+
+There is memory constraint that it should be within 128MB from
+firmware address. But if IOMMU is supported, then this constraint
+is meaningless and DMABUF importing can be used.
+So this patch adds V4L2_MEMORY_DMABUF type support for both decoder
+and encoder.
+
+Change-Id: I2c893da31f906fcd3f26edeed67ad1e4667e6081
+Signed-off-by: Seung-Woo Kim <sw0312.kim@samsung.com>
+Signed-off-by: Donghwa Lee <dh09.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/s5p-mfc/s5p_mfc.c        | 12 ++++
+ drivers/media/platform/s5p-mfc/s5p_mfc_common.h |  5 ++
+ drivers/media/platform/s5p-mfc/s5p_mfc_dec.c    | 75 ++++++++++++++++++++-----
+ drivers/media/platform/s5p-mfc/s5p_mfc_enc.c    | 10 ++--
+ 4 files changed, 83 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/media/platform/s5p-mfc/s5p_mfc.c b/drivers/media/platform/s5p-mfc/s5p_mfc.c
+index 264830c..fb11b92 100644
+--- a/drivers/media/platform/s5p-mfc/s5p_mfc.c
++++ b/drivers/media/platform/s5p-mfc/s5p_mfc.c
+@@ -796,9 +796,15 @@ static int s5p_mfc_open(struct file *file)
+ 	q->drv_priv = &ctx->fh;
+ 	if (s5p_mfc_get_node_type(file) == MFCNODE_DECODER) {
+ 		q->io_modes = VB2_MMAP;
++#ifdef CONFIG_EXYNOS_IOMMU
++		q->io_modes = q->io_modes | VB2_USERPTR | VB2_DMABUF;
++#endif
+ 		q->ops = get_dec_queue_ops();
+ 	} else if (s5p_mfc_get_node_type(file) == MFCNODE_ENCODER) {
+ 		q->io_modes = VB2_MMAP | VB2_USERPTR;
++#ifdef CONFIG_EXYNOS_IOMMU
++		q->io_modes = q->io_modes | VB2_DMABUF;
++#endif
+ 		q->ops = get_enc_queue_ops();
+ 	} else {
+ 		ret = -ENOENT;
+@@ -818,9 +824,15 @@ static int s5p_mfc_open(struct file *file)
+ 	q->drv_priv = &ctx->fh;
+ 	if (s5p_mfc_get_node_type(file) == MFCNODE_DECODER) {
+ 		q->io_modes = VB2_MMAP;
++#ifdef CONFIG_EXYNOS_IOMMU
++		q->io_modes = q->io_modes | VB2_USERPTR | VB2_DMABUF;
++#endif
+ 		q->ops = get_dec_queue_ops();
+ 	} else if (s5p_mfc_get_node_type(file) == MFCNODE_ENCODER) {
+ 		q->io_modes = VB2_MMAP | VB2_USERPTR;
++#ifdef CONFIG_EXYNOS_IOMMU
++		q->io_modes = q->io_modes | VB2_DMABUF;
++#endif
+ 		q->ops = get_enc_queue_ops();
+ 	} else {
+ 		ret = -ENOENT;
+diff --git a/drivers/media/platform/s5p-mfc/s5p_mfc_common.h b/drivers/media/platform/s5p-mfc/s5p_mfc_common.h
+index ef4074c..ea3ce1b 100644
+--- a/drivers/media/platform/s5p-mfc/s5p_mfc_common.h
++++ b/drivers/media/platform/s5p-mfc/s5p_mfc_common.h
+@@ -685,4 +685,9 @@ void set_work_bit_irqsave(struct s5p_mfc_ctx *ctx);
+ #define IS_TWOPORT(dev)		(dev->variant->port_num == 2 ? 1 : 0)
+ #define IS_MFCV6(dev)		(dev->variant->version >= 0x60 ? 1 : 0)
+ 
++#define s5p_mfc_supported_mem_type(mem)	\
++	((mem == V4L2_MEMORY_MMAP || \
++	 mem == V4L2_MEMORY_USERPTR || \
++	 mem == V4L2_MEMORY_DMABUF) ? 1 : 0)
++
+ #endif /* S5P_MFC_COMMON_H_ */
+diff --git a/drivers/media/platform/s5p-mfc/s5p_mfc_dec.c b/drivers/media/platform/s5p-mfc/s5p_mfc_dec.c
+index 00b0703..2825727 100644
+--- a/drivers/media/platform/s5p-mfc/s5p_mfc_dec.c
++++ b/drivers/media/platform/s5p-mfc/s5p_mfc_dec.c
+@@ -486,10 +486,17 @@ static int vidioc_reqbufs(struct file *file, void *priv,
+ 	struct s5p_mfc_ctx *ctx = fh_to_ctx(priv);
+ 	int ret = 0;
+ 
++#ifdef CONFIG_EXYNOS_IOMMU
++	if (!s5p_mfc_supported_mem_type(reqbufs->memory)) {
++		mfc_err("Memory type %d is not supported\n", reqbufs->memory);
++		return -EINVAL;
++	}
++#else
+ 	if (reqbufs->memory != V4L2_MEMORY_MMAP) {
+ 		mfc_err("Only V4L2_MEMORY_MAP is supported\n");
+ 		return -EINVAL;
+ 	}
++#endif
+ 	if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+ 		/* Can only request buffers after an instance has been opened.*/
+ 		if (ctx->state == MFCINST_INIT) {
+@@ -555,23 +562,27 @@ static int vidioc_reqbufs(struct file *file, void *priv,
+ 			s5p_mfc_clock_off();
+ 			return -ENOMEM;
+ 		}
+-		if (ctx->dst_bufs_cnt == ctx->total_dpb_count) {
+-			ctx->capture_state = QUEUE_BUFS_MMAPED;
+-		} else {
+-			mfc_err("Not all buffers passed to buf_init\n");
+-			reqbufs->count = 0;
+-			s5p_mfc_clock_on();
+-			ret = vb2_reqbufs(&ctx->vq_dst, reqbufs);
+-			s5p_mfc_hw_call(dev->mfc_ops, release_codec_buffers,
+-					ctx);
+-			s5p_mfc_clock_off();
+-			return -ENOMEM;
++		if (reqbufs->memory == V4L2_MEMORY_MMAP) {
++			if (ctx->dst_bufs_cnt == ctx->total_dpb_count) {
++				ctx->capture_state = QUEUE_BUFS_MMAPED;
++			} else {
++				mfc_err("Not all buffers passed to buf_init\n");
++				reqbufs->count = 0;
++				s5p_mfc_clock_on();
++				ret = vb2_reqbufs(&ctx->vq_dst, reqbufs);
++				s5p_mfc_hw_call(dev->mfc_ops,
++						release_codec_buffers, ctx);
++				s5p_mfc_clock_off();
++				return -ENOMEM;
++			}
+ 		}
+ 		if (s5p_mfc_ctx_ready(ctx))
+ 			set_work_bit_irqsave(ctx);
+ 		s5p_mfc_hw_call(dev->mfc_ops, try_run, dev);
+-		s5p_mfc_wait_for_done_ctx(ctx,
++		if (reqbufs->memory == V4L2_MEMORY_MMAP) {
++			s5p_mfc_wait_for_done_ctx(ctx,
+ 					S5P_MFC_R2H_CMD_INIT_BUFFERS_RET, 0);
++		}
+ 	}
+ 	return ret;
+ }
+@@ -1027,6 +1038,28 @@ static int s5p_mfc_buf_init(struct vb2_buffer *vb)
+ 	return 0;
+ }
+ 
++static int s5p_mfc_buf_prepare(struct vb2_buffer *vb)
++{
++	struct vb2_queue *vq = vb->vb2_queue;
++	struct s5p_mfc_ctx *ctx = fh_to_ctx(vq->drv_priv);
++	unsigned int index = vb->v4l2_buf.index;
++
++	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
++		if (vb2_plane_size(vb, 0) < ctx->luma_size ||
++			vb2_plane_size(vb, 1) < ctx->chroma_size) {
++			mfc_err("Plane buffer (CAPTURE) is too small.\n");
++			return -EINVAL;
++		}
++	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
++		if (vb2_plane_size(vb, 0) < ctx->dec_src_buf_size) {
++			mfc_err("Plane buffer (OUTPUT) is too small.\n");
++			return -EINVAL;
++		}
++	}
++
++	return 0;
++}
++
+ static int s5p_mfc_start_streaming(struct vb2_queue *q, unsigned int count)
+ {
+ 	struct s5p_mfc_ctx *ctx = fh_to_ctx(q->drv_priv);
+@@ -1098,6 +1131,7 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
+ 	struct s5p_mfc_dev *dev = ctx->dev;
+ 	unsigned long flags;
+ 	struct s5p_mfc_buf *mfc_buf;
++	int wait_flag = 0;
+ 
+ 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+ 		mfc_buf = &ctx->src_bufs[vb->v4l2_buf.index];
+@@ -1115,12 +1149,26 @@ static void s5p_mfc_buf_queue(struct vb2_buffer *vb)
+ 		list_add_tail(&mfc_buf->list, &ctx->dst_queue);
+ 		ctx->dst_queue_cnt++;
+ 		spin_unlock_irqrestore(&dev->irqlock, flags);
++		if ((vq->memory == V4L2_MEMORY_USERPTR ||
++			vq->memory == V4L2_MEMORY_DMABUF) &&
++			ctx->dst_queue_cnt == ctx->total_dpb_count)
++			ctx->capture_state = QUEUE_BUFS_MMAPED;
++
+ 	} else {
+ 		mfc_err("Unsupported buffer type (%d)\n", vq->type);
+ 	}
+-	if (s5p_mfc_ctx_ready(ctx))
++	if (s5p_mfc_ctx_ready(ctx)) {
+ 		set_work_bit_irqsave(ctx);
++		if ((vq->memory == V4L2_MEMORY_USERPTR ||
++			vq->memory == V4L2_MEMORY_DMABUF) &&
++			ctx->state == MFCINST_HEAD_PARSED &&
++			ctx->capture_state == QUEUE_BUFS_MMAPED)
++			wait_flag = 1;
++	}
+ 	s5p_mfc_hw_call(dev->mfc_ops, try_run, dev);
++	if (wait_flag)
++		s5p_mfc_wait_for_done_ctx(ctx,
++				S5P_MFC_R2H_CMD_INIT_BUFFERS_RET, 0);
+ }
+ 
+ static struct vb2_ops s5p_mfc_dec_qops = {
+@@ -1128,6 +1176,7 @@ static struct vb2_ops s5p_mfc_dec_qops = {
+ 	.wait_prepare		= s5p_mfc_unlock,
+ 	.wait_finish		= s5p_mfc_lock,
+ 	.buf_init		= s5p_mfc_buf_init,
++	.buf_prepare		= s5p_mfc_buf_prepare,
+ 	.start_streaming	= s5p_mfc_start_streaming,
+ 	.stop_streaming		= s5p_mfc_stop_streaming,
+ 	.buf_queue		= s5p_mfc_buf_queue,
+diff --git a/drivers/media/platform/s5p-mfc/s5p_mfc_enc.c b/drivers/media/platform/s5p-mfc/s5p_mfc_enc.c
+index 2549967..6d9d037 100644
+--- a/drivers/media/platform/s5p-mfc/s5p_mfc_enc.c
++++ b/drivers/media/platform/s5p-mfc/s5p_mfc_enc.c
+@@ -1040,9 +1040,8 @@ static int vidioc_reqbufs(struct file *file, void *priv,
+ 	struct s5p_mfc_ctx *ctx = fh_to_ctx(priv);
+ 	int ret = 0;
+ 
+-	/* if memory is not mmp or userptr return error */
+-	if ((reqbufs->memory != V4L2_MEMORY_MMAP) &&
+-		(reqbufs->memory != V4L2_MEMORY_USERPTR))
++	/* if memory is not mmp, userptr or dmabuf return error */
++	if (!s5p_mfc_supported_mem_type(reqbufs->memory))
+ 		return -EINVAL;
+ 	if (reqbufs->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+ 		if (ctx->capture_state != QUEUE_FREE) {
+@@ -1103,9 +1102,8 @@ static int vidioc_querybuf(struct file *file, void *priv,
+ 	struct s5p_mfc_ctx *ctx = fh_to_ctx(priv);
+ 	int ret = 0;
+ 
+-	/* if memory is not mmp or userptr return error */
+-	if ((buf->memory != V4L2_MEMORY_MMAP) &&
+-		(buf->memory != V4L2_MEMORY_USERPTR))
++	/* if memory is not mmp, userptr or dmabuf return error */
++	if (!s5p_mfc_supported_mem_type(buf->memory))
+ 		return -EINVAL;
+ 	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+ 		if (ctx->state != MFCINST_GOT_INST) {
+-- 
+1.8.3.2
+

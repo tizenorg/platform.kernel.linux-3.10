@@ -1,0 +1,42 @@
+From b1269fe543da347d1b68dac800055e4ef85fe8e4 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 19 Apr 2013 15:38:50 +0200
+Subject: [PATCH 0199/1302] drm/exynos: Remove MODULE_DEVICE_TABLE table from
+ vidi driver
+
+Currently there are multiple OF module_device_tables defined which
+prevents building the whole driver as a module. The compiler error
+is as below.
+
+LD [M]  drivers/gpu/drm/exynos/exynosdrm.o
+drivers/gpu/drm/exynos/exynos_drm_vidi.o: In function `.LANCHOR0':
+exynos_drm_vidi.c:(.rodata+0x26c): multiple definition of `__mod_of_device_table'
+drivers/gpu/drm/exynos/exynos_drm_fimd.o:exynos_drm_fimd.c:(.rodata+0x170): first defined here
+/usr/bin/arm-linux-gnueabi-ld: Warning: size of symbol `__mod_of_device_table' changed from 588
+in drivers/gpu/drm/exynos/exynos_drm_fimd.o to 392 in drivers/gpu/drm/exynos/exynos_drm_vidi.o
+make[4]: *** [drivers/gpu/drm/exynos/exynosdrm.o] Error 1
+
+Fix this by removing MODULE_DEVICE_TABLE(of,...) entry for the vidi driver,
+leaving the one for FIMD driver.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_vidi.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_vidi.c b/drivers/gpu/drm/exynos/exynos_drm_vidi.c
+index c966e23..3b2aa26 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_vidi.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_vidi.c
+@@ -90,7 +90,6 @@ static const struct of_device_id vidi_driver_dt_match[] = {
+ 	{ .compatible = "samsung,exynos-drm-vidi" },
+ 	{},
+ };
+-MODULE_DEVICE_TABLE(of, vidi_driver_dt_match);
+ #endif
+ 
+ static bool vidi_display_is_connected(struct device *dev)
+-- 
+1.8.3.2
+

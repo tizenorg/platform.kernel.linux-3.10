@@ -1,0 +1,38 @@
+From e4838f0ee21e969fa888f7274432e7221b06321a Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Tue, 8 Oct 2013 12:13:21 +0200
+Subject: [PATCH 0848/1302] dts:cpufreq:exynos4212:pegasusD: Enable support for
+ cpufreq at PEGASUS D via device tree
+
+Enable cpufreq driver via DTS. Also empty freq_table is defined to override
+"default" freq_table defined for PROXIMA PQ.
+
+The volt_table has been defined to reflect MAX8997 based DVS on the PegasusD
+device. This volt_table also can be overrided when defined as empty.
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4212-slp_pd.dts | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4212-slp_pd.dts b/arch/arm/boot/dts/exynos4212-slp_pd.dts
+index 7d658f3..831e72a 100644
+--- a/arch/arm/boot/dts/exynos4212-slp_pd.dts
++++ b/arch/arm/boot/dts/exynos4212-slp_pd.dts
+@@ -345,4 +345,12 @@
+ 		status = "okay";
+ 		#phy-cells = <1>;
+ 	};
++
++	cpufreq {
++		freq_table;
++		volt_table = <1350000 1300000 1300000 1250000 1250000 1200000
++			     1200000 1150000 1100000 1000000 1000000 950000
++			     950000 950000>;
++		status = "okay";
++	};
+ };
+-- 
+1.8.3.2
+

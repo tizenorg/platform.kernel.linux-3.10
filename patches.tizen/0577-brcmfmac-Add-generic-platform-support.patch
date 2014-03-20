@@ -1,0 +1,188 @@
+From 978bc9523622248271e4007330ae1a0eee6e0254 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 23 May 2013 13:28:09 +0200
+Subject: [PATCH 0577/1302] brcmfmac: Add generic platform support
+
+This patch adds basic support for generic platforms that do not require
+special platform data.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../bindings/net/wireless/brcm,bcm43xx-fmac.txt    | 41 ++++++++++++
+ .../net/wireless/brcm80211/brcmfmac/bcmsdh_sdmmc.c | 78 ++++++++++++++++++++++
+ 2 files changed, 119 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/wireless/brcm,bcm43xx-fmac.txt
+
+diff --git a/Documentation/devicetree/bindings/net/wireless/brcm,bcm43xx-fmac.txt b/Documentation/devicetree/bindings/net/wireless/brcm,bcm43xx-fmac.txt
+new file mode 100644
+index 0000000..57ca99c
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/wireless/brcm,bcm43xx-fmac.txt
+@@ -0,0 +1,41 @@
++Broadcom BCM43xx-series FullMAC WLAN network adapter
++
++Required properties:
++- compatible: should be one of following:
++  - "brcm,bcm43143" - for BCM43134 chip,
++  - "brcm,bcm4324" - for BCM4324 chip,
++  - "brcm,bcm4329" - for BCM4329 chip,
++  - "brcm,bcm4330" - for BCM4330 chip,
++  - "brcm,bcm4334" - for BCM4334 chip,
++  - "brcm,bcm4335" - for BCM4335 chip.
++- wlan-supply: regulator used to control power of WLAN block of the chip.
++
++Optional properties:
++- interrupt-parent: interrupt controller to which the out-of-bound interrupt
++    signal of the chip (usually WL_HOST_WAKE pin) is connected.
++- interrupts: interrupt specifier of the out-of-bound interrupt in format
++    specific to interrupt controller specifiedy by interrupt-parent property.
++- clock-names: Should contain one clock entry - "32khz", which is the external
++    32768 Hz clock used by the chip.
++- clocks: Clock specifiers given in the same order as specified in clock-names
++    property.
++
++Example:
++
++	wlan_reg: voltage-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "WL_REG_ON";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		gpio = <&gpj0 0 0>;
++		enable-active-high;
++	};
++
++	wlan {
++		compatible = "brcm,bcm4334";
++		wlan-supply = <&wlan_reg>;
++		interrupt-parent = <&gpx2>;
++		interrupts = <5 4>;
++		clocks = <&max77686 2>;
++		clock-names = "32khz";
++	};
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh_sdmmc.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh_sdmmc.c
+index 0f6eb2b..61c6e67 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh_sdmmc.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh_sdmmc.c
+@@ -16,17 +16,20 @@
+ 
+ #include <linux/types.h>
+ #include <linux/netdevice.h>
++#include <linux/clk-provider.h>
+ #include <linux/mmc/sdio.h>
+ #include <linux/mmc/core.h>
+ #include <linux/mmc/sdio_func.h>
+ #include <linux/mmc/sdio_ids.h>
+ #include <linux/mmc/card.h>
++#include <linux/of.h>
+ #include <linux/suspend.h>
+ #include <linux/errno.h>
+ #include <linux/sched.h>	/* request_irq() */
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+ #include <linux/platform_data/brcmfmac-sdio.h>
++#include <linux/regulator/consumer.h>
+ #include <net/cfg80211.h>
+ 
+ #include <defs.h>
+@@ -573,11 +576,73 @@ static struct sdio_driver brcmf_sdmmc_driver = {
+ #endif	/* CONFIG_PM_SLEEP */
+ };
+ 
++static struct regulator *brcmf_regulator;
++static struct clk *brcmf_clock;
++
++static void brcmf_generic_power_on(void)
++{
++	if (regulator_enable(brcmf_regulator) < 0)
++		pr_warn("%s: failed to enable regulator\n", __func__);
++	if (!IS_ERR(brcmf_clock))
++		clk_prepare_enable(brcmf_clock);
++}
++
++static void brcmf_generic_power_off(void)
++{
++	if (!IS_ERR(brcmf_clock))
++		clk_disable_unprepare(brcmf_clock);
++	regulator_disable(brcmf_regulator);
++}
++
++static void brcmf_generic_reset(void)
++{
++	brcmf_generic_power_off();
++	msleep(10);
++	brcmf_generic_power_on();
++}
++
++static struct brcmfmac_sdio_platform_data *brcmf_generic_pdata(
++						struct platform_device *pdev)
++{
++	struct brcmfmac_sdio_platform_data *pdata;
++	struct resource *res;
++
++	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
++	if (!pdata)
++		return pdata;
++
++	brcmf_regulator = devm_regulator_get(&pdev->dev, "wlan");
++	if (IS_ERR(brcmf_regulator))
++		return NULL;
++
++	brcmf_clock = devm_clk_get(&pdev->dev, "32khz");
++	if (IS_ERR(brcmf_clock))
++		dev_warn(&pdev->dev, "no 32khz clock provided, assuming always on\n");
++
++	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++	if (res) {
++		pdata->oob_irq_supported = true;
++		pdata->oob_irq_nr = res->start;
++		pdata->oob_irq_flags = res->flags;
++	}
++
++	pdata->power_on = brcmf_generic_power_on;
++	pdata->power_off = brcmf_generic_power_off;
++	pdata->reset = brcmf_generic_reset;
++
++	return pdata;
++}
++
+ static int brcmf_sdio_pd_probe(struct platform_device *pdev)
+ {
+ 	brcmf_dbg(SDIO, "Enter\n");
+ 
+ 	brcmfmac_sdio_pdata = pdev->dev.platform_data;
++	if (!brcmfmac_sdio_pdata)
++		brcmfmac_sdio_pdata = brcmf_generic_pdata(pdev);
++
++	if (!brcmfmac_sdio_pdata)
++		return -EINVAL;
+ 
+ 	if (brcmfmac_sdio_pdata->power_on)
+ 		brcmfmac_sdio_pdata->power_on();
+@@ -597,9 +662,22 @@ static int brcmf_sdio_pd_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_OF
++static struct of_device_id brcmf_sdio_pd_of_match[] = {
++	{ .compatible = "brcm,bcm43143", },
++	{ .compatible = "brcm,bcm4324", },
++	{ .compatible = "brcm,bcm4329", },
++	{ .compatible = "brcm,bcm4330", },
++	{ .compatible = "brcm,bcm4334", },
++	{ .compatible = "brcm,bcm4335", },
++	{ /* sentinel */ }
++};
++#endif
++
+ static struct platform_driver brcmf_sdio_pd = {
+ 	.remove		= brcmf_sdio_pd_remove,
+ 	.driver		= {
++		.of_match_table = of_match_ptr(brcmf_sdio_pd_of_match),
+ 		.name	= BRCMFMAC_SDIO_PDATA_NAME
+ 	}
+ };
+-- 
+1.8.3.2
+

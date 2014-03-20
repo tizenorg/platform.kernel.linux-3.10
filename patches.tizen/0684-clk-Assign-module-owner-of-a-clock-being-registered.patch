@@ -1,0 +1,48 @@
+From 380116d7cc99f1f1abe7b6186539a9aa3fc38589 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 23 Aug 2013 13:04:33 +0200
+Subject: [PATCH 0684/1302] clk: Assign module owner of a clock being
+ registered
+
+Use dev->driver->owner as the owner module of a clock, it ensures
+reference on the module is taken in the __clk_get(), __clk_put()
+helpers.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+---
+Changes since v5:
+ - none.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/clk.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
+index 05a60cf..0fadfe5 100644
+--- a/drivers/clk/clk.c
++++ b/drivers/clk/clk.c
+@@ -1697,6 +1697,10 @@ struct clk *__clk_register(struct device *dev, struct clk_hw *hw)
+ 	clk->flags = hw->init->flags;
+ 	clk->parent_names = hw->init->parent_names;
+ 	clk->num_parents = hw->init->num_parents;
++	if (dev && dev->driver)
++		clk->owner = dev->driver->owner;
++	else
++		clk->owner = NULL;
+ 
+ 	ret = __clk_init(dev, clk);
+ 	if (ret)
+@@ -1717,6 +1721,8 @@ static int _clk_register(struct device *dev, struct clk_hw *hw, struct clk *clk)
+ 		goto fail_name;
+ 	}
+ 	clk->ops = hw->init->ops;
++	if (dev && dev->driver)
++		clk->owner = dev->driver->owner;
+ 	clk->hw = hw;
+ 	clk->flags = hw->init->flags;
+ 	clk->num_parents = hw->init->num_parents;
+-- 
+1.8.3.2
+

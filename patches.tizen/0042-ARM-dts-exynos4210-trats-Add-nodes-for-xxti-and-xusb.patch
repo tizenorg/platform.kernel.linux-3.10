@@ -1,0 +1,38 @@
+From 52add51cd571f8ddb8870f0ce64e731a6452d31f Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Mon, 7 Jan 2013 18:09:08 +0100
+Subject: [PATCH 0042/1302] ARM: dts: exynos4210-trats: Add nodes for xxti and
+ xusbxti clocks
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index c49ec79..f9a57fd 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -30,6 +30,18 @@
+ 		bootargs = "console=ttySAC2,115200N8 root=/dev/mmcblk0p5 rootwait earlyprintk panic=5";
+ 	};
+ 
++	fixed-rate-clocks {
++		xxti {
++			compatible = "samsung,clock-xxti", "fixed-clock";
++			clock-frequency = <0>;
++		};
++
++		xusbxti {
++			compatible = "samsung,clock-xusbxti", "fixed-clock";
++			clock-frequency = <24000000>;
++		};
++	};
++
+ 	vemmc_reg: voltage-regulator@0 {
+ 	        compatible = "regulator-fixed";
+ 		regulator-name = "VMEM_VDD_2.8V";
+-- 
+1.8.3.2
+

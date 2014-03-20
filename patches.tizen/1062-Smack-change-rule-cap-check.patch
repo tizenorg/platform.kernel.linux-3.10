@@ -1,0 +1,37 @@
+From 60c0fd53836a0193633745fdb5c1048e61ad4d6b Mon Sep 17 00:00:00 2001
+From: Casey Schaufler <casey@schaufler-ca.com>
+Date: Thu, 19 Dec 2013 13:23:26 -0800
+Subject: [PATCH 1062/1302] Smack: change rule cap check
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+smk_write_change_rule() is calling capable rather than
+the more correct smack_privileged(). This allows for setting
+rules in violation of the onlycap facility. This is the
+simple repair.
+
+Change-Id: Icb5321b5b5355d64b0b029d9131cf60b5e97d356
+Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
+Signed-off-by: Łukasz Stelmach <l.stelmach@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ security/smack/smackfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/security/smack/smackfs.c b/security/smack/smackfs.c
+index bd5c6e1..6d8b8e7 100644
+--- a/security/smack/smackfs.c
++++ b/security/smack/smackfs.c
+@@ -2151,7 +2151,7 @@ static ssize_t smk_write_change_rule(struct file *file, const char __user *buf,
+ 	/*
+ 	 * Must have privilege.
+ 	 */
+-	if (!capable(CAP_MAC_ADMIN))
++	if (!smack_privileged(CAP_MAC_ADMIN))
+ 		return -EPERM;
+ 
+ 	return smk_write_rules_list(file, buf, count, ppos, NULL, NULL,
+-- 
+1.8.3.2
+

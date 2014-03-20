@@ -1,0 +1,47 @@
+From e3e86eb3680ca70c21d13a25ceb4370d9501c788 Mon Sep 17 00:00:00 2001
+From: Robert Baldyga <r.baldyga@samsung.com>
+Date: Mon, 10 Feb 2014 10:42:42 +0100
+Subject: [PATCH 1214/1302] usb: gadget: f_fs: fix setup request handling
+
+This patch fixes __ffs_ep0_queue_wait() function, which now returns number of
+bytes transferred in USB request or error code in case of failure. This is
+needed by ffs_ep0_read() function, when read data is copied to userspace.
+
+It also cleans up code by removing usused variable ep0req_status.
+
+Signed-off-by: Robert Baldyga <r.baldyga@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 2 +-
+ drivers/usb/gadget/u_fs.h | 1 -
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index 169067c..849a095 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -228,7 +228,7 @@ static int __ffs_ep0_queue_wait(struct ffs_data *ffs, char *data, size_t len)
+ 	}
+ 
+ 	ffs->setup_state = FFS_NO_SETUP;
+-	return ffs->ep0req_status;
++	return req->status ? req->status : req->actual;
+ }
+ 
+ static int __ffs_ep0_stall(struct ffs_data *ffs)
+diff --git a/drivers/usb/gadget/u_fs.h b/drivers/usb/gadget/u_fs.h
+index 78263cc..c39e805 100644
+--- a/drivers/usb/gadget/u_fs.h
++++ b/drivers/usb/gadget/u_fs.h
+@@ -154,7 +154,6 @@ struct ffs_data {
+ 	 */
+ 	struct usb_request		*ep0req;		/* P: mutex */
+ 	struct completion		ep0req_completion;	/* P: mutex */
+-	int				ep0req_status;		/* P: mutex */
+ 
+ 	/* reference counter */
+ 	atomic_t			ref;
+-- 
+1.8.3.2
+

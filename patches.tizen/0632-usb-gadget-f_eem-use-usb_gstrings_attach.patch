@@ -1,0 +1,60 @@
+From 88056ecf32b6d0a615c3971f76ac3e81b02c873b Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 28 May 2013 09:15:50 +0200
+Subject: [PATCH 0632/1302] usb: gadget: f_eem: use usb_gstrings_attach
+
+use the new usb_gstrings_attach interface
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_eem.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_eem.c b/drivers/usb/gadget/f_eem.c
+index 9d54d68..31a2cb7 100644
+--- a/drivers/usb/gadget/f_eem.c
++++ b/drivers/usb/gadget/f_eem.c
+@@ -248,6 +248,7 @@ static int eem_bind(struct usb_configuration *c, struct usb_function *f)
+ {
+ 	struct usb_composite_dev *cdev = c->cdev;
+ 	struct f_eem		*eem = func_to_eem(f);
++	struct usb_string	*us;
+ 	int			status;
+ 	struct usb_ep		*ep;
+ 
+@@ -269,16 +270,11 @@ static int eem_bind(struct usb_configuration *c, struct usb_function *f)
+ 		eem_opts->bound = true;
+ 	}
+ 
+-	/* maybe allocate device-global string IDs */
+-	if (eem_string_defs[0].id == 0) {
+-
+-		/* control interface label */
+-		status = usb_string_id(c->cdev);
+-		if (status < 0)
+-			return status;
+-		eem_string_defs[0].id = status;
+-		eem_intf.iInterface = status;
+-	}
++	us = usb_gstrings_attach(cdev, eem_strings,
++				 ARRAY_SIZE(eem_string_defs));
++	if (IS_ERR(us))
++		return PTR_ERR(us);
++	eem_intf.iInterface = us[0].id;
+ 
+ 	/* allocate instance-specific interface IDs */
+ 	status = usb_interface_id(c, f);
+@@ -595,7 +591,6 @@ struct usb_function *eem_alloc(struct usb_function_instance *fi)
+ 	eem->port.cdc_filter = DEFAULT_FILTER;
+ 
+ 	eem->port.func.name = "cdc_eem";
+-	eem->port.func.strings = eem_strings;
+ 	/* descriptors are per-instance copies */
+ 	eem->port.func.bind = eem_bind;
+ 	eem->port.func.unbind = eem_unbind;
+-- 
+1.8.3.2
+

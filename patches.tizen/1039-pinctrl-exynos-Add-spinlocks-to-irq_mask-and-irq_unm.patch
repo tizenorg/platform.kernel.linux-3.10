@@ -1,0 +1,94 @@
+From 57e707a8272884bf153036c255c9b95394408804 Mon Sep 17 00:00:00 2001
+From: Doug Anderson <dianders@chromium.org>
+Date: Wed, 12 Jun 2013 10:33:17 -0700
+Subject: [PATCH 1039/1302] pinctrl: exynos: Add spinlocks to irq_mask and
+ irq_unmask
+
+The patch:
+  1984695 pinctrl: samsung: Protect bank registers with a spinlock
+
+...added spinlocks to protect many accesses.  However, the irq_mask
+and irq_unmask functions still do an unprotected read/modify/write.
+Add the spinlock there.
+
+Change-Id: I892cfcd82368466184b99eab75d2bc7882674211
+Signed-off-by: Doug Anderson <dianders@chromium.org>
+Acked-by: Tomasz Figa <t.figa@samsung.com>
+Acked-by: Kukjin Kim <kgene.kim@samsung.com>
+Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/pinctrl/pinctrl-exynos.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/pinctrl/pinctrl-exynos.c b/drivers/pinctrl/pinctrl-exynos.c
+index 2d76f66..c29a28e 100644
+--- a/drivers/pinctrl/pinctrl-exynos.c
++++ b/drivers/pinctrl/pinctrl-exynos.c
+@@ -56,10 +56,15 @@ static void exynos_gpio_irq_unmask(struct irq_data *irqd)
+ 	struct samsung_pinctrl_drv_data *d = bank->drvdata;
+ 	unsigned long reg_mask = d->ctrl->geint_mask + bank->eint_offset;
+ 	unsigned long mask;
++	unsigned long flags;
++
++	spin_lock_irqsave(&bank->slock, flags);
+ 
+ 	mask = readl(d->virt_base + reg_mask);
+ 	mask &= ~(1 << irqd->hwirq);
+ 	writel(mask, d->virt_base + reg_mask);
++
++	spin_unlock_irqrestore(&bank->slock, flags);
+ }
+ 
+ static void exynos_gpio_irq_mask(struct irq_data *irqd)
+@@ -68,10 +73,15 @@ static void exynos_gpio_irq_mask(struct irq_data *irqd)
+ 	struct samsung_pinctrl_drv_data *d = bank->drvdata;
+ 	unsigned long reg_mask = d->ctrl->geint_mask + bank->eint_offset;
+ 	unsigned long mask;
++	unsigned long flags;
++
++	spin_lock_irqsave(&bank->slock, flags);
+ 
+ 	mask = readl(d->virt_base + reg_mask);
+ 	mask |= 1 << irqd->hwirq;
+ 	writel(mask, d->virt_base + reg_mask);
++
++	spin_unlock_irqrestore(&bank->slock, flags);
+ }
+ 
+ static void exynos_gpio_irq_ack(struct irq_data *irqd)
+@@ -264,10 +274,15 @@ static void exynos_wkup_irq_unmask(struct irq_data *irqd)
+ 	struct samsung_pinctrl_drv_data *d = b->drvdata;
+ 	unsigned long reg_mask = d->ctrl->weint_mask + b->eint_offset;
+ 	unsigned long mask;
++	unsigned long flags;
++
++	spin_lock_irqsave(&b->slock, flags);
+ 
+ 	mask = readl(d->virt_base + reg_mask);
+ 	mask &= ~(1 << irqd->hwirq);
+ 	writel(mask, d->virt_base + reg_mask);
++
++	spin_unlock_irqrestore(&b->slock, flags);
+ }
+ 
+ static void exynos_wkup_irq_mask(struct irq_data *irqd)
+@@ -276,10 +291,15 @@ static void exynos_wkup_irq_mask(struct irq_data *irqd)
+ 	struct samsung_pinctrl_drv_data *d = b->drvdata;
+ 	unsigned long reg_mask = d->ctrl->weint_mask + b->eint_offset;
+ 	unsigned long mask;
++	unsigned long flags;
++
++	spin_lock_irqsave(&b->slock, flags);
+ 
+ 	mask = readl(d->virt_base + reg_mask);
+ 	mask |= 1 << irqd->hwirq;
+ 	writel(mask, d->virt_base + reg_mask);
++
++	spin_unlock_irqrestore(&b->slock, flags);
+ }
+ 
+ static void exynos_wkup_irq_ack(struct irq_data *irqd)
+-- 
+1.8.3.2
+

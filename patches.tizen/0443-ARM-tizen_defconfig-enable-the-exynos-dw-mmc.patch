@@ -1,0 +1,29 @@
+From 4137c290f462f96daf1ad52a9dc61b7a6322c68e Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Wed, 24 Jul 2013 14:47:31 +0900
+Subject: [PATCH 0443/1302] ARM: tizen_defconfig: enable the exynos dw-mmc
+
+For using dw_mmc-exynos, updated the tizen_defconfig
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index 8a54a1b..0b55856 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -2479,7 +2479,7 @@ CONFIG_MMC_SDHCI_S3C=y
+ CONFIG_MMC_DW=y
+ CONFIG_MMC_DW_IDMAC=y
+ CONFIG_MMC_DW_PLTFM=y
+-# CONFIG_MMC_DW_EXYNOS is not set
++CONFIG_MMC_DW_EXYNOS=y
+ # CONFIG_MMC_VUB300 is not set
+ # CONFIG_MMC_USHC is not set
+ # CONFIG_MEMSTICK is not set
+-- 
+1.8.3.2
+

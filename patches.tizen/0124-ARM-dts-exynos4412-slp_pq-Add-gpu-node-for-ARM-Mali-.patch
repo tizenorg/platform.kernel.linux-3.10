@@ -1,0 +1,34 @@
+From dee5a784844f9343cb41bb7864b64058f97c2cba Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 14 Feb 2013 12:25:47 +0100
+Subject: [PATCH 0124/1302] ARM: dts: exynos4412-slp_pq: Add gpu node for ARM
+ Mali 400
+
+This patch adds gpu node with board-specific properties and status
+override to enable G3D on SLP_PQ board.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 653ef3b..77ee50e 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -705,6 +705,11 @@
+ 		};
+ 	};
+ 
++	gpu@13000000 {
++		status = "okay";
++		vdd_g3d-supply = <&buck4_reg>;
++	};
++
+ 	cpufreq {
+ 		freq_table = <0xFFFFFFFF 0xFFFFFFFF 0xFFFFFFFF 1100000 1000000
+ 			     900000 800000 700000 600000 500000 400000 300000
+-- 
+1.8.3.2
+

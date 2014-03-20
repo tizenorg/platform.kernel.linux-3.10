@@ -1,0 +1,55 @@
+From c9c649b384431e66e91d6e5ab73b42fce81c9afb Mon Sep 17 00:00:00 2001
+From: Praveen Paneri <p.paneri@samsung.com>
+Date: Tue, 2 Jul 2013 16:12:16 +0200
+Subject: [PATCH 0312/1302] usb: s3c-hsotg: Changing MAC interface to 8 bit
+
+This patch changes UTMI+ PHY interface of udc core from 16bit to
+8bit. Although the manual says that only 16 bit is supported. This
+solves the problem of EHCI and Device not working together.
+
+Signed-off-by: Praveen Paneri <p.paneri@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 6 +++---
+ drivers/usb/gadget/s3c-hsotg.h | 1 +
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 8fd9681..5c8fe2d 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -2214,8 +2214,8 @@ static void s3c_hsotg_core_init(struct s3c_hsotg *hsotg)
+ 	 */
+ 
+ 	/* set the PLL on, remove the HNP/SRP and set the PHY */
+-	writel(GUSBCFG_PHYIf16 | GUSBCFG_TOutCal(7) |
+-	       (0x5 << 10), hsotg->regs + GUSBCFG);
++	writel(GUSBCFG_PHYIf8 | GUSBCFG_TOutCal(7) |
++	       (0x9 << 10), hsotg->regs + GUSBCFG);
+ 
+ 	s3c_hsotg_init_fifo(hsotg);
+ 
+@@ -2883,7 +2883,7 @@ static void s3c_hsotg_init(struct s3c_hsotg *hsotg)
+ 	s3c_hsotg_init_fifo(hsotg);
+ 
+ 	/* set the PLL on, remove the HNP/SRP and set the PHY */
+-	writel(GUSBCFG_PHYIf16 | GUSBCFG_TOutCal(7) | (0x5 << 10),
++	writel(GUSBCFG_PHYIf8 | GUSBCFG_TOutCal(7) | (0x9 << 10),
+ 	       hsotg->regs + GUSBCFG);
+ 
+ 	writel(using_dma(hsotg) ? GAHBCFG_DMAEn : 0x0,
+diff --git a/drivers/usb/gadget/s3c-hsotg.h b/drivers/usb/gadget/s3c-hsotg.h
+index d650b12..3848263 100644
+--- a/drivers/usb/gadget/s3c-hsotg.h
++++ b/drivers/usb/gadget/s3c-hsotg.h
+@@ -55,6 +55,7 @@
+ #define GUSBCFG_HNPCap				(1 << 9)
+ #define GUSBCFG_SRPCap				(1 << 8)
+ #define GUSBCFG_PHYIf16			(1 << 3)
++#define GUSBCFG_PHYIf8			(0 << 3)
+ #define GUSBCFG_TOutCal_MASK			(0x7 << 0)
+ #define GUSBCFG_TOutCal_SHIFT			(0)
+ #define GUSBCFG_TOutCal_LIMIT			(0x7)
+-- 
+1.8.3.2
+

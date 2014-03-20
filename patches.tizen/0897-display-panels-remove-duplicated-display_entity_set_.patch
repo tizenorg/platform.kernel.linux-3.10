@@ -1,0 +1,108 @@
+From 2762d9bbe149213ecf6fc07a0dbe464ee38a1c6e Mon Sep 17 00:00:00 2001
+From: Donghwa Lee <dh09.lee@samsung.com>
+Date: Wed, 30 Oct 2013 15:46:07 +0900
+Subject: [PATCH 0897/1302] display: panels: remove duplicated
+ display_entity_set_state() for pm
+
+remove duplicated display_entity_set_state() in suspend/resume function
+
+Signed-off-by: Donghwa Lee <dh09.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/video/display/panel-l5f31188.c | 16 ++--------------
+ drivers/video/display/panel-s6d6aa1.c  | 14 ++------------
+ drivers/video/display/panel-s6e8aa0.c  | 14 ++------------
+ 3 files changed, 6 insertions(+), 38 deletions(-)
+
+diff --git a/drivers/video/display/panel-l5f31188.c b/drivers/video/display/panel-l5f31188.c
+index 4330a68..d95bd23 100644
+--- a/drivers/video/display/panel-l5f31188.c
++++ b/drivers/video/display/panel-l5f31188.c
+@@ -632,24 +632,12 @@ static int l5f31188_remove(struct platform_device *pdev)
+ 
+ static int l5f31188_suspend(struct device *dev)
+ {
+-	struct l5f31188 *panel = dev_get_drvdata(dev);
+-
+-	if (panel->power != FB_BLANK_UNBLANK)
+-		return 0;
+-
+-	return display_entity_set_state(&panel->entity,
+-			DISPLAY_ENTITY_STATE_OFF);
++	return 0;
+ }
+ 
+ static int l5f31188_resume(struct device *dev)
+ {
+-	struct l5f31188 *panel = dev_get_drvdata(dev);
+-
+-	if (panel->power != FB_BLANK_UNBLANK)
+-		return 0;
+-
+-	return display_entity_set_state(&panel->entity,
+-			DISPLAY_ENTITY_STATE_ON);
++	return 0;
+ }
+ 
+ static const struct dev_pm_ops l5f31188_pm_ops = {
+diff --git a/drivers/video/display/panel-s6d6aa1.c b/drivers/video/display/panel-s6d6aa1.c
+index dd5285d..9d0e7c8 100644
+--- a/drivers/video/display/panel-s6d6aa1.c
++++ b/drivers/video/display/panel-s6d6aa1.c
+@@ -787,22 +787,12 @@ static int s6d6aa1_remove(struct platform_device *dev)
+ 
+ static int s6d6aa1_suspend(struct device *dev)
+ {
+-	struct s6d6aa1 *lcd = dev_get_drvdata(dev);
+-
+-	if (lcd->power != FB_BLANK_UNBLANK)
+-		return 0;
+-
+-	return display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_OFF);
++	return 0;
+ }
+ 
+ static int s6d6aa1_resume(struct device *dev)
+ {
+-	struct s6d6aa1 *lcd = dev_get_drvdata(dev);
+-
+-	if (lcd->power != FB_BLANK_UNBLANK)
+-		return 0;
+-
+-	return display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_ON);
++	return 0;
+ }
+ 
+ static struct dev_pm_ops s6d6aa1_pm_ops = {
+diff --git a/drivers/video/display/panel-s6e8aa0.c b/drivers/video/display/panel-s6e8aa0.c
+index 30ed901..66c08f6 100644
+--- a/drivers/video/display/panel-s6e8aa0.c
++++ b/drivers/video/display/panel-s6e8aa0.c
+@@ -1390,22 +1390,12 @@ static int s6e8aa0_remove(struct platform_device *pdev)
+ 
+ static int s6e8aa0_suspend(struct device *dev)
+ {
+-	struct s6e8aa0 *lcd = dev_get_drvdata(dev);
+-
+-	if (lcd->power != FB_BLANK_UNBLANK)
+-		return 0;
+-
+-	return display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_OFF);
++	return 0;
+ }
+ 
+ static int s6e8aa0_resume(struct device *dev)
+ {
+-	struct s6e8aa0 *lcd = dev_get_drvdata(dev);
+-
+-	if (lcd->power != FB_BLANK_UNBLANK)
+-		return 0;
+-
+-	return display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_ON);
++	return 0;
+ }
+ 
+ static struct dev_pm_ops s6e8aa0_pm_ops = {
+-- 
+1.8.3.2
+

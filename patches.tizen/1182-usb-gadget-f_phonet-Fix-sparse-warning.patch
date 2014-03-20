@@ -1,0 +1,33 @@
+From e7292d364333ade288c57e60c6db9b5a267c5889 Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Mon, 16 Dec 2013 18:44:07 +0900
+Subject: [PATCH 1182/1302] usb: gadget: f_phonet: Fix sparse warning
+
+Make local symbol static in order to fix the following sparse
+warning.
+
+drivers/usb/gadget/f_phonet.c:692:21: warning: symbol 'phonet_alloc' was not declared. Should it be static?
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_phonet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_phonet.c b/drivers/usb/gadget/f_phonet.c
+index eb3aa81..f2b7817 100644
+--- a/drivers/usb/gadget/f_phonet.c
++++ b/drivers/usb/gadget/f_phonet.c
+@@ -689,7 +689,7 @@ static void pn_unbind(struct usb_configuration *c, struct usb_function *f)
+ 	usb_free_all_descriptors(f);
+ }
+ 
+-struct usb_function *phonet_alloc(struct usb_function_instance *fi)
++static struct usb_function *phonet_alloc(struct usb_function_instance *fi)
+ {
+ 	struct f_phonet *fp;
+ 	struct f_phonet_opts *opts;
+-- 
+1.8.3.2
+

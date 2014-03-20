@@ -1,0 +1,64 @@
+From 62eaa36425b1612931820a29b3fa2525602aded2 Mon Sep 17 00:00:00 2001
+From: Doug Anderson <dianders@chromium.org>
+Date: Mon, 17 Jun 2013 09:50:43 -0700
+Subject: [PATCH 1041/1302] pinctrl: exynos: ack level-triggered interrupts
+ before unmasking
+
+A level-triggered interrupt should be acked after the interrupt line
+becomes inactive and before it is unmasked, or else another interrupt
+will be immediately triggered.  Acking before or after calling the
+handler is not enough.
+
+Change-Id: I553444ce552df5722e606d71bea8bf7b862cce25
+Signed-off-by: Luigi Semenzato <semenzato@chromium.org>
+Signed-off-by: Doug Anderson <dianders@chromium.org>
+Acked-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/pinctrl/pinctrl-exynos.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/drivers/pinctrl/pinctrl-exynos.c b/drivers/pinctrl/pinctrl-exynos.c
+index c0729a3..ef75321 100644
+--- a/drivers/pinctrl/pinctrl-exynos.c
++++ b/drivers/pinctrl/pinctrl-exynos.c
+@@ -84,6 +84,17 @@ static void exynos_gpio_irq_unmask(struct irq_data *irqd)
+ 	unsigned long mask;
+ 	unsigned long flags;
+ 
++	/*
++	 * Ack level interrupts right before unmask
++	 *
++	 * If we don't do this we'll get a double-interrupt.  Level triggered
++	 * interrupts must not fire an interrupt if the level is not
++	 * _currently_ active, even if it was active while the interrupt was
++	 * masked.
++	 */
++	if (irqd_get_trigger_type(irqd) & IRQ_TYPE_LEVEL_MASK)
++		exynos_gpio_irq_ack(irqd);
++
+ 	spin_lock_irqsave(&bank->slock, flags);
+ 
+ 	mask = readl(d->virt_base + reg_mask);
+@@ -302,6 +313,17 @@ static void exynos_wkup_irq_unmask(struct irq_data *irqd)
+ 	unsigned long mask;
+ 	unsigned long flags;
+ 
++	/*
++	 * Ack level interrupts right before unmask
++	 *
++	 * If we don't do this we'll get a double-interrupt.  Level triggered
++	 * interrupts must not fire an interrupt if the level is not
++	 * _currently_ active, even if it was active while the interrupt was
++	 * masked.
++	 */
++	if (irqd_get_trigger_type(irqd) & IRQ_TYPE_LEVEL_MASK)
++		exynos_wkup_irq_ack(irqd);
++
+ 	spin_lock_irqsave(&b->slock, flags);
+ 
+ 	mask = readl(d->virt_base + reg_mask);
+-- 
+1.8.3.2
+

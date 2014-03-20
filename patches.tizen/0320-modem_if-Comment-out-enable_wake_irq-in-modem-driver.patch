@@ -1,0 +1,57 @@
+From f781eecb531f56df35d8f5c8c9ad6d4be91a3442 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Thu, 23 May 2013 11:33:17 +0200
+Subject: [PATCH 0320/1302] modem_if: Comment out enable_wake_irq in modem
+ drivers (HSIC, xmm6262)
+
+Enabling the interrupt caused problem with the modem.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/misc/modem_if/modem_link_device_hsic.c        | 4 ++--
+ drivers/misc/modem_if/modem_modemctl_device_xmm6262.c | 5 +++--
+ 2 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/misc/modem_if/modem_link_device_hsic.c b/drivers/misc/modem_if/modem_link_device_hsic.c
+index 81c732e..dd4f749 100644
+--- a/drivers/misc/modem_if/modem_link_device_hsic.c
++++ b/drivers/misc/modem_if/modem_link_device_hsic.c
+@@ -1555,11 +1555,11 @@ static int usb_link_pm_init(struct usb_link_device *usb_ld, void *data)
+ 		goto err_request_irq;
+ 	}
+ 
+-	r = enable_irq_wake(pm_data->irq_link_hostwake);
++/*	r = enable_irq_wake(pm_data->irq_link_hostwake);
+ 	if (r) {
+ 		mif_err("failed to enable_irq_wake:%d\n", r);
+ 		goto err_set_wake_irq;
+-	}
++	}*/
+ 
+ 	/* create work queue & init work for runtime pm */
+ 	pm_data->wq = create_singlethread_workqueue("linkpmd");
+diff --git a/drivers/misc/modem_if/modem_modemctl_device_xmm6262.c b/drivers/misc/modem_if/modem_modemctl_device_xmm6262.c
+index 311836c..015a873 100644
+--- a/drivers/misc/modem_if/modem_modemctl_device_xmm6262.c
++++ b/drivers/misc/modem_if/modem_modemctl_device_xmm6262.c
+@@ -217,12 +217,13 @@ int xmm6262_init_modemctl_device(struct modem_ctl *mc,
+ 		goto err_phone_active_request_irq;
+ 	}
+ 
+-	ret = enable_irq_wake(mc->irq_phone_active);
++/* not needed for suspend/resume */
++/*	ret = enable_irq_wake(mc->irq_phone_active);
+ 	if (ret) {
+ 		mif_err("failed to enable_irq_wake:%d\n", ret);
+ 		goto err_phone_active_set_wake_irq;
+ 	}
+-
++*/
+ 	/* initialize sim_state if gpio_sim_detect exists */
+ 	mc->sim_state.online = false;
+ 	mc->sim_state.changed = false;
+-- 
+1.8.3.2
+

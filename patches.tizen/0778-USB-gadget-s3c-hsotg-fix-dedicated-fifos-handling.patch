@@ -1,0 +1,131 @@
+From eb5c95bfa69fdc9002068c3c1ba5bc15376ba9fe Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Robert=20Ba=C5=82dyga?= <r.baldyga@samsung.com>
+Date: Mon, 9 Sep 2013 10:44:37 +0200
+Subject: [PATCH 0778/1302] USB: gadget: s3c-hsotg: fix dedicated fifos
+ handling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This patch adds few fixes:
+- In s3c_hsotg_write_fifo function PTxFEmp/NPTxFEmp interrupts are enabled
+  only in shared-fifo mode. In dedicated-fifo mode they should not be used
+  (when enabled then cause interrupt storm).
+- When s3c_hsotg_trytx is called for ep without enqueued request, interrupts
+  for this ep are disabled, to prevent interrupt flooding. Interrupts are
+  enabled when new request for this ep is starting.
+- In s3c_hsotg_core_init enabled INTknTXFEmpMsk, becouse without this mask
+  TxFIFOEmpty interrupt does not occur.
+- In OEPInt/IEPInt interrupts handling added bitwise and of DAINT and
+  DAINTMSK, because we should handle masked interrupts only.
+
+Signed-off-by: Robert Bałdyga <r.baldyga@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 48 ++++++++++++++++++++++++++++++------------
+ 1 file changed, 34 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 8eb41d3..5874a0f 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -558,9 +558,11 @@ static int s3c_hsotg_write_fifo(struct s3c_hsotg *hsotg,
+ 	if (to_write > hs_ep->ep.maxpacket) {
+ 		to_write = hs_ep->ep.maxpacket;
+ 
+-		s3c_hsotg_en_gsint(hsotg,
+-				   periodic ? GINTSTS_PTxFEmp :
+-				   GINTSTS_NPTxFEmp);
++		/* it's needed only when we do not use dedicated fifos */
++		if (!hsotg->dedicated_fifos)
++			s3c_hsotg_en_gsint(hsotg,
++					   periodic ? GINTSTS_PTxFEmp :
++					   GINTSTS_NPTxFEmp);
+ 	}
+ 
+ 	/* see if we can write data */
+@@ -585,9 +587,11 @@ static int s3c_hsotg_write_fifo(struct s3c_hsotg *hsotg,
+ 		 * is more room left.
+ 		 */
+ 
+-		s3c_hsotg_en_gsint(hsotg,
+-				   periodic ? GINTSTS_PTxFEmp :
+-				   GINTSTS_NPTxFEmp);
++		/* it's needed only when we do not use dedicated fifos */
++		if (!hsotg->dedicated_fifos)
++			s3c_hsotg_en_gsint(hsotg,
++					   periodic ? GINTSTS_PTxFEmp :
++					   GINTSTS_NPTxFEmp);
+ 	}
+ 
+ 	dev_dbg(hsotg->dev, "write %d/%d, can_write %d, done %d\n",
+@@ -824,6 +828,9 @@ static void s3c_hsotg_start_req(struct s3c_hsotg *hsotg,
+ 
+ 	dev_dbg(hsotg->dev, "%s: DxEPCTL=0x%08x\n",
+ 		__func__, readl(hsotg->regs + epctrl_reg));
++
++	/* enable ep interrupts */
++	s3c_hsotg_ctrl_epint(hsotg, hs_ep->index, hs_ep->dir_in, 1);
+ }
+ 
+ /**
+@@ -1789,8 +1796,15 @@ static int s3c_hsotg_trytx(struct s3c_hsotg *hsotg,
+ {
+ 	struct s3c_hsotg_req *hs_req = hs_ep->req;
+ 
+-	if (!hs_ep->dir_in || !hs_req)
++	if (!hs_ep->dir_in || !hs_req) {
++		/**
++		 * if request is not enqueued, we disable interrupts for endpoints,
++		 * excepting ep0
++		 */
++		if (hs_ep->index != 0)
++			s3c_hsotg_ctrl_epint(hsotg, hs_ep->index, hs_ep->dir_in, 0);
+ 		return 0;
++	}
+ 
+ 	if (hs_req->req.actual < hs_req->req.length) {
+ 		dev_dbg(hsotg->dev, "trying to write more for ep%d\n",
+@@ -2248,15 +2262,17 @@ static void s3c_hsotg_core_init(struct s3c_hsotg *hsotg)
+ 		       GAHBCFG_HBstLen_Incr4,
+ 		       hsotg->regs + GAHBCFG);
+ 	else
+-		writel(GAHBCFG_GlblIntrEn, hsotg->regs + GAHBCFG);
++		writel(GAHBCFG_GlblIntrEn | GAHBCFG_NPTxFEmpLvl,
++		       hsotg->regs + GAHBCFG);
+ 
+ 	/*
+-	 * Enabling INTknTXFEmpMsk here seems to be a big mistake, we end
+-	 * up being flooded with interrupts if the host is polling the
+-	 * endpoint to try and read data.
++	 * If INTknTXFEmpMsk is enabled, it's important to disable ep interrupts
++	 * when we have no data to transfer. Otherwise we get being flooded by
++	 * interrupts.
+ 	 */
+ 
+-	writel(((hsotg->dedicated_fifos) ? DIEPMSK_TxFIFOEmpty : 0) |
++	writel(((hsotg->dedicated_fifos) ? DIEPMSK_TxFIFOEmpty |
++	       DIEPMSK_INTknTXFEmpMsk : 0) |
+ 	       DIEPMSK_EPDisbldMsk | DIEPMSK_XferComplMsk |
+ 	       DIEPMSK_TimeOUTMsk | DIEPMSK_AHBErrMsk |
+ 	       DIEPMSK_INTknEPMisMsk,
+@@ -2385,10 +2401,14 @@ irq_retry:
+ 
+ 	if (gintsts & (GINTSTS_OEPInt | GINTSTS_IEPInt)) {
+ 		u32 daint = readl(hsotg->regs + DAINT);
+-		u32 daint_out = daint >> DAINT_OutEP_SHIFT;
+-		u32 daint_in = daint & ~(daint_out << DAINT_OutEP_SHIFT);
++		u32 daintmsk = readl(hsotg->regs + DAINTMSK);
++		u32 daint_out, daint_in;
+ 		int ep;
+ 
++		daint &= daintmsk;
++		daint_out = daint >> DAINT_OutEP_SHIFT;
++		daint_in = daint & ~(daint_out << DAINT_OutEP_SHIFT);
++
+ 		dev_dbg(hsotg->dev, "%s: daint=%08x\n", __func__, daint);
+ 
+ 		for (ep = 0; ep < 15 && daint_out; ep++, daint_out >>= 1) {
+-- 
+1.8.3.2
+

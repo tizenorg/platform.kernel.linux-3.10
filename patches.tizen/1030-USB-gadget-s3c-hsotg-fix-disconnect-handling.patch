@@ -1,0 +1,57 @@
+From 2d4c789908c85dbb8f5ea362f1bb626fe7b428be Mon Sep 17 00:00:00 2001
+From: Robert Baldyga <r.baldyga@samsung.com>
+Date: Thu, 14 Nov 2013 12:10:20 +0100
+Subject: [PATCH 1030/1302] USB: gadget: s3c-hsotg: fix disconnect handling
+
+This patch moves s3c_hsotg_disconnect function call from USBSusp interrupt
+handler to SET_ADDRESS request handler.
+
+It's because disconnected state can't be detected directly, because this
+hardware doesn't support Disconnected interrupt for device mode. For both
+Suspend and Disconnect events there is one interrupt USBSusp, but calling
+s3c_hsotg_disconnect from this interrupt handler causes config reset in
+composite layer, which is not undesirable for Suspended state.
+
+For this reason s3c_hsotg_disconnect is called from SET_ADDRESS request
+handler, which occurs always after disconnection, so we do disconnect
+immediately before we are connected again. It's probably only way we
+can do handle disconnection correctly.
+
+Change-Id: I8e69b532077c6ad76489e70fcc3f8d525fe75cf3
+Signed-off-by: Robert Baldyga <r.baldyga@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 6cfb562..175f35a 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -1167,6 +1167,7 @@ static int s3c_hsotg_process_req_feature(struct s3c_hsotg *hsotg,
+ }
+ 
+ static void s3c_hsotg_enqueue_setup(struct s3c_hsotg *hsotg);
++static void s3c_hsotg_disconnect(struct s3c_hsotg *hsotg);
+ 
+ /**
+  * s3c_hsotg_process_control - process a control request
+@@ -1208,6 +1209,7 @@ static void s3c_hsotg_process_control(struct s3c_hsotg *hsotg,
+ 	if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_STANDARD) {
+ 		switch (ctrl->bRequest) {
+ 		case USB_REQ_SET_ADDRESS:
++			s3c_hsotg_disconnect(hsotg);
+ 			dcfg = readl(hsotg->regs + DCFG);
+ 			dcfg &= ~DCFG_DevAddr_MASK;
+ 			dcfg |= ctrl->wValue << DCFG_DevAddr_SHIFT;
+@@ -2501,7 +2503,6 @@ irq_retry:
+ 		writel(GINTSTS_USBSusp, hsotg->regs + GINTSTS);
+ 
+ 		call_gadget(hsotg, suspend);
+-		s3c_hsotg_disconnect(hsotg);
+ 	}
+ 
+ 	if (gintsts & GINTSTS_WkUpInt) {
+-- 
+1.8.3.2
+

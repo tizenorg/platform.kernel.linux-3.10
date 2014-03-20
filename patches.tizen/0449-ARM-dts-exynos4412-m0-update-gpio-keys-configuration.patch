@@ -1,0 +1,71 @@
+From 109287e2dbfdd152bcda94dbde5c1972d3c6071c Mon Sep 17 00:00:00 2001
+From: Beomho Seo <beomho.seo@samsung.com>
+Date: Fri, 26 Jul 2013 17:01:52 +0900
+Subject: [PATCH 0449/1302] ARM: dts:exynos4412-m0: update gpio-keys
+ configuration
+
+	add gpio-keys configuration for support M0 board
+	supported gpio-keys are volume up, volume down, power and ok key
+
+Signed-off-by: Beomho Seo <beomho.seo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-m0.dts | 42 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+index 8e75628..3a43790 100644
+--- a/arch/arm/boot/dts/exynos4412-m0.dts
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -29,6 +29,48 @@
+ 		};
+ 	};
+ 
++	gpio-keys@0 {
++		compatible = "gpio-keys";
++
++		key@114 {
++			interrupt-parent = <&gpx3>;
++			interrupts = <3 0>;
++			gpios = <&gpx3 3 1>;
++			linux,code = <114>;
++			label = "volume down";
++			debounce-interval = <10>;
++		};
++
++		key@115 {
++			interrupt-parent = <&gpx2>;
++			interrupts = <2 0>;
++			gpios = <&gpx2 2 1>;
++			linux,code = <115>;
++			label = "volume up";
++			debounce-interval = <10>;
++		};
++
++		key@116 {
++			interrupt-parent = <&gpx2>;
++			interrupts = <7 0>;
++			gpios = <&gpx2 7 1>;
++			linux,code = <116>;
++			label = "power";
++			debounce-interval = <10>;
++			gpio-key,wakeup;
++		};
++
++		key@139 {
++			interrupt-parent = <&gpx0>;
++			interrupts = <1 0>;
++			gpios = <&gpx0 1 1>;
++			linux,code = <139>;
++			label = "ok";
++			debounce-interval = <10>;
++			gpio-key,wakeup;
++		};
++	};
++
+ 	camera {
+ 		status = "okay";
+ 
+-- 
+1.8.3.2
+

@@ -1,0 +1,30 @@
+From 47404a3b962d6c53fc2fad5a9869740ba1b67b7d Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Wed, 17 Jul 2013 15:29:38 +0900
+Subject: [PATCH 0356/1302] drm/exynos: export a gem into dmabuf fd with O_RDWR
+
+user process needs read/write permissions when the user process tires
+buffer lock with a exported dmabuf fd through fcntl system call.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_dmabuf.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c b/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
+index ff7f2a8..f26861e 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
+@@ -205,6 +205,8 @@ struct dma_buf *exynos_dmabuf_prime_export(struct drm_device *drm_dev,
+ {
+ 	struct exynos_drm_gem_obj *exynos_gem_obj = to_exynos_gem_obj(obj);
+ 
++	flags |= O_RDWR;
++
+ 	return dma_buf_export(exynos_gem_obj, &exynos_dmabuf_ops,
+ 				exynos_gem_obj->base.size, flags);
+ }
+-- 
+1.8.3.2
+

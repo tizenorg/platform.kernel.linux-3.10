@@ -1,0 +1,33 @@
+From c6f6ebe3f8d5700b03b474a8885ba4bff8ec6de7 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 21 Feb 2013 15:58:27 +0100
+Subject: [PATCH 0140/1302] ARM: dts: Add Exynos Audio Subsystem clock
+ controller node
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index e22a075..f32e414 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -49,6 +49,12 @@
+ 		reg = <0x10000000 0x100>;
+ 	};
+ 
++	clock_audss: clock-controller@03810000 {
++		compatible = "samsung,exynos4-audss-clock";
++		reg = <0x03810000 0x0C>;
++		#clock-cells = <1>;
++	};
++
+ 	pd_mfc: mfc-power-domain@10023C40 {
+ 		compatible = "samsung,exynos4210-pd";
+ 		reg = <0x10023C40 0x20>;
+-- 
+1.8.3.2
+

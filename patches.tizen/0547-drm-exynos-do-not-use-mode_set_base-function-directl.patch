@@ -1,0 +1,58 @@
+From 1b8cbe5d224f5c9cd6d5c98c37217fa8f9aa032e Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Tue, 20 Aug 2013 17:16:29 +0900
+Subject: [PATCH 0547/1302] drm/exynos: do not use mode_set_base function
+ directly
+
+This patch adds exynos_drm_crtc_mode_set_commit function
+to update mode data and it makes page flip call this function
+instead of calling exynos_drm_crtc_mode_set_base function directly.
+
+exynos_drm_crtc_mode_set_base function is called by drm subsystem
+as a callback so we don't have to call this function directly.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_crtc.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_crtc.c b/drivers/gpu/drm/exynos/exynos_drm_crtc.c
+index 1de357a..3c0c338a 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_crtc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_crtc.c
+@@ -140,7 +140,7 @@ exynos_drm_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
+ 	return 0;
+ }
+ 
+-static int exynos_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
++static int exynos_drm_crtc_mode_set_commit(struct drm_crtc *crtc, int x, int y,
+ 					  struct drm_framebuffer *old_fb)
+ {
+ 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
+@@ -176,6 +176,12 @@ static void exynos_drm_crtc_load_lut(struct drm_crtc *crtc)
+ 	/* drm framework doesn't check NULL */
+ }
+ 
++static int exynos_drm_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
++					  struct drm_framebuffer *old_fb)
++{
++	return exynos_drm_crtc_mode_set_commit(crtc, x, y, old_fb);
++}
++
+ static void exynos_drm_crtc_disable(struct drm_crtc *crtc)
+ {
+ 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
+@@ -238,7 +244,7 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
+ 		spin_unlock_irq(&dev->event_lock);
+ 
+ 		crtc->fb = fb;
+-		ret = exynos_drm_crtc_mode_set_base(crtc, crtc->x, crtc->y,
++		ret = exynos_drm_crtc_mode_set_commit(crtc, crtc->x, crtc->y,
+ 						    NULL);
+ 		if (ret) {
+ 			crtc->fb = old_fb;
+-- 
+1.8.3.2
+

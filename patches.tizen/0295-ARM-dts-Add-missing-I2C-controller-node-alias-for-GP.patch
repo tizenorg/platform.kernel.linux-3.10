@@ -1,0 +1,39 @@
+From 50b01f59c5c2805d6153463a6c8c0a0694edfd1e Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 24 Jun 2013 18:56:55 +0200
+Subject: [PATCH 0295/1302] ARM: dts: Add missing I2C controller node alias for
+ GP2AP020A00F sensor
+
+Without this alias probing of the I2C0 adapter was failing as the
+'i2c-gpio-2' i2c-gpio adapter was getting I2C bus id 0 assigned to it.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index c5ed477..85b3b7e 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -24,6 +24,7 @@
+ 		i2c9 = &i2c_lps331ap;
+ 		i2c10 = &i2c_if_pmic;
+ 		i2c11 = &i2c_fuel;
++		i2c12 = &i2c_gp2ap020a00f;
+ 	};
+ 
+ 	memory {
+@@ -197,7 +198,7 @@
+ 		};
+ 	};
+ 
+-	i2c-gpio-2 {
++	i2c_gp2ap020a00f: i2c-gpio-2 {
+ 		compatible = "i2c-gpio";
+ 		gpios = <&gpk1 1 0>, <&gpk2 2 0>;
+ 		i2c-gpio,delay-us = <2>;
+-- 
+1.8.3.2
+

@@ -1,0 +1,55 @@
+From b80e9fcd3c7b3e10cec5b177b9f11a312cb4960c Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Tue, 20 Aug 2013 14:28:56 +0900
+Subject: [PATCH 0554/1302] drm/exynos: check a pixel format to a particular
+ window layer
+
+This patch checks if a requested window supports alpha channel or not.
+
+In case of s3c64xx, window 0 doesn't support alpha channel so if
+the request pixel format is ARGB8888 then change it to XRGB8888.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_fimd.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimd.c b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+index a0b88a2..8aec342 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimd.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+@@ -66,11 +66,13 @@ struct fimd_driver_data {
+ 
+ 	unsigned int has_shadowcon:1;
+ 	unsigned int has_clksel:1;
++	unsigned int has_limited_fmt:1;
+ };
+ 
+ static struct fimd_driver_data s3c64xx_fimd_driver_data = {
+ 	.timing_base = 0x0,
+ 	.has_clksel = 1,
++	.has_limited_fmt = 1,
+ };
+ 
+ static struct fimd_driver_data exynos4_fimd_driver_data = {
+@@ -420,6 +422,15 @@ static void fimd_win_set_pixfmt(struct device *dev, unsigned int win)
+ 
+ 	val = WINCONx_ENWIN;
+ 
++	/*
++	 * In case of s3c64xx, window 0 doesn't support alpha channel.
++	 * So the request format is ARGB8888 then change it to XRGB8888.
++	 */
++	if (ctx->driver_data->has_limited_fmt && !win) {
++		if (win_data->pixel_format == DRM_FORMAT_ARGB8888)
++			win_data->pixel_format = DRM_FORMAT_XRGB8888;
++	}
++
+ 	switch (win_data->pixel_format) {
+ 	case DRM_FORMAT_C8:
+ 		val |= WINCON0_BPPMODE_8BPP_PALETTE;
+-- 
+1.8.3.2
+

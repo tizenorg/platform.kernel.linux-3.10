@@ -1,0 +1,67 @@
+From 3269d1ea7c19fa0b09980f70618fe0769078ddde Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 31 May 2013 11:37:25 -0300
+Subject: [PATCH 0219/1302] [media] exynos4-is: Add locking at fimc(-lite)
+ subdev unregistered handler
+
+Protect the fimc/fimc-lite video nodes unregistration with their video
+lock. This prevents a kernel crash when e.g. udev opens a video node
+right after the driver registers it and then the driver tries to
+unregister it and defers its probing. Using video_is_unregistered()
+together with the video mutex allows safe unregistration of the video
+nodes at any time.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-capture.c | 4 ++++
+ drivers/media/platform/exynos4-is/fimc-lite.c    | 4 ++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-capture.c b/drivers/media/platform/exynos4-is/fimc-capture.c
+index 33c6a2f..1578aa4 100644
+--- a/drivers/media/platform/exynos4-is/fimc-capture.c
++++ b/drivers/media/platform/exynos4-is/fimc-capture.c
+@@ -1855,6 +1855,8 @@ static void fimc_capture_subdev_unregistered(struct v4l2_subdev *sd)
+ 	if (fimc == NULL)
+ 		return;
+ 
++	mutex_lock(&fimc->lock);
++
+ 	fimc_unregister_m2m_device(fimc);
+ 	vdev = &fimc->vid_cap.ve.vdev;
+ 
+@@ -1866,6 +1868,8 @@ static void fimc_capture_subdev_unregistered(struct v4l2_subdev *sd)
+ 	}
+ 	kfree(fimc->vid_cap.ctx);
+ 	fimc->vid_cap.ctx = NULL;
++
++	mutex_unlock(&fimc->lock);
+ }
+ 
+ static const struct v4l2_subdev_internal_ops fimc_capture_sd_internal_ops = {
+diff --git a/drivers/media/platform/exynos4-is/fimc-lite.c b/drivers/media/platform/exynos4-is/fimc-lite.c
+index 24e2a0f..3f76f8a 100644
+--- a/drivers/media/platform/exynos4-is/fimc-lite.c
++++ b/drivers/media/platform/exynos4-is/fimc-lite.c
+@@ -1300,11 +1300,15 @@ static void fimc_lite_subdev_unregistered(struct v4l2_subdev *sd)
+ 	if (fimc == NULL)
+ 		return;
+ 
++	mutex_lock(&fimc->lock);
++
+ 	if (video_is_registered(&fimc->ve.vdev)) {
+ 		video_unregister_device(&fimc->ve.vdev);
+ 		media_entity_cleanup(&fimc->ve.vdev.entity);
+ 		fimc->ve.pipe = NULL;
+ 	}
++
++	mutex_unlock(&fimc->lock);
+ }
+ 
+ static const struct v4l2_subdev_internal_ops fimc_lite_subdev_internal_ops = {
+-- 
+1.8.3.2
+

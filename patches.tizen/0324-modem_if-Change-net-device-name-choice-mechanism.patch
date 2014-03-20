@@ -1,0 +1,68 @@
+From 7f6f05e8e496b8cd2f420e03c96ea46b00425447 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 2 Jul 2013 15:53:32 +0200
+Subject: [PATCH 0324/1302] modem_if: Change net device name choice mechanism
+
+CONFIG_SLP is no longer used hence new method of net device names was
+implemented.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/misc/modem_if/sipc4_modem.c | 20 +++++---------------
+ 1 file changed, 5 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/misc/modem_if/sipc4_modem.c b/drivers/misc/modem_if/sipc4_modem.c
+index 3f22f6a..c4cd872 100644
+--- a/drivers/misc/modem_if/sipc4_modem.c
++++ b/drivers/misc/modem_if/sipc4_modem.c
+@@ -46,6 +46,8 @@
+ #define RFS_WAKE_TIME   (HZ*3)
+ #define RAW_WAKE_TIME   (HZ*6)
+ 
++/* pdp for SLP, rmnet for others */
++#define NET_DEVICE_NAME(n) "pdp"#n
+ 
+ /* umts target platform data */
+ static struct modem_io_t umts_io_devices[] = {
+@@ -78,33 +80,21 @@ static struct modem_io_t umts_io_devices[] = {
+ 		.links = LINKTYPE(LINKDEV_HSIC),
+ 	},
+ 	[4] = {
+-#ifdef CONFIG_SLP
+-		.name = "pdp0",
+-#else
+-		.name = "rmnet0",
+-#endif
++		.name = NET_DEVICE_NAME(0),
+ 		.id = 0x2A,
+ 		.format = IPC_RAW,
+ 		.io_type = IODEV_NET,
+ 		.links = LINKTYPE(LINKDEV_HSIC),
+ 	},
+ 	[5] = {
+-#ifdef CONFIG_SLP
+-		.name = "pdp1",
+-#else
+-		.name = "rmnet1",
+-#endif
++		.name = NET_DEVICE_NAME(1) ,
+ 		.id = 0x2B,
+ 		.format = IPC_RAW,
+ 		.io_type = IODEV_NET,
+ 		.links = LINKTYPE(LINKDEV_HSIC),
+ 	},
+ 	[6] = {
+-#ifdef CONFIG_SLP
+-		.name = "pdp2",
+-#else
+-		.name = "rmnet2",
+-#endif
++		.name = NET_DEVICE_NAME(2),
+ 		.id = 0x2C,
+ 		.format = IPC_RAW,
+ 		.io_type = IODEV_NET,
+-- 
+1.8.3.2
+

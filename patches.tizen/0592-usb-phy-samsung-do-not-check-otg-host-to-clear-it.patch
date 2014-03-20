@@ -1,0 +1,32 @@
+From e63ca49f324d4fe8eeada1b30a1618daf9162fa9 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 30 Aug 2013 20:46:07 +0900
+Subject: [PATCH 0592/1302] usb: phy: samsung: do not check otg->host to clear
+ it
+
+This patch can clear otg->host variable to select a host and a device mode on
+runtime. Before initializing the phy, it should specify which mode will be used.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/phy/phy-samsung-usb2.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/usb/phy/phy-samsung-usb2.c b/drivers/usb/phy/phy-samsung-usb2.c
+index cebf34b..b29e0ce 100644
+--- a/drivers/usb/phy/phy-samsung-usb2.c
++++ b/drivers/usb/phy/phy-samsung-usb2.c
+@@ -37,8 +37,7 @@ static int samsung_usbphy_set_host(struct usb_otg *otg, struct usb_bus *host)
+ 	if (!otg)
+ 		return -ENODEV;
+ 
+-	if (!otg->host)
+-		otg->host = host;
++	otg->host = host;
+ 
+ 	return 0;
+ }
+-- 
+1.8.3.2
+

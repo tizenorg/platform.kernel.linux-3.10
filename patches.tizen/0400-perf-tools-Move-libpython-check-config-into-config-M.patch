@@ -1,0 +1,186 @@
+From 704c06b80388ba85528c345b8b0d192bac81d61a Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 18 Mar 2013 00:35:32 +0100
+Subject: [PATCH 0400/1302] perf tools: Move libpython check config into
+ config/Makefile
+
+Moving libpython check config into config/Makefile.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-13-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        | 68 ++--------------------------------------------
+ tools/perf/config/Makefile | 63 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 66 insertions(+), 65 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index f856bb5..061de65 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -196,8 +196,6 @@ SCRIPTS = $(patsubst %.sh,%,$(SCRIPT_SH))
+ #
+ PROGRAMS += $(OUTPUT)perf
+ 
+-LANG_BINDINGS =
+-
+ # what 'all' will build and 'install' will install, in perfexecdir
+ ALL_PROGRAMS = $(PROGRAMS) $(SCRIPTS)
+ 
+@@ -535,69 +533,9 @@ ifndef NO_LIBPERL
+ 	LIB_OBJS += $(OUTPUT)scripts/perl/Perf-Trace-Util/Context.o
+ endif
+ 
+-disable-python = $(eval $(disable-python_code))
+-define disable-python_code
+-  BASIC_CFLAGS += -DNO_LIBPYTHON
+-  $(if $(1),$(warning No $(1) was found))
+-  $(warning Python support will not be built)
+-endef
+-
+-override PYTHON := \
+-  $(call get-executable-or-default,PYTHON,python)
+-
+-ifndef PYTHON
+-  $(call disable-python,python interpreter)
+-else
+-
+-  PYTHON_WORD := $(call shell-wordify,$(PYTHON))
+-
+-  ifdef NO_LIBPYTHON
+-    $(call disable-python)
+-  else
+-
+-    override PYTHON_CONFIG := \
+-      $(call get-executable-or-default,PYTHON_CONFIG,$(PYTHON)-config)
+-
+-    ifndef PYTHON_CONFIG
+-      $(call disable-python,python-config tool)
+-    else
+-
+-      PYTHON_CONFIG_SQ := $(call shell-sq,$(PYTHON_CONFIG))
+-
+-      PYTHON_EMBED_LDOPTS := $(shell $(PYTHON_CONFIG_SQ) --ldflags 2>/dev/null)
+-      PYTHON_EMBED_LDFLAGS := $(call strip-libs,$(PYTHON_EMBED_LDOPTS))
+-      PYTHON_EMBED_LIBADD := $(call grep-libs,$(PYTHON_EMBED_LDOPTS))
+-      PYTHON_EMBED_CCOPTS := $(shell $(PYTHON_CONFIG_SQ) --cflags 2>/dev/null)
+-      FLAGS_PYTHON_EMBED := $(PYTHON_EMBED_CCOPTS) $(PYTHON_EMBED_LDOPTS)
+-
+-      ifneq ($(call try-cc,$(SOURCE_PYTHON_EMBED),$(FLAGS_PYTHON_EMBED),python),y)
+-        $(call disable-python,Python.h (for Python 2.x))
+-      else
+-
+-        ifneq ($(call try-cc,$(SOURCE_PYTHON_VERSION),$(FLAGS_PYTHON_EMBED),python version),y)
+-          $(warning Python 3 is not yet supported; please set)
+-          $(warning PYTHON and/or PYTHON_CONFIG appropriately.)
+-          $(warning If you also have Python 2 installed, then)
+-          $(warning try something like:)
+-          $(warning $(and ,))
+-          $(warning $(and ,)  make PYTHON=python2)
+-          $(warning $(and ,))
+-          $(warning Otherwise, disable Python support entirely:)
+-          $(warning $(and ,))
+-          $(warning $(and ,)  make NO_LIBPYTHON=1)
+-          $(warning $(and ,))
+-          $(error   $(and ,))
+-        else
+-          ALL_LDFLAGS += $(PYTHON_EMBED_LDFLAGS)
+-          EXTLIBS += $(PYTHON_EMBED_LIBADD)
+-          LIB_OBJS += $(OUTPUT)util/scripting-engines/trace-event-python.o
+-          LIB_OBJS += $(OUTPUT)scripts/python/Perf-Trace-Util/Context.o
+-          LANG_BINDINGS += $(OUTPUT)python/perf.so
+-        endif
+-
+-      endif
+-    endif
+-  endif
++ifndef NO_LIBPYTHON
++	LIB_OBJS += $(OUTPUT)util/scripting-engines/trace-event-python.o
++	LIB_OBJS += $(OUTPUT)scripts/python/Perf-Trace-Util/Context.o
+ endif
+ 
+ ifdef NO_DEMANGLE
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index a42c7b8..b9b1465 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -261,3 +261,66 @@ else
+ 		EXTLIBS += $(PERL_EMBED_LIBADD)
+ 	endif
+ endif
++
++disable-python = $(eval $(disable-python_code))
++define disable-python_code
++  BASIC_CFLAGS += -DNO_LIBPYTHON
++  $(if $(1),$(warning No $(1) was found))
++  $(warning Python support will not be built)
++  NO_LIBPYTHON := 1
++endef
++
++override PYTHON := \
++  $(call get-executable-or-default,PYTHON,python)
++
++ifndef PYTHON
++  $(call disable-python,python interpreter)
++else
++
++  PYTHON_WORD := $(call shell-wordify,$(PYTHON))
++
++  ifdef NO_LIBPYTHON
++    $(call disable-python)
++  else
++
++    override PYTHON_CONFIG := \
++      $(call get-executable-or-default,PYTHON_CONFIG,$(PYTHON)-config)
++
++    ifndef PYTHON_CONFIG
++      $(call disable-python,python-config tool)
++    else
++
++      PYTHON_CONFIG_SQ := $(call shell-sq,$(PYTHON_CONFIG))
++
++      PYTHON_EMBED_LDOPTS := $(shell $(PYTHON_CONFIG_SQ) --ldflags 2>/dev/null)
++      PYTHON_EMBED_LDFLAGS := $(call strip-libs,$(PYTHON_EMBED_LDOPTS))
++      PYTHON_EMBED_LIBADD := $(call grep-libs,$(PYTHON_EMBED_LDOPTS))
++      PYTHON_EMBED_CCOPTS := $(shell $(PYTHON_CONFIG_SQ) --cflags 2>/dev/null)
++      FLAGS_PYTHON_EMBED := $(PYTHON_EMBED_CCOPTS) $(PYTHON_EMBED_LDOPTS)
++
++      ifneq ($(call try-cc,$(SOURCE_PYTHON_EMBED),$(FLAGS_PYTHON_EMBED),python),y)
++        $(call disable-python,Python.h (for Python 2.x))
++      else
++
++        ifneq ($(call try-cc,$(SOURCE_PYTHON_VERSION),$(FLAGS_PYTHON_EMBED),python version),y)
++          $(warning Python 3 is not yet supported; please set)
++          $(warning PYTHON and/or PYTHON_CONFIG appropriately.)
++          $(warning If you also have Python 2 installed, then)
++          $(warning try something like:)
++          $(warning $(and ,))
++          $(warning $(and ,)  make PYTHON=python2)
++          $(warning $(and ,))
++          $(warning Otherwise, disable Python support entirely:)
++          $(warning $(and ,))
++          $(warning $(and ,)  make NO_LIBPYTHON=1)
++          $(warning $(and ,))
++          $(error   $(and ,))
++        else
++          ALL_LDFLAGS += $(PYTHON_EMBED_LDFLAGS)
++          EXTLIBS += $(PYTHON_EMBED_LIBADD)
++          LANG_BINDINGS += $(OUTPUT)python/perf.so
++        endif
++      endif
++    endif
++  endif
++endif
+-- 
+1.8.3.2
+

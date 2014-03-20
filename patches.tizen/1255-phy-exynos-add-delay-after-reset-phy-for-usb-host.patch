@@ -1,0 +1,33 @@
+From e542f3631ac83f7dbeaa8f8f41d91865762e36f8 Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Tue, 4 Mar 2014 15:38:14 +0900
+Subject: [PATCH 1255/1302] phy: exynos : add delay after reset phy for usb
+ host
+
+The commit 2b431ff74a850db3d5b804be3ac466b6ed7f516d(ARM: EXYNOS4:
+Increase reset delay for USB HOST PHY) uses 80 usec delay time after
+reset phy for usb host, so this adds delay for reset. If isn't this
+delay, it will cause any problem to set usb host register.
+
+Change-Id: I1410dacc6939218bc26510cd45ebd4c0d37dbc62
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/phy/phy-exynos4212-usb.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/phy/phy-exynos4212-usb.c b/drivers/phy/phy-exynos4212-usb.c
+index a9fa15d..c6af66d 100644
+--- a/drivers/phy/phy-exynos4212-usb.c
++++ b/drivers/phy/phy-exynos4212-usb.c
+@@ -233,6 +233,7 @@ static void exynos4212_phy_pwr(struct uphy_instance *inst, bool on)
+ 		udelay(10);
+ 		rst &= ~rstbits;
+ 		writel(rst, drv->reg_phy + EXYNOS_4212_UPHYRST);
++		udelay(80);
+ 	} else {
+ 		pwr = readl(drv->reg_phy + EXYNOS_4212_UPHYPWR);
+ 		pwr |= phypwr;
+-- 
+1.8.3.2
+

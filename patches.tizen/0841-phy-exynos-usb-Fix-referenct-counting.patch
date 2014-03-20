@@ -1,0 +1,29 @@
+From 3d4407f5de7182a1d2da00fe6d2175cf7a07b23f Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 1 Oct 2013 15:48:13 +0200
+Subject: [PATCH 0841/1302] phy: exynos-usb: Fix referenct counting
+
+This patch fixes the reference counting when powerin on/off the phy.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/phy/phy-exynos4210-usb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/phy/phy-exynos4210-usb.c b/drivers/phy/phy-exynos4210-usb.c
+index 4b849e7..d75a554 100644
+--- a/drivers/phy/phy-exynos4210-usb.c
++++ b/drivers/phy/phy-exynos4210-usb.c
+@@ -250,7 +250,7 @@ static int exynos4210_power_off(struct uphy_instance *inst)
+ 	}
+ 
+ 	inst->state = STATE_OFF;
+-	inst->ref_cnt++;
++	inst->ref_cnt--;
+ 	if (inst->ref_cnt > 0)
+ 		return 0;
+ 
+-- 
+1.8.3.2
+

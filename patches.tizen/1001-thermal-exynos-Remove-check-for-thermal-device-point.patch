@@ -1,0 +1,45 @@
+From 37ba7f3055a207b7a8dca272a2f7b915409e7b13 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Wed, 9 Oct 2013 08:29:50 +0200
+Subject: [PATCH 1001/1302] thermal: exynos: Remove check for thermal device
+ pointer at exynos_report_trigger()
+
+The commit 4de0bdaa9677d11406c9becb70c60887c957e1f0
+("thermal: exynos: Add support for instance based register/unregister")
+broke check for presence of therm_dev at global thermal zone in
+exynos_report_trigger().
+
+The resulting wrong test prevents thermal_zone_device_update() call, which
+calls handlers for situation when trip points are passed.
+Such behavior prevents thermal driver from proper reaction (when TMU interrupt
+is raised) in a situation when overheating is detected at TMU hardware.
+
+It turns out, that after exynos thermal subsystem redesign (at v3.12) this
+check is not needed, since it is not possible to register thermal zone
+without valid thermal device.
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Reviewed-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Reviewed-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/samsung/exynos_thermal_common.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/thermal/samsung/exynos_thermal_common.c b/drivers/thermal/samsung/exynos_thermal_common.c
+index f10a6ad..c2301da 100644
+--- a/drivers/thermal/samsung/exynos_thermal_common.c
++++ b/drivers/thermal/samsung/exynos_thermal_common.c
+@@ -310,8 +310,6 @@ void exynos_report_trigger(struct thermal_sensor_conf *conf)
+ 	}
+ 
+ 	th_zone = conf->pzone_data;
+-	if (th_zone->therm_dev)
+-		return;
+ 
+ 	if (th_zone->bind == false) {
+ 		for (i = 0; i < th_zone->cool_dev_size; i++) {
+-- 
+1.8.3.2
+

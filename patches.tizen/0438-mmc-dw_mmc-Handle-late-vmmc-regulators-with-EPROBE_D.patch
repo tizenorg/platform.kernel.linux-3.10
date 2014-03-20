@@ -1,0 +1,112 @@
+From 301f8ceba8ac5a1917c56765e70c6827c2bce5c6 Mon Sep 17 00:00:00 2001
+From: Doug Anderson <dianders@chromium.org>
+Date: Fri, 7 Jun 2013 10:28:29 -0700
+Subject: [PATCH 0438/1302] mmc: dw_mmc: Handle late vmmc regulators with
+ EPROBE_DEFER
+
+It is possible to specify a regulator that should be turned on when
+dw_mmc is probed.  At the moment dw_mmc will fail to use the regulator
+properly if the regulator probes after dw_mmc.  Fix this problem by
+honoring EPROBE_DEFER.
+
+At the same time move the regulator code out of the slot init code.
+We only specify one regulator for the whole device and other parts of
+the code (like suspend/resume) assume that the regulator has only been
+enabled once.
+
+Signed-off-by: Doug Anderson <dianders@chromium.org>
+Signed-off-by: Chris Ball <cjb@laptop.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../devicetree/bindings/mmc/synopsis-dw-mshc.txt   |  4 +++
+ drivers/mmc/host/dw_mmc.c                          | 34 +++++++++++++---------
+ 2 files changed, 24 insertions(+), 14 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/mmc/synopsis-dw-mshc.txt b/Documentation/devicetree/bindings/mmc/synopsis-dw-mshc.txt
+index 726fd21..d5cc94e 100644
+--- a/Documentation/devicetree/bindings/mmc/synopsis-dw-mshc.txt
++++ b/Documentation/devicetree/bindings/mmc/synopsis-dw-mshc.txt
+@@ -55,6 +55,9 @@ Optional properties:
+ 
+ * broken-cd: as documented in mmc core bindings.
+ 
++* vmmc-supply: The phandle to the regulator to use for vmmc.  If this is
++  specified we'll defer probe until we can find this regulator.
++
+ Aliases:
+ 
+ - All the MSHC controller nodes should be represented in the aliases node using
+@@ -79,6 +82,7 @@ board specific portions as listed below.
+ 		broken-cd;
+ 		fifo-depth = <0x80>;
+ 		card-detect-delay = <200>;
++		vmmc-supply = <&buck8>;
+ 
+ 		slot@0 {
+ 			reg = <0>;
+diff --git a/drivers/mmc/host/dw_mmc.c b/drivers/mmc/host/dw_mmc.c
+index 7dca5e9..957f5d7 100644
+--- a/drivers/mmc/host/dw_mmc.c
++++ b/drivers/mmc/host/dw_mmc.c
+@@ -1991,19 +1991,6 @@ static int dw_mci_init_slot(struct dw_mci *host, unsigned int id)
+ #endif /* CONFIG_MMC_DW_IDMAC */
+ 	}
+ 
+-	host->vmmc = devm_regulator_get(mmc_dev(mmc), "vmmc");
+-	if (IS_ERR(host->vmmc)) {
+-		pr_info("%s: no vmmc regulator found\n", mmc_hostname(mmc));
+-		host->vmmc = NULL;
+-	} else {
+-		ret = regulator_enable(host->vmmc);
+-		if (ret) {
+-			dev_err(host->dev,
+-				"failed to enable regulator: %d\n", ret);
+-			goto err_setup_bus;
+-		}
+-	}
+-
+ 	if (dw_mci_get_cd(mmc))
+ 		set_bit(DW_MMC_CARD_PRESENT, &slot->flags);
+ 	else
+@@ -2235,11 +2222,29 @@ int dw_mci_probe(struct dw_mci *host)
+ 		}
+ 	}
+ 
++	host->vmmc = devm_regulator_get(host->dev, "vmmc");
++	if (IS_ERR(host->vmmc)) {
++		ret = PTR_ERR(host->vmmc);
++		if (ret == -EPROBE_DEFER)
++			goto err_clk_ciu;
++
++		dev_info(host->dev, "no vmmc regulator found: %d\n", ret);
++		host->vmmc = NULL;
++	} else {
++		ret = regulator_enable(host->vmmc);
++		if (ret) {
++			if (ret != -EPROBE_DEFER)
++				dev_err(host->dev,
++					"regulator_enable fail: %d\n", ret);
++			goto err_clk_ciu;
++		}
++	}
++
+ 	if (!host->bus_hz) {
+ 		dev_err(host->dev,
+ 			"Platform data must supply bus speed\n");
+ 		ret = -ENODEV;
+-		goto err_clk_ciu;
++		goto err_regulator;
+ 	}
+ 
+ 	host->quirks = host->pdata->quirks;
+@@ -2386,6 +2391,7 @@ err_dmaunmap:
+ 	if (host->use_dma && host->dma_ops->exit)
+ 		host->dma_ops->exit(host);
+ 
++err_regulator:
+ 	if (host->vmmc)
+ 		regulator_disable(host->vmmc);
+ 
+-- 
+1.8.3.2
+

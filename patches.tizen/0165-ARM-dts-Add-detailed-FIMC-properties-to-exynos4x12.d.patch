@@ -1,0 +1,62 @@
+From 27ade149b87f706672a3dfa50a5bc34bbd464708 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Sun, 24 Feb 2013 22:14:06 +0100
+Subject: [PATCH 0165/1302] ARM: dts: Add detailed FIMC properties to
+ exynos4x12.dtsi
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 289062f..a3ed9ff 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -208,24 +208,42 @@
+ 			compatible = "samsung,exynos4212-fimc";
+ 			clocks = <&clock 256>, <&clock 128>, <&clock 384>, <&clock 17>;
+ 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
++			samsung,pix-limits = <4224 8192 1920 4224>;
++			samsung,mainscaler-ext;
++			samsung,isp-wb;
++			samsung,cam-if;
+ 		};
+ 
+ 		fimc_1: fimc@11810000 {
+ 			compatible = "samsung,exynos4212-fimc";
+ 			clocks = <&clock 257>, <&clock 129>, <&clock 385>, <&clock 17>;
+ 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
++			samsung,pix-limits = <4224 8192 1920 4224>;
++			samsung,mainscaler-ext;
++			samsung,isp-wb;
++			samsung,cam-if;
+ 		};
+ 
+ 		fimc_2: fimc@11820000 {
+ 			compatible = "samsung,exynos4212-fimc";
+ 			clocks = <&clock 258>, <&clock 130>, <&clock 386>, <&clock 17>;
+ 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
++			samsung,pix-limits = <4224 8192 1920 4224>;
++			samsung,mainscaler-ext;
++			samsung,isp-wb;
++			samsung,lcd-wb;
++			samsung,cam-if;
+ 		};
+ 
+ 		fimc_3: fimc@11830000 {
+ 			compatible = "samsung,exynos4212-fimc";
+ 			clocks = <&clock 259>, <&clock 131>, <&clock 387>, <&clock 17>;
+ 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
++			samsung,pix-limits = <1920 8192 1366 1920>;
++			samsung,rotators = <0>;
++			samsung,mainscaler-ext;
++			samsung,isp-wb;
++			samsung,lcd-wb;
+ 		};
+ 
+ 		csis_0: csis@11880000 {
+-- 
+1.8.3.2
+

@@ -1,0 +1,37 @@
+From 610826db72ad617fae74d1efa13b45b9408dd1c5 Mon Sep 17 00:00:00 2001
+From: "Du, ChangbinX" <changbinx.du@intel.com>
+Date: Tue, 17 Dec 2013 11:47:42 +0000
+Subject: [PATCH 1191/1302] usb: gadget: should use u16 type variable to store
+ MaxPower
+
+From 7e827a0d300e084f74c65122baa5e3193f9a7f18 Mon Sep 17 00:00:00 2001
+From: "Du, Changbin" <changbinx.du@intel.com>
+Date: Mon, 16 Dec 2013 20:32:13 +0800
+Subject: [PATCH] usb/gadget: should use u16 type variable to store MaxPower
+
+The MaxPower field is of u16 type. So using u8 type variable can break
+data (high byte lost).
+
+Signed-off-by: Du, Changbin <changbinx.du@intel.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/composite.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/composite.c b/drivers/usb/gadget/composite.c
+index 03abdb5..d41103e 100644
+--- a/drivers/usb/gadget/composite.c
++++ b/drivers/usb/gadget/composite.c
+@@ -1728,7 +1728,7 @@ composite_resume(struct usb_gadget *gadget)
+ {
+ 	struct usb_composite_dev	*cdev = get_gadget_data(gadget);
+ 	struct usb_function		*f;
+-	u8				maxpower;
++	u16				maxpower;
+ 
+ 	/* REVISIT:  should we have config level
+ 	 * suspend/resume callbacks?
+-- 
+1.8.3.2
+

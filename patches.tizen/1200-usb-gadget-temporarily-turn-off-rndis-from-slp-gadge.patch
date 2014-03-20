@@ -1,0 +1,58 @@
+From 7ca93af1e28792259a3b38cb43de67eea28d7352 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Wed, 22 Jan 2014 14:58:04 +0100
+Subject: [PATCH 1200/1302] usb: gadget: temporarily turn off rndis from slp
+ gadget
+
+This fixes build break caused by recently merged removal
+of compatibility layer in rndis.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Change-Id: I11c2d02e2d491f30f8c9936916f627389787a1e5
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/slp.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/slp.c b/drivers/usb/gadget/slp.c
+index 45536b4..06ac801 100644
+--- a/drivers/usb/gadget/slp.c
++++ b/drivers/usb/gadget/slp.c
+@@ -154,7 +154,7 @@ struct slp_multi_dev {
+ };
+ 
+ /* TODO: only enabled 'rndis' and 'sdb'. need to verify more functions */
+-static const char *default_funcs[] = {"rndis", "sdb"};
++static const char *default_funcs[] = {"sdb"};
+ static unsigned slp_multi_nluns;
+ static struct class *slp_multi_class;
+ static struct slp_multi_dev *_slp_multi_dev;
+@@ -372,6 +372,7 @@ static struct slp_multi_usb_function acm_function = {
+ 	.attributes	= acm_function_attributes,
+ };
+ 
++#if 0
+ struct rndis_function_config {
+ 	u8 ethaddr[ETH_ALEN];
+ 	u32 vendorID;
+@@ -612,14 +613,16 @@ static struct slp_multi_usb_function rndis_function = {
+ 	.unbind_config = rndis_function_unbind_config,
+ 	.attributes = rndis_function_attributes,
+ };
+-
++#endif
+ /*-------------------------------------------------------------------------*/
+ /* Supported functions initialization */
+ 
+ static struct slp_multi_usb_function *supported_functions[] = {
+ 	&sdb_function,
+ 	&acm_function,
++#if 0
+ 	&rndis_function,
++#endif
+ 	NULL,
+ };
+ 
+-- 
+1.8.3.2
+

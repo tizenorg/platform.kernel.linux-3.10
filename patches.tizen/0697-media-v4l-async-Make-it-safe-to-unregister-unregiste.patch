@@ -1,0 +1,46 @@
+From 652a58e1a505cc93a2351647e682e2beae08c2d2 Mon Sep 17 00:00:00 2001
+From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Date: Wed, 3 Jul 2013 07:49:06 -0300
+Subject: [PATCH 0697/1302] [media] v4l: async: Make it safe to unregister
+ unregistered notifier
+
+Calling v4l2_async_notifier_unregister() on a notifier that hasn't been
+registered leads to a crash. To simplify drivers, make it safe to
+unregister a notifier that has not been registered.
+
+Signed-off-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Tested-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Acked-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/v4l2-core/v4l2-async.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2-async.c
+index b350ab9..10bb62c 100644
+--- a/drivers/media/v4l2-core/v4l2-async.c
++++ b/drivers/media/v4l2-core/v4l2-async.c
+@@ -192,6 +192,9 @@ void v4l2_async_notifier_unregister(struct v4l2_async_notifier *notifier)
+ 	struct device *dev[n_subdev];
+ 	int i = 0;
+ 
++	if (!notifier->v4l2_dev)
++		return;
++
+ 	mutex_lock(&list_lock);
+ 
+ 	list_del(&notifier->list);
+@@ -225,6 +228,9 @@ void v4l2_async_notifier_unregister(struct v4l2_async_notifier *notifier)
+ 		}
+ 		put_device(d);
+ 	}
++
++	notifier->v4l2_dev = NULL;
++
+ 	/*
+ 	 * Don't care about the waiting list, it is initialised and populated
+ 	 * upon notifier registration.
+-- 
+1.8.3.2
+

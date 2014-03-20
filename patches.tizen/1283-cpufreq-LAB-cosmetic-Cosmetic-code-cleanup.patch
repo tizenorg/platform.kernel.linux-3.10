@@ -1,0 +1,53 @@
+From d3c20448e801ec91812a21291c30a89f173288b9 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Tue, 4 Mar 2014 12:20:34 +0100
+Subject: [PATCH 1283/1302] cpufreq:LAB:cosmetic: Cosmetic code cleanup
+
+Initialization of static variable is not necessary, since it will be placed
+at BSS section.
+
+Also proper format comments have been added.
+
+Change-Id: Id5e30a97d7d3cdb851f09a69e944c77223fa8a82
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/cpufreq_lab.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/cpufreq/cpufreq_lab.c b/drivers/cpufreq/cpufreq_lab.c
+index 76f6b20..215f322 100644
+--- a/drivers/cpufreq/cpufreq_lab.c
++++ b/drivers/cpufreq/cpufreq_lab.c
+@@ -34,7 +34,8 @@
+ #define LB_MIN_FREQ            ~1UL
+ #define LB_ONDEMAND             0
+ 
+-/* Pre-calculated summation of weight, 0.5
++/*
++ * Pre-calculated summation of weight, 0.5
+  * 1
+  * 1 + 0.5^1 = 1.5
+  * 1 + 0.5^1 + 0.5^2 = 1.75
+@@ -61,7 +62,8 @@ static struct lb_wq_boost_data {
+ 	struct work_struct work;
+ } lb_boost_data;
+ 
+-/* Calculate average of idle time with weighting 50% less to older one.
++/*
++ * Calculate average of idle time with weighting 50% less to older one.
+  * With weight, average can be affected by current phase more rapidly than
+  * normal average. And it also has tolerance for temporary fluctuation of
+  * idle time as normal average has.
+@@ -110,7 +112,7 @@ static void lb_check_cpu(int cpu, unsigned int load)
+ 	struct od_cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
+ 	struct cpufreq_policy *policy = dbs_info->cdbs.cur_policy;
+ 	unsigned int freq = 0, op;
+-	static int cnt = 0;
++	static int cnt;
+ 	int i, idx, bs;
+ 
+ 	idle_cpus = 0;
+-- 
+1.8.3.2
+

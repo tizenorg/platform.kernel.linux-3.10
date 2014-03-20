@@ -1,0 +1,74 @@
+From a8afd34a0a2d279cc6a435cacee95261a080a7e2 Mon Sep 17 00:00:00 2001
+From: Seung-Woo Kim <sw0312.kim@samsung.com>
+Date: Fri, 8 Nov 2013 20:48:18 +0900
+Subject: [PATCH 1073/1302] usb: gadget: slp: fix wrong destory function
+
+The device_destroy() unregisters and destroys the struct dev
+created by device_create(). But in destroy function, it calls for
+each file created by device_create_file(). So this causes wrong
+memory access like following.
+
+[    2.804348] usb_mode: can't probe composite
+[    2.808239] Unable to handle kernel NULL pointer dereference at virtual address 00000034
+[    2.816064] pgd = c0004000
+[    2.818713] [00000034] *pgd=00000000
+[    2.822289] Internal error: Oops: 5 [#1] PREEMPT SMP ARM
+[    2.827570] Modules linked in:
+[    2.830612] CPU: 1 PID: 1 Comm: swapper/0 Not tainted 3.10.14-g86225b5 #89
+[    2.837465] task: df9f8000 ti: df9f4000 task.ti: df9f4000
+[    2.842859] PC is at sysfs_find_dirent+0x8/0xf0
+[    2.847358] LR is at sysfs_get_dirent+0x28/0x78
+[    2.851873] pc : [<c0158ee4>]    lr : [<c01590ac>]    psr: 40000113
+[    2.851873] sp : df9f5ea0  ip : 00000000  fp : 00000000
+[    2.863329] r10: 00000077  r9 : c0735d90  r8 : c071bc84
+[    2.868537] r7 : df209000  r6 : 00000000  r5 : c04f52d0  r4 : 00000000
+[    2.875046] r3 : 00000000  r2 : c04f52d0  r1 : 00000000  r0 : 00000000
+[    2.881558] Flags: nZcv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment kernel
+[    2.888848] Control: 10c53c7d  Table: 4000404a  DAC: 00000015
+[    2.894577] Process swapper/0 (pid: 1, stack limit = 0xdf9f4238)
+[    2.900568] Stack: (0xdf9f5ea0 to 0xdf9f6000)
+[    2.904912] 5ea0: 00000000 c04f52d0 00000000 df209000 c071bc84 c01590ac c0783420 df209008
+[    2.913069] 5ec0: c0857f34 c015a6b0 df9f8000 df209000 df209008 c02b596c df209000 df209008
+[    2.921228] 5ee0: c0857f34 c078531c c071bc84 c02b491c 00000000 df209000 df209200 c02ac504
+[    2.929387] 5f00: df209000 ffffffed c0857f34 c02ac668 df208e00 c071be80 c0668e70 c02af718
+[    2.937546] 5f20: df9f4000 c07a4e00 c0726f18 00000000 c071bc84 c00086d4 00000000 00000000
+[    2.945706] 5f40: c062bed8 c06ca4ec 00000007 00000007 c06f74d0 c0726f38 00000007 c0726f18
+[    2.953864] 5f60: c07a4e00 c06f74d0 c0735d90 00000077 00000000 c06f7b98 00000007 00000007
+[    2.962023] 5f80: c06f74d0 c004ed8c 00000000 c04b0f20 00000000 00000000 00000000 00000000
+[    2.970183] 5fa0: 00000000 c04b0f28 00000000 c000eb28 00000000 00000000 00000000 00000000
+[    2.974920] ymu831 irq_handler
+[    2.974944] ymu831 irq_func
+[    2.984158] 5fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[    2.992317] 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000 08800040 05008140
+[    3.000500] [<c0158ee4>] (sysfs_find_dirent+0x8/0xf0) from [<df209008>] (0xdf209008)
+[    3.008205] Code: e5838000 eafffff6 e92d41f0 e2913000 (e1d0e3b4)
+[    3.014323] ---[ end trace a753dab553aa7e18 ]---
+
+Change-Id: I58924574a3673dc8eaaea8556cd64f453344cdf3
+Signed-off-by: Seung-Woo Kim <sw0312.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/slp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/slp.c b/drivers/usb/gadget/slp.c
+index 0a5fec4..45536b4 100644
+--- a/drivers/usb/gadget/slp.c
++++ b/drivers/usb/gadget/slp.c
+@@ -1249,11 +1249,11 @@ static void slp_multi_destroy_device(struct slp_multi_dev *smdev)
+ 	struct device_attribute *attr;
+ 
+ 	while ((attr = *attrs++))
+-		device_destroy(slp_multi_class, smdev->dev->devt);
++		device_remove_file(smdev->dev, attr);
+ 
+ 	dev_set_drvdata(smdev->dev, NULL);
+ 
+-	device_unregister(smdev->dev);
++	device_destroy(slp_multi_class, smdev->dev->devt);
+ }
+ 
+ static CLASS_ATTR_STRING(version, S_IRUSR | S_IRGRP | S_IROTH,
+-- 
+1.8.3.2
+

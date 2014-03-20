@@ -1,0 +1,74 @@
+From 52558171de87d1784f15e0f35ba7e27292b60563 Mon Sep 17 00:00:00 2001
+From: Minchan Kim <minchan@kernel.org>
+Date: Thu, 25 Jul 2013 13:44:37 +0900
+Subject: [PATCH 0827/1302] vrange: Add vmstat counter about purged page
+
+This patch adds the number of purged page in vmstat so admin can see
+how many of volatile pages are discarded by VM until now.
+
+Signed-off-by: Minchan Kim <minchan@kernel.org>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ include/linux/vm_event_item.h |  2 ++
+ mm/vmstat.c                   |  2 ++
+ mm/vrange.c                   | 10 ++++++++++
+ 3 files changed, 14 insertions(+)
+
+diff --git a/include/linux/vm_event_item.h b/include/linux/vm_event_item.h
+index bd6cf61..c4aea92 100644
+--- a/include/linux/vm_event_item.h
++++ b/include/linux/vm_event_item.h
+@@ -25,6 +25,8 @@ enum vm_event_item { PGPGIN, PGPGOUT, PSWPIN, PSWPOUT,
+ 		FOR_ALL_ZONES(PGALLOC),
+ 		PGFREE, PGACTIVATE, PGDEACTIVATE,
+ 		PGFAULT, PGMAJFAULT,
++		PGDISCARD_DIRECT,
++		PGDISCARD_KSWAPD,
+ 		FOR_ALL_ZONES(PGREFILL),
+ 		FOR_ALL_ZONES(PGSTEAL_KSWAPD),
+ 		FOR_ALL_ZONES(PGSTEAL_DIRECT),
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+index f42745e..c54d7e1 100644
+--- a/mm/vmstat.c
++++ b/mm/vmstat.c
+@@ -756,6 +756,8 @@ const char * const vmstat_text[] = {
+ 
+ 	"pgfault",
+ 	"pgmajfault",
++	"pgdiscard_direct",
++	"pgdiscard_kswapd",
+ 
+ 	TEXTS_FOR_ZONES("pgrefill")
+ 	TEXTS_FOR_ZONES("pgsteal_kswapd")
+diff --git a/mm/vrange.c b/mm/vrange.c
+index 013859d..37e5037 100644
+--- a/mm/vrange.c
++++ b/mm/vrange.c
+@@ -907,6 +907,10 @@ int discard_vpage(struct page *page)
+ 
+ 		if (page_freeze_refs(page, 1)) {
+ 			unlock_page(page);
++			if (current_is_kswapd())
++				count_vm_event(PGDISCARD_KSWAPD);
++			else
++				count_vm_event(PGDISCARD_DIRECT);
+ 			return 0;
+ 		}
+ 	}
+@@ -1158,6 +1162,12 @@ static int discard_vrange(struct vrange *vrange)
+ 		ret = __discard_vrange_file(mapping, vrange, &nr_discard);
+ 	}
+ 
++	if (!ret) {
++		if (current_is_kswapd())
++			count_vm_events(PGDISCARD_KSWAPD, nr_discard);
++		else
++			count_vm_events(PGDISCARD_DIRECT, nr_discard);
++	}
+ out:
+ 	__vroot_put(vroot);
+ 	return nr_discard;
+-- 
+1.8.3.2
+

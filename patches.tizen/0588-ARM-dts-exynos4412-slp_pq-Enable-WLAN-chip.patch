@@ -1,0 +1,73 @@
+From d86e95e588f18ff9f44278cc511e801341c0dd68 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Mon, 26 Aug 2013 17:08:10 +0200
+Subject: [PATCH 0588/1302] ARM: dts: exynos4412-slp_pq: Enable WLAN chip
+
+This patch adds required device tree nodes to enable support for BCM4334
+WLAN chip present on SLP PQ based boards.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 40 +++++++++++++++++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index add9306..7a82690 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -1256,6 +1256,41 @@
+ 		status = "okay";
+ 		vinchg1-supply = <&charger_reg>;
+ 	};
++
++	fixed-regulators {
++		compatible = "simple-bus";
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		wlan_reg: voltage-regulator@7 {
++			compatible = "regulator-fixed";
++			reg = <7>;
++			regulator-name = "WL_REG_ON";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			gpio = <&gpj0 0 0>;
++			enable-active-high;
++		};
++	};
++
++	wlan {
++		compatible = "brcm,bcm4334";
++		wlan-supply = <&wlan_reg>;
++		interrupt-parent = <&gpx2>;
++		interrupts = <5 4>;
++		clocks = <&max77686 2>;
++		clock-names = "32khz";
++		pinctrl-names = "default";
++		pinctrl-0 = <&wlan_int>;
++	};
++
++	sdhci@12540000 {
++		bus-width = <4>;
++		broken-cd;
++		pinctrl-0 = <&sd3_clk &sd3_cmd &sd3_bus4>;
++		pinctrl-names = "default";
++		status = "okay";
++	};
+ };
+ 
+ &pinctrl_1 {
+@@ -1267,4 +1302,9 @@
+ 		samsung,pins = "gpx1-6", "gpx1-1", "gpx1-2";
+ 		samsung,pin-pud = <1>;
+ 	};
++
++	wlan_int: wlan-irq {
++		samsung,pins = "gpx2-5";
++		samsung,pin-pud = <1>;
++	};
+ };
+-- 
+1.8.3.2
+

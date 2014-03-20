@@ -1,0 +1,31 @@
+From 339c5d63d7bf03d3c02723e77239b80be854fb60 Mon Sep 17 00:00:00 2001
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 23 Aug 2013 05:36:56 -0300
+Subject: [PATCH 0706/1302] [media] exynos4-is: Print error message on timeout
+
+There is a stray '!' character so the error message never gets printed.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-is-regs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-is-regs.c b/drivers/media/platform/exynos4-is/fimc-is-regs.c
+index c1589f7..ad8e630 100644
+--- a/drivers/media/platform/exynos4-is/fimc-is-regs.c
++++ b/drivers/media/platform/exynos4-is/fimc-is-regs.c
+@@ -250,7 +250,7 @@ int fimc_is_itf_mode_change(struct fimc_is *is)
+ 	fimc_is_hw_change_mode(is);
+ 	ret = fimc_is_wait_event(is, IS_ST_CHANGE_MODE, 1,
+ 				FIMC_IS_CONFIG_TIMEOUT);
+-	if (!ret < 0)
++	if (ret < 0)
+ 		dev_err(&is->pdev->dev, "%s(): mode change (%d) timeout\n",
+ 			__func__, is->config_index);
+ 	return ret;
+-- 
+1.8.3.2
+

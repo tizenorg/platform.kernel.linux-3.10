@@ -1,0 +1,30 @@
+From cbd87a0e8de7a62309a68e194203dcf525680c77 Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Wed, 3 Jul 2013 15:19:29 +0900
+Subject: [PATCH 0441/1302] ARM: dts: updated the dwmmc device tree for clk
+ name
+
+To get clk for dwmmc, added the clk-name.
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index fbcf7b3..20a5c86 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -261,6 +261,8 @@
+ 		non-removable;
+ 		fifo-depth = <0x80>;
+ 		card-detect-delay = <200>;
++		clocks = <&clock 351>, <&clock 132>;
++		clock-name = "biu", "ciu";
+ 		vmmc-supply = <&vemmc_reg>;
+ 		clock-frequency = <400000000>;
+ 		samsung,dw-mshc-ciu-div = <0>;
+-- 
+1.8.3.2
+

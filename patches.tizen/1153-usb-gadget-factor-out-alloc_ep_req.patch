@@ -1,0 +1,300 @@
+From d58d2f708974a16cd318fabff0a7f2d0fb6fcff0 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Thu, 7 Nov 2013 08:41:26 +0100
+Subject: [PATCH 1153/1302] usb: gadget: factor out alloc_ep_req
+
+alloc_ep_req() is a function repeated in several modules.
+Make a common implementation and use it.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/Makefile       |  2 +-
+ drivers/usb/gadget/f_hid.c        | 18 +++++-------------
+ drivers/usb/gadget/f_loopback.c   |  8 +++++++-
+ drivers/usb/gadget/f_midi.c       | 22 +++++++---------------
+ drivers/usb/gadget/f_sourcesink.c | 23 +++++------------------
+ drivers/usb/gadget/g_zero.h       |  1 -
+ drivers/usb/gadget/u_f.c          | 32 ++++++++++++++++++++++++++++++++
+ drivers/usb/gadget/u_f.h          | 26 ++++++++++++++++++++++++++
+ 8 files changed, 83 insertions(+), 49 deletions(-)
+ create mode 100644 drivers/usb/gadget/u_f.c
+ create mode 100644 drivers/usb/gadget/u_f.h
+
+diff --git a/drivers/usb/gadget/Makefile b/drivers/usb/gadget/Makefile
+index 345a49c..e43af2e 100644
+--- a/drivers/usb/gadget/Makefile
++++ b/drivers/usb/gadget/Makefile
+@@ -6,7 +6,7 @@ ccflags-$(CONFIG_USB_GADGET_DEBUG) := -DDEBUG
+ obj-$(CONFIG_USB_GADGET)	+= udc-core.o
+ obj-$(CONFIG_USB_LIBCOMPOSITE)	+= libcomposite.o
+ libcomposite-y			:= usbstring.o config.o epautoconf.o
+-libcomposite-y			+= composite.o functions.o configfs.o
++libcomposite-y			+= composite.o functions.o configfs.o u_f.o
+ obj-$(CONFIG_USB_DUMMY_HCD)	+= dummy_hcd.o
+ obj-$(CONFIG_USB_NET2272)	+= net2272.o
+ obj-$(CONFIG_USB_NET2280)	+= net2280.o
+diff --git a/drivers/usb/gadget/f_hid.c b/drivers/usb/gadget/f_hid.c
+index 6e69a8e..a95290a 100644
+--- a/drivers/usb/gadget/f_hid.c
++++ b/drivers/usb/gadget/f_hid.c
+@@ -20,6 +20,8 @@
+ #include <linux/sched.h>
+ #include <linux/usb/g_hid.h>
+ 
++#include "u_f.h"
++
+ static int major, minors;
+ static struct class *hidg_class;
+ 
+@@ -334,20 +336,10 @@ static int f_hidg_open(struct inode *inode, struct file *fd)
+ /*-------------------------------------------------------------------------*/
+ /*                                usb_function                             */
+ 
+-static struct usb_request *hidg_alloc_ep_req(struct usb_ep *ep, unsigned length)
++static inline struct usb_request *hidg_alloc_ep_req(struct usb_ep *ep,
++						    unsigned length)
+ {
+-	struct usb_request *req;
+-
+-	req = usb_ep_alloc_request(ep, GFP_ATOMIC);
+-	if (req) {
+-		req->length = length;
+-		req->buf = kmalloc(length, GFP_ATOMIC);
+-		if (!req->buf) {
+-			usb_ep_free_request(ep, req);
+-			req = NULL;
+-		}
+-	}
+-	return req;
++	return alloc_ep_req(ep, length, length);
+ }
+ 
+ static void hidg_set_report_complete(struct usb_ep *ep, struct usb_request *req)
+diff --git a/drivers/usb/gadget/f_loopback.c b/drivers/usb/gadget/f_loopback.c
+index 4a3873a..b790653 100644
+--- a/drivers/usb/gadget/f_loopback.c
++++ b/drivers/usb/gadget/f_loopback.c
+@@ -20,6 +20,7 @@
+ #include <linux/usb/composite.h>
+ 
+ #include "g_zero.h"
++#include "u_f.h"
+ 
+ /*
+  * LOOPBACK FUNCTION ... a testing vehicle for USB peripherals,
+@@ -293,6 +294,11 @@ static void disable_loopback(struct f_loopback *loop)
+ 	VDBG(cdev, "%s disabled\n", loop->function.name);
+ }
+ 
++static inline struct usb_request *lb_alloc_ep_req(struct usb_ep *ep, int len)
++{
++	return alloc_ep_req(ep, len, buflen);
++}
++
+ static int
+ enable_loopback(struct usb_composite_dev *cdev, struct f_loopback *loop)
+ {
+@@ -332,7 +338,7 @@ fail0:
+ 	 * than 'buflen' bytes each.
+ 	 */
+ 	for (i = 0; i < qlen && result == 0; i++) {
+-		req = alloc_ep_req(ep, 0);
++		req = lb_alloc_ep_req(ep, 0);
+ 		if (req) {
+ 			req->complete = loopback_complete;
+ 			result = usb_ep_queue(ep, req, GFP_ATOMIC);
+diff --git a/drivers/usb/gadget/f_midi.c b/drivers/usb/gadget/f_midi.c
+index 263e721..36d4bb2 100644
+--- a/drivers/usb/gadget/f_midi.c
++++ b/drivers/usb/gadget/f_midi.c
+@@ -32,6 +32,8 @@
+ #include <linux/usb/audio.h>
+ #include <linux/usb/midi.h>
+ 
++#include "u_f.h"
++
+ MODULE_AUTHOR("Ben Williamson");
+ MODULE_LICENSE("GPL v2");
+ 
+@@ -191,20 +193,10 @@ static struct usb_gadget_strings *midi_strings[] = {
+ 	NULL,
+ };
+ 
+-static struct usb_request *alloc_ep_req(struct usb_ep *ep, unsigned length)
++static inline struct usb_request *midi_alloc_ep_req(struct usb_ep *ep,
++						    unsigned length)
+ {
+-	struct usb_request *req;
+-
+-	req = usb_ep_alloc_request(ep, GFP_ATOMIC);
+-	if (req) {
+-		req->length = length;
+-		req->buf = kmalloc(length, GFP_ATOMIC);
+-		if (!req->buf) {
+-			usb_ep_free_request(ep, req);
+-			req = NULL;
+-		}
+-	}
+-	return req;
++	return alloc_ep_req(ep, length, length);
+ }
+ 
+ static void free_ep_req(struct usb_ep *ep, struct usb_request *req)
+@@ -365,7 +357,7 @@ static int f_midi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
+ 	/* allocate a bunch of read buffers and queue them all at once. */
+ 	for (i = 0; i < midi->qlen && err == 0; i++) {
+ 		struct usb_request *req =
+-			alloc_ep_req(midi->out_ep, midi->buflen);
++			midi_alloc_ep_req(midi->out_ep, midi->buflen);
+ 		if (req == NULL)
+ 			return -ENOMEM;
+ 
+@@ -546,7 +538,7 @@ static void f_midi_transmit(struct f_midi *midi, struct usb_request *req)
+ 		return;
+ 
+ 	if (!req)
+-		req = alloc_ep_req(ep, midi->buflen);
++		req = midi_alloc_ep_req(ep, midi->buflen);
+ 
+ 	if (!req) {
+ 		ERROR(midi, "gmidi_transmit: alloc_ep_request failed\n");
+diff --git a/drivers/usb/gadget/f_sourcesink.c b/drivers/usb/gadget/f_sourcesink.c
+index a889585..c5ad4a1 100644
+--- a/drivers/usb/gadget/f_sourcesink.c
++++ b/drivers/usb/gadget/f_sourcesink.c
+@@ -21,6 +21,7 @@
+ 
+ #include "g_zero.h"
+ #include "gadget_chips.h"
++#include "u_f.h"
+ 
+ /*
+  * SOURCE/SINK FUNCTION ... a primary testing vehicle for USB peripheral
+@@ -301,23 +302,9 @@ static struct usb_gadget_strings *sourcesink_strings[] = {
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+-struct usb_request *alloc_ep_req(struct usb_ep *ep, int len)
++static inline struct usb_request *ss_alloc_ep_req(struct usb_ep *ep, int len)
+ {
+-	struct usb_request      *req;
+-
+-	req = usb_ep_alloc_request(ep, GFP_ATOMIC);
+-	if (req) {
+-		if (len)
+-			req->length = len;
+-		else
+-			req->length = buflen;
+-		req->buf = kmalloc(req->length, GFP_ATOMIC);
+-		if (!req->buf) {
+-			usb_ep_free_request(ep, req);
+-			req = NULL;
+-		}
+-	}
+-	return req;
++	return alloc_ep_req(ep, len, buflen);
+ }
+ 
+ void free_ep_req(struct usb_ep *ep, struct usb_request *req)
+@@ -628,10 +615,10 @@ static int source_sink_start_ep(struct f_sourcesink *ss, bool is_in,
+ 				break;
+ 			}
+ 			ep = is_in ? ss->iso_in_ep : ss->iso_out_ep;
+-			req = alloc_ep_req(ep, size);
++			req = ss_alloc_ep_req(ep, size);
+ 		} else {
+ 			ep = is_in ? ss->in_ep : ss->out_ep;
+-			req = alloc_ep_req(ep, 0);
++			req = ss_alloc_ep_req(ep, 0);
+ 		}
+ 
+ 		if (!req)
+diff --git a/drivers/usb/gadget/g_zero.h b/drivers/usb/gadget/g_zero.h
+index ef3e851..a1c1a97 100644
+--- a/drivers/usb/gadget/g_zero.h
++++ b/drivers/usb/gadget/g_zero.h
+@@ -36,7 +36,6 @@ void lb_modexit(void);
+ int lb_modinit(void);
+ 
+ /* common utilities */
+-struct usb_request *alloc_ep_req(struct usb_ep *ep, int len);
+ void free_ep_req(struct usb_ep *ep, struct usb_request *req);
+ void disable_endpoints(struct usb_composite_dev *cdev,
+ 		struct usb_ep *in, struct usb_ep *out,
+diff --git a/drivers/usb/gadget/u_f.c b/drivers/usb/gadget/u_f.c
+new file mode 100644
+index 0000000..63b6642
+--- /dev/null
++++ b/drivers/usb/gadget/u_f.c
+@@ -0,0 +1,32 @@
++/*
++ * u_f.c -- USB function utilities for Gadget stack
++ *
++ * Copyright (c) 2013 Samsung Electronics Co., Ltd.
++ *		http://www.samsung.com
++ *
++ * Author: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/usb/gadget.h>
++#include "u_f.h"
++
++struct usb_request *alloc_ep_req(struct usb_ep *ep, int len, int default_len)
++{
++	struct usb_request      *req;
++
++	req = usb_ep_alloc_request(ep, GFP_ATOMIC);
++	if (req) {
++		req->length = len ?: default_len;
++		req->buf = kmalloc(req->length, GFP_ATOMIC);
++		if (!req->buf) {
++			usb_ep_free_request(ep, req);
++			req = NULL;
++		}
++	}
++	return req;
++}
++EXPORT_SYMBOL(alloc_ep_req);
+diff --git a/drivers/usb/gadget/u_f.h b/drivers/usb/gadget/u_f.h
+new file mode 100644
+index 0000000..71034c0
+--- /dev/null
++++ b/drivers/usb/gadget/u_f.h
+@@ -0,0 +1,26 @@
++/*
++ * u_f.h
++ *
++ * Utility definitions for USB functions
++ *
++ * Copyright (c) 2013 Samsung Electronics Co., Ltd.
++ *		http://www.samsung.com
++ *
++ * Author: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#ifndef __U_F_H__
++#define __U_F_H__
++
++struct usb_ep;
++struct usb_request;
++
++struct usb_request *alloc_ep_req(struct usb_ep *ep, int len, int default_len);
++
++#endif /* __U_F_H__ */
++
++
+-- 
+1.8.3.2
+

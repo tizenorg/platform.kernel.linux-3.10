@@ -1,0 +1,495 @@
+From fed5c7af7fa06d8733b95e3867bd51a0988fe0ad Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Tue, 20 Aug 2013 17:11:26 +0900
+Subject: [PATCH 0541/1302] drm/exynos: Remove redundant error messages
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_buf.c       |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_connector.c |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_crtc.c      |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_dmabuf.c    |  1 -
+ drivers/gpu/drm/exynos/exynos_drm_drv.c       |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_encoder.c   |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_fb.c        |  8 ++------
+ drivers/gpu/drm/exynos/exynos_drm_fbdev.c     |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_fimc.c      |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_fimd.c      |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_g2d.c       | 15 +++------------
+ drivers/gpu/drm/exynos/exynos_drm_gem.c       |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_gsc.c       |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_hdmi.c      |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_ipp.c       | 22 +++++-----------------
+ drivers/gpu/drm/exynos/exynos_drm_plane.c     |  4 +---
+ drivers/gpu/drm/exynos/exynos_drm_rotator.c   |  8 ++------
+ drivers/gpu/drm/exynos/exynos_hdmi.c          | 16 ++++------------
+ drivers/gpu/drm/exynos/exynos_mixer.c         |  8 ++------
+ 19 files changed, 30 insertions(+), 96 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_buf.c b/drivers/gpu/drm/exynos/exynos_drm_buf.c
+index 57affae..cd3c49c 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_buf.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_buf.c
+@@ -155,10 +155,8 @@ struct exynos_drm_gem_buf *exynos_drm_init_buf(struct drm_device *dev,
+ 	DRM_DEBUG_KMS("desired size = 0x%x\n", size);
+ 
+ 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
+-	if (!buffer) {
+-		DRM_ERROR("failed to allocate exynos_drm_gem_buf.\n");
++	if (!buffer)
+ 		return NULL;
+-	}
+ 
+ 	buffer->size = size;
+ 	return buffer;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_connector.c b/drivers/gpu/drm/exynos/exynos_drm_connector.c
+index 902e0be..f729f16 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_connector.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_connector.c
+@@ -326,10 +326,8 @@ struct drm_connector *exynos_drm_connector_create(struct drm_device *dev,
+ 	DRM_DEBUG_KMS("%s\n", __FILE__);
+ 
+ 	exynos_connector = kzalloc(sizeof(*exynos_connector), GFP_KERNEL);
+-	if (!exynos_connector) {
+-		DRM_ERROR("failed to allocate connector\n");
++	if (!exynos_connector)
+ 		return NULL;
+-	}
+ 
+ 	connector = &exynos_connector->drm_connector;
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_crtc.c b/drivers/gpu/drm/exynos/exynos_drm_crtc.c
+index 9bafae7..1de357a 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_crtc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_crtc.c
+@@ -347,10 +347,8 @@ int exynos_drm_crtc_create(struct drm_device *dev, unsigned int nr)
+ 	DRM_DEBUG_KMS("%s\n", __FILE__);
+ 
+ 	exynos_crtc = kzalloc(sizeof(*exynos_crtc), GFP_KERNEL);
+-	if (!exynos_crtc) {
+-		DRM_ERROR("failed to allocate exynos crtc\n");
++	if (!exynos_crtc)
+ 		return -ENOMEM;
+-	}
+ 
+ 	exynos_crtc->pipe = nr;
+ 	exynos_crtc->dpms = DRM_MODE_DPMS_OFF;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c b/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
+index 0fe74e1..4b750ce 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
+@@ -290,7 +290,6 @@ struct drm_gem_object *exynos_dmabuf_prime_import(struct drm_device *drm_dev,
+ 
+ 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
+ 	if (!buffer) {
+-		DRM_ERROR("failed to allocate exynos_drm_gem_buf.\n");
+ 		ret = -ENOMEM;
+ 		goto err_unmap_attach;
+ 	}
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_drv.c b/drivers/gpu/drm/exynos/exynos_drm_drv.c
+index ba6d995..1a07ff6 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_drv.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_drv.c
+@@ -49,10 +49,8 @@ static int exynos_drm_load(struct drm_device *dev, unsigned long flags)
+ 	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+ 
+ 	private = kzalloc(sizeof(struct exynos_drm_private), GFP_KERNEL);
+-	if (!private) {
+-		DRM_ERROR("failed to allocate private\n");
++	if (!private)
+ 		return -ENOMEM;
+-	}
+ 
+ 	INIT_LIST_HEAD(&private->pageflip_event_list);
+ 	dev->dev_private = (void *)private;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_encoder.c b/drivers/gpu/drm/exynos/exynos_drm_encoder.c
+index c63721f..4296d8f 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_encoder.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_encoder.c
+@@ -338,10 +338,8 @@ exynos_drm_encoder_create(struct drm_device *dev,
+ 		return NULL;
+ 
+ 	exynos_encoder = kzalloc(sizeof(*exynos_encoder), GFP_KERNEL);
+-	if (!exynos_encoder) {
+-		DRM_ERROR("failed to allocate encoder\n");
++	if (!exynos_encoder)
+ 		return NULL;
+-	}
+ 
+ 	exynos_encoder->dpms = DRM_MODE_DPMS_OFF;
+ 	exynos_encoder->manager = manager;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fb.c b/drivers/gpu/drm/exynos/exynos_drm_fb.c
+index 0e04f4e..e2a1a1f 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fb.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fb.c
+@@ -162,10 +162,8 @@ exynos_drm_framebuffer_init(struct drm_device *dev,
+ 	}
+ 
+ 	exynos_fb = kzalloc(sizeof(*exynos_fb), GFP_KERNEL);
+-	if (!exynos_fb) {
+-		DRM_ERROR("failed to allocate exynos drm framebuffer\n");
++	if (!exynos_fb)
+ 		return ERR_PTR(-ENOMEM);
+-	}
+ 
+ 	drm_helper_mode_fill_fb_struct(&exynos_fb->fb, mode_cmd);
+ 	exynos_fb->exynos_gem_obj[0] = exynos_gem_obj;
+@@ -228,10 +226,8 @@ exynos_user_fb_create(struct drm_device *dev, struct drm_file *file_priv,
+ 	DRM_DEBUG_KMS("%s\n", __FILE__);
+ 
+ 	exynos_fb = kzalloc(sizeof(*exynos_fb), GFP_KERNEL);
+-	if (!exynos_fb) {
+-		DRM_ERROR("failed to allocate exynos drm framebuffer\n");
++	if (!exynos_fb)
+ 		return ERR_PTR(-ENOMEM);
+-	}
+ 
+ 	obj = drm_gem_object_lookup(dev, file_priv, mode_cmd->handles[0]);
+ 	if (!obj) {
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fbdev.c b/drivers/gpu/drm/exynos/exynos_drm_fbdev.c
+index 45b6cb3..d677aee 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fbdev.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fbdev.c
+@@ -245,10 +245,8 @@ int exynos_drm_fbdev_init(struct drm_device *dev)
+ 		return 0;
+ 
+ 	fbdev = kzalloc(sizeof(*fbdev), GFP_KERNEL);
+-	if (!fbdev) {
+-		DRM_ERROR("failed to allocate drm fbdev.\n");
++	if (!fbdev)
+ 		return -ENOMEM;
+-	}
+ 
+ 	private->fb_helper = helper = &fbdev->drm_fb_helper;
+ 	helper->funcs = &exynos_drm_fb_helper_funcs;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimc.c b/drivers/gpu/drm/exynos/exynos_drm_fimc.c
+index fc62c81..4efe9a7 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimc.c
+@@ -1361,10 +1361,8 @@ static int fimc_init_prop_list(struct exynos_drm_ippdrv *ippdrv)
+ 	DRM_DEBUG_KMS("%s\n", __func__);
+ 
+ 	prop_list = devm_kzalloc(ippdrv->dev, sizeof(*prop_list), GFP_KERNEL);
+-	if (!prop_list) {
+-		DRM_ERROR("failed to alloc property list.\n");
++	if (!prop_list)
+ 		return -ENOMEM;
+-	}
+ 
+ 	prop_list->version = 1;
+ 	prop_list->writeback = 1;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimd.c b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+index 0e602e3..304c3cb 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimd.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+@@ -920,10 +920,8 @@ static int fimd_probe(struct platform_device *pdev)
+ 			display_np = dev->of_node;
+ 
+ 		pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+-		if (!pdata) {
+-			DRM_ERROR("memory allocation for pdata failed\n");
++		if (!pdata)
+ 			return -ENOMEM;
+-		}
+ 
+ 		ret = of_get_fb_videomode(display_np,
+ 				&pdata->panel.timing, OF_USE_NATIVE_MODE);
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_g2d.c b/drivers/gpu/drm/exynos/exynos_drm_g2d.c
+index 222950d..1eb2a2a 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_g2d.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_g2d.c
+@@ -450,10 +450,8 @@ static dma_addr_t *g2d_userptr_get_dma_addr(struct drm_device *drm_dev,
+ 	}
+ 
+ 	g2d_userptr = kzalloc(sizeof(*g2d_userptr), GFP_KERNEL);
+-	if (!g2d_userptr) {
+-		DRM_ERROR("failed to allocate g2d_userptr.\n");
++	if (!g2d_userptr)
+ 		return ERR_PTR(-ENOMEM);
+-	}
+ 
+ 	atomic_set(&g2d_userptr->refcount, 1);
+ 
+@@ -503,7 +501,6 @@ static dma_addr_t *g2d_userptr_get_dma_addr(struct drm_device *drm_dev,
+ 
+ 	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
+ 	if (!sgt) {
+-		DRM_ERROR("failed to allocate sg table.\n");
+ 		ret = -ENOMEM;
+ 		goto err_free_userptr;
+ 	}
+@@ -1091,8 +1088,6 @@ int exynos_g2d_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
+ 
+ 		e = kzalloc(sizeof(*node->event), GFP_KERNEL);
+ 		if (!e) {
+-			dev_err(dev, "failed to allocate event\n");
+-
+ 			spin_lock_irqsave(&drm_dev->event_lock, flags);
+ 			file->event_space += sizeof(e->event);
+ 			spin_unlock_irqrestore(&drm_dev->event_lock, flags);
+@@ -1322,10 +1317,8 @@ static int g2d_open(struct drm_device *drm_dev, struct device *dev,
+ 	struct exynos_drm_g2d_private *g2d_priv;
+ 
+ 	g2d_priv = kzalloc(sizeof(*g2d_priv), GFP_KERNEL);
+-	if (!g2d_priv) {
+-		dev_err(dev, "failed to allocate g2d private data\n");
++	if (!g2d_priv)
+ 		return -ENOMEM;
+-	}
+ 
+ 	g2d_priv->dev = dev;
+ 	file_priv->g2d_priv = g2d_priv;
+@@ -1381,10 +1374,8 @@ static int g2d_probe(struct platform_device *pdev)
+ 	int ret;
+ 
+ 	g2d = devm_kzalloc(dev, sizeof(*g2d), GFP_KERNEL);
+-	if (!g2d) {
+-		dev_err(dev, "failed to allocate driver data\n");
++	if (!g2d)
+ 		return -ENOMEM;
+-	}
+ 
+ 	g2d->runqueue_slab = kmem_cache_create("g2d_runqueue_slab",
+ 			sizeof(struct g2d_runqueue_node), 0, 0, NULL);
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_gem.c b/drivers/gpu/drm/exynos/exynos_drm_gem.c
+index cf4543f..8633ba4 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_gem.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_gem.c
+@@ -193,10 +193,8 @@ struct exynos_drm_gem_obj *exynos_drm_gem_init(struct drm_device *dev,
+ 	int ret;
+ 
+ 	exynos_gem_obj = kzalloc(sizeof(*exynos_gem_obj), GFP_KERNEL);
+-	if (!exynos_gem_obj) {
+-		DRM_ERROR("failed to allocate exynos gem object\n");
++	if (!exynos_gem_obj)
+ 		return NULL;
+-	}
+ 
+ 	exynos_gem_obj->size = size;
+ 	obj = &exynos_gem_obj->base;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_gsc.c b/drivers/gpu/drm/exynos/exynos_drm_gsc.c
+index 862a55b..b9ec6d7 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_gsc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_gsc.c
+@@ -1353,10 +1353,8 @@ static int gsc_init_prop_list(struct exynos_drm_ippdrv *ippdrv)
+ 	DRM_DEBUG_KMS("%s\n", __func__);
+ 
+ 	prop_list = devm_kzalloc(ippdrv->dev, sizeof(*prop_list), GFP_KERNEL);
+-	if (!prop_list) {
+-		DRM_ERROR("failed to alloc property list.\n");
++	if (!prop_list)
+ 		return -ENOMEM;
+-	}
+ 
+ 	prop_list->version = 1;
+ 	prop_list->writeback = 1;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_hdmi.c b/drivers/gpu/drm/exynos/exynos_drm_hdmi.c
+index d0bca57..81b860c 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_hdmi.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_hdmi.c
+@@ -442,10 +442,8 @@ static int exynos_drm_hdmi_probe(struct platform_device *pdev)
+ 	DRM_DEBUG_KMS("%s\n", __FILE__);
+ 
+ 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+-	if (!ctx) {
+-		DRM_LOG_KMS("failed to alloc common hdmi context.\n");
++	if (!ctx)
+ 		return -ENOMEM;
+-	}
+ 
+ 	subdrv = &ctx->subdrv;
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_ipp.c b/drivers/gpu/drm/exynos/exynos_drm_ipp.c
+index df1e874..1b3b59c 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_ipp.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_ipp.c
+@@ -420,10 +420,8 @@ static struct drm_exynos_ipp_cmd_work *ipp_create_cmd_work(void)
+ 	DRM_DEBUG_KMS("%s\n", __func__);
+ 
+ 	cmd_work = kzalloc(sizeof(*cmd_work), GFP_KERNEL);
+-	if (!cmd_work) {
+-		DRM_ERROR("failed to alloc cmd_work.\n");
++	if (!cmd_work)
+ 		return ERR_PTR(-ENOMEM);
+-	}
+ 
+ 	INIT_WORK((struct work_struct *)cmd_work, ipp_sched_cmd);
+ 
+@@ -437,10 +435,8 @@ static struct drm_exynos_ipp_event_work *ipp_create_event_work(void)
+ 	DRM_DEBUG_KMS("%s\n", __func__);
+ 
+ 	event_work = kzalloc(sizeof(*event_work), GFP_KERNEL);
+-	if (!event_work) {
+-		DRM_ERROR("failed to alloc event_work.\n");
++	if (!event_work)
+ 		return ERR_PTR(-ENOMEM);
+-	}
+ 
+ 	INIT_WORK((struct work_struct *)event_work, ipp_sched_event);
+ 
+@@ -498,10 +494,8 @@ int exynos_drm_ipp_set_property(struct drm_device *drm_dev, void *data,
+ 
+ 	/* allocate command node */
+ 	c_node = kzalloc(sizeof(*c_node), GFP_KERNEL);
+-	if (!c_node) {
+-		DRM_ERROR("failed to allocate map node.\n");
++	if (!c_node)
+ 		return -ENOMEM;
+-	}
+ 
+ 	/* create property id */
+ 	ret = ipp_create_id(&ctx->prop_idr, &ctx->prop_lock, c_node,
+@@ -718,10 +712,8 @@ static struct drm_exynos_ipp_mem_node
+ 	mutex_lock(&c_node->mem_lock);
+ 
+ 	m_node = kzalloc(sizeof(*m_node), GFP_KERNEL);
+-	if (!m_node) {
+-		DRM_ERROR("failed to allocate queue node.\n");
++	if (!m_node)
+ 		goto err_unlock;
+-	}
+ 
+ 	/* clear base address for error handling */
+ 	memset(&buf_info, 0x0, sizeof(buf_info));
+@@ -827,9 +819,7 @@ static int ipp_get_event(struct drm_device *drm_dev,
+ 		qbuf->ops_id, qbuf->buf_id);
+ 
+ 	e = kzalloc(sizeof(*e), GFP_KERNEL);
+-
+ 	if (!e) {
+-		DRM_ERROR("failed to allocate event.\n");
+ 		spin_lock_irqsave(&drm_dev->event_lock, flags);
+ 		file->event_space += sizeof(e->event);
+ 		spin_unlock_irqrestore(&drm_dev->event_lock, flags);
+@@ -1836,10 +1826,8 @@ static int ipp_subdrv_open(struct drm_device *drm_dev, struct device *dev,
+ 	DRM_DEBUG_KMS("%s\n", __func__);
+ 
+ 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+-	if (!priv) {
+-		DRM_ERROR("failed to allocate priv.\n");
++	if (!priv)
+ 		return -ENOMEM;
+-	}
+ 	priv->dev = dev;
+ 	file_priv->ipp_priv = priv;
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_plane.c b/drivers/gpu/drm/exynos/exynos_drm_plane.c
+index 63ebeeb..55f8d97 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_plane.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_plane.c
+@@ -281,10 +281,8 @@ struct drm_plane *exynos_plane_init(struct drm_device *dev,
+ 	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+ 
+ 	exynos_plane = kzalloc(sizeof(struct exynos_plane), GFP_KERNEL);
+-	if (!exynos_plane) {
+-		DRM_ERROR("failed to allocate plane\n");
++	if (!exynos_plane)
+ 		return NULL;
+-	}
+ 
+ 	err = drm_plane_init(dev, &exynos_plane->base, possible_crtcs,
+ 			      &exynos_plane_funcs, formats, ARRAY_SIZE(formats),
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_rotator.c b/drivers/gpu/drm/exynos/exynos_drm_rotator.c
+index f7ee022..97b60df 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_rotator.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_rotator.c
+@@ -474,10 +474,8 @@ static int rotator_init_prop_list(struct exynos_drm_ippdrv *ippdrv)
+ 	DRM_DEBUG_KMS("%s\n", __func__);
+ 
+ 	prop_list = devm_kzalloc(ippdrv->dev, sizeof(*prop_list), GFP_KERNEL);
+-	if (!prop_list) {
+-		DRM_ERROR("failed to alloc property list.\n");
++	if (!prop_list)
+ 		return -ENOMEM;
+-	}
+ 
+ 	prop_list->version = 1;
+ 	prop_list->flip = (1 << EXYNOS_DRM_FLIP_VERTICAL) |
+@@ -717,10 +715,8 @@ static int rotator_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	rot = devm_kzalloc(dev, sizeof(*rot), GFP_KERNEL);
+-	if (!rot) {
+-		dev_err(dev, "failed to allocate rot\n");
++	if (!rot)
+ 		return -ENOMEM;
+-	}
+ 
+ 	ret = rotator_parse_dt(dev, rot);
+ 	if (ret) {
+diff --git a/drivers/gpu/drm/exynos/exynos_hdmi.c b/drivers/gpu/drm/exynos/exynos_hdmi.c
+index 3f5460e..299bf6e 100644
+--- a/drivers/gpu/drm/exynos/exynos_hdmi.c
++++ b/drivers/gpu/drm/exynos/exynos_hdmi.c
+@@ -1836,10 +1836,8 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
+ 
+ 	res->regul_bulk = devm_kzalloc(dev, ARRAY_SIZE(supply) *
+ 		sizeof(res->regul_bulk[0]), GFP_KERNEL);
+-	if (!res->regul_bulk) {
+-		DRM_ERROR("failed to get memory for regulators\n");
++	if (!res->regul_bulk)
+ 		goto fail;
+-	}
+ 	for (i = 0; i < ARRAY_SIZE(supply); ++i) {
+ 		res->regul_bulk[i].supply = supply[i];
+ 		res->regul_bulk[i].consumer = NULL;
+@@ -1881,10 +1879,8 @@ static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
+ 	u32 value;
+ 
+ 	pd = devm_kzalloc(dev, sizeof(*pd), GFP_KERNEL);
+-	if (!pd) {
+-		DRM_ERROR("memory allocation for pdata failed\n");
++	if (!pd)
+ 		goto err_data;
+-	}
+ 
+ 	if (!of_find_property(np, "hpd-gpio", &value)) {
+ 		DRM_ERROR("no hpd gpio property found\n");
+@@ -1963,17 +1959,13 @@ static int hdmi_probe(struct platform_device *pdev)
+ 
+ 	drm_hdmi_ctx = devm_kzalloc(dev, sizeof(*drm_hdmi_ctx),
+ 								GFP_KERNEL);
+-	if (!drm_hdmi_ctx) {
+-		DRM_ERROR("failed to allocate common hdmi context.\n");
++	if (!drm_hdmi_ctx)
+ 		return -ENOMEM;
+-	}
+ 
+ 	hdata = devm_kzalloc(dev, sizeof(struct hdmi_context),
+ 								GFP_KERNEL);
+-	if (!hdata) {
+-		DRM_ERROR("out of memory\n");
++	if (!hdata)
+ 		return -ENOMEM;
+-	}
+ 
+ 	mutex_init(&hdata->hdmi_mutex);
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_mixer.c b/drivers/gpu/drm/exynos/exynos_mixer.c
+index 9cf165e..7bd57b5 100644
+--- a/drivers/gpu/drm/exynos/exynos_mixer.c
++++ b/drivers/gpu/drm/exynos/exynos_mixer.c
+@@ -1171,16 +1171,12 @@ static int mixer_probe(struct platform_device *pdev)
+ 
+ 	drm_hdmi_ctx = devm_kzalloc(dev, sizeof(*drm_hdmi_ctx),
+ 								GFP_KERNEL);
+-	if (!drm_hdmi_ctx) {
+-		DRM_ERROR("failed to allocate common hdmi context.\n");
++	if (!drm_hdmi_ctx)
+ 		return -ENOMEM;
+-	}
+ 
+ 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+-	if (!ctx) {
+-		DRM_ERROR("failed to alloc mixer context.\n");
++	if (!ctx)
+ 		return -ENOMEM;
+-	}
+ 
+ 	mutex_init(&ctx->mixer_mutex);
+ 
+-- 
+1.8.3.2
+

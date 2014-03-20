@@ -1,0 +1,36 @@
+From 09087f75e16ca4d24599b7051672ae5847d16ce2 Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Sat, 8 Mar 2014 13:55:56 +0900
+Subject: [PATCH 1292/1302] ARM: dts: fix base address of sysmmu_tv for exynos4
+
+The base address of sysmmu_tv is 0x12E20000, not 0x13E20000. Wrong base
+address problem causes below error when kernel boots.
+
+[    2.450988] Unhandled fault: imprecise external abort (0xc06) at 0xb6fd2068
+
+Change-Id: Icc896d02e25800b18659c66cad853fdbf54cae9c
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 751847e..d97dd98 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -647,9 +647,9 @@
+ 		status = "ok";
+ 	};
+ 
+-	sysmmu_tv: sysmmu@13E20000 {
++	sysmmu_tv: sysmmu@12E20000 {
+ 		compatible = "samsung,exynos4210-sysmmu";
+-		reg = <0x13E20000 0x1000>;
++		reg = <0x12E20000 0x1000>;
+ 		interrupt-parent = <&combiner>;
+ 		interrupt-names = "sysmmu-tv";
+ 		interrupts = <5 4>;
+-- 
+1.8.3.2
+

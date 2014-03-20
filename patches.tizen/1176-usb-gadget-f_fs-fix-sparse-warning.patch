@@ -1,0 +1,29 @@
+From 720484732d047c4730760dce22287ed57ea47d6d Mon Sep 17 00:00:00 2001
+From: Felipe Balbi <balbi@ti.com>
+Date: Thu, 12 Dec 2013 12:15:43 -0600
+Subject: [PATCH 1176/1302] usb: gadget: f_fs: fix sparse warning
+
+use NULL when returning NULL pointers, not 0.
+
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index cb9330d..7ede285 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -1137,7 +1137,7 @@ static struct ffs_data *ffs_data_new(void)
+ {
+ 	struct ffs_data *ffs = kzalloc(sizeof *ffs, GFP_KERNEL);
+ 	if (unlikely(!ffs))
+-		return 0;
++		return NULL;
+ 
+ 	ENTER();
+ 
+-- 
+1.8.3.2
+

@@ -1,0 +1,36 @@
+From 8457ce3c61cea74b7f69262e398ba235242edadd Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Mon, 25 Mar 2013 15:48:47 +0100
+Subject: [PATCH 0008/1302] usb: phy: samsung: Select common driver part
+ implicitly
+
+Since phy-samsung-usb library can be used only by phy-samsung-usb2 and
+phy-samsung-usb3 drivers, there is no need to give explicit control over
+its Kconfig symbol.
+
+This patch makes CONFIG_SAMSUNG_USBPHY symbol hidden and selected
+implicitly by CONFIG_SAMSUNG_USB2PHY and CONFIG_SAMSUNG_USB3PHY.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/phy/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/phy/Kconfig b/drivers/usb/phy/Kconfig
+index 2311b1e..a5a9552 100644
+--- a/drivers/usb/phy/Kconfig
++++ b/drivers/usb/phy/Kconfig
+@@ -92,7 +92,7 @@ config OMAP_USB3
+ 	  on/off the PHY.
+ 
+ config SAMSUNG_USBPHY
+-	tristate "Samsung USB PHY Driver"
++	tristate
+ 	help
+ 	  Enable this to support Samsung USB phy helper driver for Samsung SoCs.
+ 	  This driver provides common interface to interact, for Samsung USB 2.0 PHY
+-- 
+1.8.3.2
+

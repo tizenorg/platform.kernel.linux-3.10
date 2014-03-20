@@ -1,0 +1,31 @@
+From 491dd7b23e5b32d8210851c8d5edb3723dcee09d Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Thu, 24 Oct 2013 21:40:24 +0900
+Subject: [PATCH 0886/1302] ARM: dts: exynos4412-spl_pq: rename the fixed
+ regulator for eMMC
+
+VMEM_2.8V is already defined for LDO22.
+Fixed regulator need to rename the other.
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index af9f366..92bea1f 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -251,7 +251,7 @@
+ 
+ 	vemmc_reg: voltage-regulator@0 {
+ 	        compatible = "regulator-fixed";
+-		regulator-name = "VMEM_VDD_2.8V";
++		regulator-name = "MASSMEMORY_EN";
+ 		regulator-min-microvolt = <2800000>;
+ 		regulator-max-microvolt = <2800000>;
+ 		gpio = <&gpk0 2 0>;
+-- 
+1.8.3.2
+

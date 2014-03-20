@@ -1,0 +1,31 @@
+From 3558940e59ffb3c7c9cfd3c88324941503341fa0 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Tue, 11 Jun 2013 00:13:39 +0900
+Subject: [PATCH 0254/1302] regulator: max77693: Pass of_node when regulator is
+ registered.
+
+Since of_get_regulator() retrieve regulator's list with of_node pointer,
+all regulator is required to hold their device tree node if regulator driver
+uses device tree.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/regulator/max77693.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/regulator/max77693.c b/drivers/regulator/max77693.c
+index fb802d5..8f170e9b 100644
+--- a/drivers/regulator/max77693.c
++++ b/drivers/regulator/max77693.c
+@@ -772,6 +772,7 @@ static int max77693_pmic_probe(struct platform_device *pdev)
+ 		int id = pdata->regulators[i].id;
+ 
+ 		config.init_data = pdata->regulators[i].initdata;
++		config.of_node = pdata->regulators[i].of_node;
+ 
+ 		pr_info("[%s:%d] for in pdata->num_regulators:%d\n", __FILE__,
+ 			__LINE__, pdata->num_regulators);
+-- 
+1.8.3.2
+

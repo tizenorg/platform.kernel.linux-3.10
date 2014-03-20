@@ -1,0 +1,61 @@
+From af4bb72c104a8c86fae02dfa1847c861987e2333 Mon Sep 17 00:00:00 2001
+From: Jacek Anaszewski <j.anaszewski@samsung.com>
+Date: Fri, 14 Jun 2013 17:23:52 +0200
+Subject: [PATCH 0269/1302] ARM: dts: Add gp2ap002a00f device node for PQ/M0
+ board
+
+This patch adds gp2ap002a00f device node for PQ/M0 board.
+
+Signed-off-by: Jacek Anaszewski <j.anaszewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index d274e36..d32fe16 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -197,6 +197,23 @@
+ 		};
+ 	};
+ 
++	i2c-gpio-2 {
++		compatible = "i2c-gpio";
++		gpios = <&gpk1 1 0>, <&gpk2 2 0>;
++		i2c-gpio,delay-us = <2>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		status = "okay";
++
++		gp2ap002a00f@39 {
++			compatible = "gp2ap002a00f";
++			reg = <0x39>;
++			interrupt-parent = <&gpx0>;
++			interrupts = <2 0>;
++			vled-supply = <&ps_als_reg>;
++		};
++	};
++
+ 	i2c_0: i2c@13860000 {
+ 		samsung,i2c-sda-delay = <100>;
+ 		samsung,i2c-slave-addr = <0x10>;
+@@ -715,6 +732,15 @@
+ 		regulator-always-on;
+ 	};
+ 
++	ps_als_reg: voltage-regulator@6 {
++		compatible = "regulator-fixed";
++		regulator-name = "LED_A_3.0V";
++		regulator-min-microvolt = <3000000>;
++		regulator-max-microvolt = <3000000>;
++		gpio = <&gpj0 5 0>;
++		enable-active-high;
++	};
++
+ 	fimd0_lcd: panel {
+ 		compatible = "samsung,s6e8aa0";
+ 		reset-gpio = <&gpy4 5 0>;
+-- 
+1.8.3.2
+

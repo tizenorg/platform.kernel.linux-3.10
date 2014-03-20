@@ -1,0 +1,79 @@
+From 76b58e12d107da58b45d2fd27087a0360ab379a6 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Mon, 7 Oct 2013 18:23:49 +0200
+Subject: [PATCH 0842/1302] phy: exynos: Change order of initialization of phy
+ in power_on
+
+The order was changed to turn power on first and the disable the physical
+isolation.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+
+Phy driver change - order of init - to be squashed
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/phy/phy-exynos4210-usb.c | 24 ++----------------------
+ drivers/phy/phy-exynos4212-usb.c |  2 +-
+ 2 files changed, 3 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/phy/phy-exynos4210-usb.c b/drivers/phy/phy-exynos4210-usb.c
+index d75a554..6102aac 100644
+--- a/drivers/phy/phy-exynos4210-usb.c
++++ b/drivers/phy/phy-exynos4210-usb.c
+@@ -222,19 +222,9 @@ static int exynos4210_power_on(struct uphy_instance *inst)
+ 	if (inst->ref_cnt > 1)
+ 		return 0;
+ 
+-	exynos4210_isol(inst, 0);
++	/* Order of initialisation is important - first power then isolation */
+ 	exynos4210_phy_pwr(inst, 1);
+-
+-	/* Power on the device, as it is necessary for HSIC to work */
+-	if (inst->cfg->id == EXYNOS4210_HOST) {
+-		struct uphy_instance *device =
+-					&drv->uphy_instances[EXYNOS4210_DEVICE];
+-		device->ref_cnt++;
+-		if (device->ref_cnt > 1)
+-			return 0;
+-		exynos4210_phy_pwr(device, 1);
+-		exynos4210_isol(device, 0);
+-	}
++	exynos4210_isol(inst, 0);
+ 
+ 	return 0;
+ }
+@@ -257,16 +247,6 @@ static int exynos4210_power_off(struct uphy_instance *inst)
+ 	exynos4210_phy_pwr(inst, 0);
+ 	exynos4210_isol(inst, 1);
+ 
+-	if (inst->cfg->id == EXYNOS4210_HOST) {
+-		struct uphy_instance *device =
+-					&drv->uphy_instances[EXYNOS4210_DEVICE];
+-		device->ref_cnt--;
+-		if (device->ref_cnt > 0)
+-			return 0;
+-		exynos4210_phy_pwr(device, 0);
+-		exynos4210_isol(device, 1);
+-	}
+-
+ 	return 0;
+ }
+ 
+diff --git a/drivers/phy/phy-exynos4212-usb.c b/drivers/phy/phy-exynos4212-usb.c
+index 80480a4..b7de33f 100644
+--- a/drivers/phy/phy-exynos4212-usb.c
++++ b/drivers/phy/phy-exynos4212-usb.c
+@@ -255,8 +255,8 @@ static int exynos4212_power_on(struct uphy_instance *inst)
+ 	if (inst->ref_cnt > 1)
+ 		return 0;
+ 
+-	exynos4212_isol(inst, 0);
+ 	exynos4212_phy_pwr(inst, 1);
++	exynos4212_isol(inst, 0);
+ 
+ 	/* Power on the device, as it is necessary for HSIC to work */
+ 	if (inst->cfg->id == EXYNOS4212_HSIC0) {
+-- 
+1.8.3.2
+

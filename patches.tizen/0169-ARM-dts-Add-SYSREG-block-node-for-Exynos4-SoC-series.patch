@@ -1,0 +1,38 @@
+From 3340adf4cef9507029ed75c93d6e94499ef6ea53 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 13 Mar 2013 13:30:19 +0100
+Subject: [PATCH 0169/1302] ARM: dts: Add SYSREG block node for Exynos4 SoC
+ series
+
+The sysreg node corresponds to SYSREG block registers. It is used
+to instantiate the MFD syscon driver that exposes a regmap interface
+for SYSREG registers.
+
+Not the sysreg clock is not currently handled by the syscon driver
+in any way.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 2d2df61..d1d7f1e 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -115,6 +115,11 @@
+ 		arm,tag-latency = <1 1 0>;
+ 	};
+ 
++	sys_reg: sysreg {
++		compatible = "exynos4-sysreg", "syscon";
++		reg = <0x10010000 0x400>;
++	};
++
+ 	dsi_0: dsi@11C80000 {
+ 		compatible = "samsung,exynos4210-mipi-dsi";
+ 		reg = <0x11C80000 0x10000>;
+-- 
+1.8.3.2
+

@@ -1,0 +1,82 @@
+From f5183364c05addaca41265aff3168ad64b20658f Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 25 Nov 2013 11:52:04 +0900
+Subject: [PATCH 1027/1302] gpu: arm: mali400: support gpu frequency profiling
+
+This patch supports gpu frequency profiling by using ARM streamline.
+You must turn on below configuration if you want to get a profiling data.
+
+CONFIG_MALI400_PROFILING
+CONFIG_MALI400_INTERNAL_PROFILING
+
+Change-Id: Id8cc59b80dcf4483cc5944283fc95daaca6f0839
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../arm/mali400/mali/platform/exynos4/exynos4.c    | 23 ++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/drivers/gpu/arm/mali400/mali/platform/exynos4/exynos4.c b/drivers/gpu/arm/mali400/mali/platform/exynos4/exynos4.c
+index 64fd5de..58b3ae0 100644
+--- a/drivers/gpu/arm/mali400/mali/platform/exynos4/exynos4.c
++++ b/drivers/gpu/arm/mali400/mali/platform/exynos4/exynos4.c
+@@ -22,6 +22,10 @@
+ #include "mali_kernel_common.h"
+ #include "mali_osk.h"
+ 
++#ifdef CONFIG_MALI400_PROFILING
++#include "mali_osk_profiling.h"
++#endif
++
+ #include "exynos4.h"
+ 
+ struct mali_exynos_variant {
+@@ -118,6 +122,20 @@ const struct of_device_id mali_of_matches[] = {
+ 	{ /* Sentinel */ }
+ };
+ 
++#ifdef CONFIG_MALI400_PROFILING
++static inline void _mali_osk_profiling_add_gpufreq_event(int rate, int vol)
++{
++	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
++		 MALI_PROFILING_EVENT_CHANNEL_GPU |
++		 MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
++		 rate, vol, 0, 0, 0);
++}
++#else
++static inline void _mali_osk_profiling_add_gpufreq_event(int rate, int vol)
++{
++}
++#endif
++
+ /*
+  * DVFS control
+  */
+@@ -136,6 +154,8 @@ static void mali_exynos_set_dvfs_step(struct mali_exynos_drvdata *mali,
+ 	if (step > mali->dvfs_step)
+ 		clk_set_rate(mali->sclk_g3d, next->rate);
+ 
++	_mali_osk_profiling_add_gpufreq_event(next->rate / 1000000,
++		 regulator_get_voltage(mali->vdd_g3d) / 1000);
+ 	mali->dvfs_step = step;
+ }
+ 
+@@ -185,6 +205,7 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
+ 	case MALI_POWER_MODE_LIGHT_SLEEP:
+ 	case MALI_POWER_MODE_DEEP_SLEEP:
+ 		clk_disable_unprepare(mali->sclk_g3d);
++		_mali_osk_profiling_add_gpufreq_event(0, 0);
+ 		break;
+ 	}
+ 
+@@ -312,5 +333,7 @@ _mali_osk_errcode_t mali_platform_deinit(void)
+ 
+ 	regulator_disable(mali->vdd_g3d);
+ 
++	_mali_osk_profiling_add_gpufreq_event(0, 0);
++
+ 	MALI_SUCCESS;
+ }
+-- 
+1.8.3.2
+

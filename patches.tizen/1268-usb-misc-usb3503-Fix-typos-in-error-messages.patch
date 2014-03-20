@@ -1,0 +1,41 @@
+From cd616375589afb2aa05f24a04a1388c878a6152b Mon Sep 17 00:00:00 2001
+From: Mark Brown <broonie@linaro.org>
+Date: Fri, 9 Aug 2013 11:41:54 +0100
+Subject: [PATCH 1268/1302] usb: misc: usb3503: Fix typos in error messages
+
+Signed-off-by: Mark Brown <broonie@linaro.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+[mszyprow: mainline commit dd8e670d2775c02169a3b9e4c8d84c8652342836]
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: Idd8e670d2775c02169a3b9e4c8d84c8652342836
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/misc/usb3503.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/misc/usb3503.c b/drivers/usb/misc/usb3503.c
+index ca0f789..777102e0 100644
+--- a/drivers/usb/misc/usb3503.c
++++ b/drivers/usb/misc/usb3503.c
+@@ -140,7 +140,7 @@ static int usb3503_switch_mode(struct usb3503 *hub, enum usb3503_mode mode)
+ 		break;
+ 
+ 	default:
+-		dev_err(dev, "unknown mode is request\n");
++		dev_err(dev, "unknown mode is requested\n");
+ 		err = -EINVAL;
+ 		break;
+ 	}
+@@ -233,7 +233,7 @@ static int usb3503_probe(struct usb3503 *hub)
+ 
+ 	usb3503_switch_mode(hub, hub->mode);
+ 
+-	dev_info(dev, "%s: probed on  %s mode\n", __func__,
++	dev_info(dev, "%s: probed in %s mode\n", __func__,
+ 			(hub->mode == USB3503_MODE_HUB) ? "hub" : "standby");
+ 
+ 	return 0;
+-- 
+1.8.3.2
+

@@ -1,0 +1,35 @@
+From 4c4104824565b05e0ddda76ef5a19f7c2fbf63ea Mon Sep 17 00:00:00 2001
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Date: Tue, 18 Jun 2013 11:43:29 +0800
+Subject: [PATCH 0647/1302] usb: gadget: f_ncm: fix missing unlock on error in
+ ncm_alloc()
+
+Add the missing unlock before return from function ncm_alloc()
+in the error handling case.
+
+Introduced by commit e730660378be92b83288b59b824ccdace5cd2652.
+(usb: gadget: f_ncm: add configfs support)
+
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Acked-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_ncm.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/usb/gadget/f_ncm.c b/drivers/usb/gadget/f_ncm.c
+index 47a5724..952177f 100644
+--- a/drivers/usb/gadget/f_ncm.c
++++ b/drivers/usb/gadget/f_ncm.c
+@@ -1403,6 +1403,7 @@ struct usb_function *ncm_alloc(struct usb_function_instance *fi)
+ 				      sizeof(ncm->ethaddr));
+ 	if (status < 12) { /* strlen("01234567890a") */
+ 		kfree(ncm);
++		mutex_unlock(&opts->lock);
+ 		return ERR_PTR(-EINVAL);
+ 	}
+ 	ncm_string_defs[STRING_MAC_IDX].s = ncm->ethaddr;
+-- 
+1.8.3.2
+

@@ -1,0 +1,72 @@
+From 3d8e597cc926df5641751736edc3f0d9d21e1eba Mon Sep 17 00:00:00 2001
+From: Akshu Agrawal <akshu.a@samsung.com>
+Date: Wed, 26 Dec 2012 06:27:41 -0500
+Subject: [PATCH 0036/1302] drm/exynos: fimd: clear channel before enabling
+ iommu
+
+If any fimd channel was already active, initializing iommu will result
+in a PAGE FAULT (e.g. u-boot could have turned on the display and
+not disabled it before the kernel starts). This patch checks if any
+channel is active before initializing iommu and disables it.
+
+Signed-off-by: Akshu Agrawal <akshu.a@samsung.com>
+Signed-off-by: Prathyush K <prathyush.k@samsung.com>
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_fimd.c | 31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimd.c b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+index 97c61db..8ffbe2d 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimd.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+@@ -695,6 +695,28 @@ out:
+ 	return IRQ_HANDLED;
+ }
+ 
++static void fimd_clear_channel(struct device *dev)
++{
++	struct fimd_context *ctx = get_fimd_context(dev);
++	int win, ch_enabled = 0;
++
++	DRM_DEBUG_KMS("%s\n", __FILE__);
++
++	/* Check if any channel is enabled */
++	for (win = 0; win < WINDOWS_NR; win++) {
++		u32 val = readl(ctx->regs + SHADOWCON);
++		if (val & SHADOWCON_CHx_ENABLE(win)) {
++			val &= ~SHADOWCON_CHx_ENABLE(win);
++			writel(val, ctx->regs + SHADOWCON);
++			ch_enabled = 1;
++		}
++	}
++
++	/* Wait for vsync, as disable channel takes effect at next vsync */
++	if (ch_enabled)
++		fimd_wait_for_vblank(dev);
++}
++
+ static int fimd_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
+ {
+ 	DRM_DEBUG_KMS("%s\n", __FILE__);
+@@ -717,9 +739,14 @@ static int fimd_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
+ 	drm_dev->vblank_disable_allowed = 1;
+ 
+ 	/* attach this sub driver to iommu mapping if supported. */
+-	if (is_drm_iommu_supported(drm_dev))
++	if (is_drm_iommu_supported(drm_dev)) {
++		/*
++		 * If any channel is already active, iommu will throw
++		 * a PAGE FAULT when enabled. So clear any channel if enabled.
++		 */
++		fimd_clear_channel(dev);
+ 		drm_iommu_attach_device(drm_dev, dev);
+-
++	}
+ 	return 0;
+ }
+ 
+-- 
+1.8.3.2
+

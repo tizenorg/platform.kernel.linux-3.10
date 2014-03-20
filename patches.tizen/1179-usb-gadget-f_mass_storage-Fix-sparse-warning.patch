@@ -1,0 +1,34 @@
+From 57e7fc14e6fe5cc0b689f9df768e1322e30c6def Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Mon, 16 Dec 2013 18:42:48 +0900
+Subject: [PATCH 1179/1302] usb: gadget: f_mass_storage: Fix sparse warning
+
+Use NULL instead of 0 when returning pointer, to fix the following
+sparse warnings.
+
+drivers/usb/gadget/f_mass_storage.c:3114:60: warning: Using plain integer as NULL pointer
+drivers/usb/gadget/f_mass_storage.c:3114:63: warning: Using plain integer as NULL pointer
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index a03ba2c..1dfecdf 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -3111,7 +3111,7 @@ static int fsg_bind(struct usb_configuration *c, struct usb_function *f)
+ 					  fsg->common->can_stall);
+ 		if (ret)
+ 			return ret;
+-		fsg_common_set_inquiry_string(fsg->common, 0, 0);
++		fsg_common_set_inquiry_string(fsg->common, NULL, NULL);
+ 		ret = fsg_common_run_thread(fsg->common);
+ 		if (ret)
+ 			return ret;
+-- 
+1.8.3.2
+

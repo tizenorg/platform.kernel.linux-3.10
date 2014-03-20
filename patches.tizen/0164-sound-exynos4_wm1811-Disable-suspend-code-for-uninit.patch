@@ -1,0 +1,42 @@
+From e54508aef75ad328879a0aaa9119846e6095b267 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 13 Mar 2013 20:02:57 +0100
+Subject: [PATCH 0164/1302] sound: exynos4_wm1811: Disable suspend code for
+ uninitialized AIF
+
+Currently there is only AIF1 interface initialized in this driver.
+Temporarily disable code that tries to suspend AIF2 until support
+for this interface is added.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ sound/soc/samsung/exynos4_wm1811.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/samsung/exynos4_wm1811.c b/sound/soc/samsung/exynos4_wm1811.c
+index fb6385f..a1dbce6 100644
+--- a/sound/soc/samsung/exynos4_wm1811.c
++++ b/sound/soc/samsung/exynos4_wm1811.c
+@@ -1083,6 +1083,9 @@ static int machine_card_suspend_post(struct snd_soc_card *card)
+ 		/* change sysclk from pll out of mclk1 to mclk2
+ 		   to disable mclk1 from AP */
+ 		dev_info(codec->dev, "use mclk2 and disable fll");
++
++/* Disable this code until support for AIF2 interface is added. */
++#if 0
+ 		ret = snd_soc_dai_set_sysclk(aif2_dai,
+ 				WM8994_SYSCLK_MCLK2,
+ 				CODEC_CLK32K,
+@@ -1095,7 +1098,7 @@ static int machine_card_suspend_post(struct snd_soc_card *card)
+ 		if (ret < 0)
+ 			dev_err(codec->dev,
+ 				"Unable to stop FLL2: %d\n", ret);
+-
++#endif
+ 		ret = snd_soc_dai_set_sysclk(aif1_dai,
+ 				WM8994_SYSCLK_MCLK2,
+ 				CODEC_CLK32K,
+-- 
+1.8.3.2
+

@@ -1,0 +1,33 @@
+From afa5763b6c6d0c242856586ac499c34bad1550da Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Mon, 16 Dec 2013 18:43:32 +0900
+Subject: [PATCH 1180/1302] usb: gadget: f_ncm: Fix sparse warning
+
+Make local symbol static in order to fix the following sparse
+warning.
+
+drivers/usb/gadget/f_ncm.c:1389:21: warning: symbol 'ncm_alloc' was not declared. Should it be static?
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_ncm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_ncm.c b/drivers/usb/gadget/f_ncm.c
+index 1c28fe1..a9499fd 100644
+--- a/drivers/usb/gadget/f_ncm.c
++++ b/drivers/usb/gadget/f_ncm.c
+@@ -1386,7 +1386,7 @@ static void ncm_unbind(struct usb_configuration *c, struct usb_function *f)
+ 	usb_ep_free_request(ncm->notify, ncm->notify_req);
+ }
+ 
+-struct usb_function *ncm_alloc(struct usb_function_instance *fi)
++static struct usb_function *ncm_alloc(struct usb_function_instance *fi)
+ {
+ 	struct f_ncm		*ncm;
+ 	struct f_ncm_opts	*opts;
+-- 
+1.8.3.2
+

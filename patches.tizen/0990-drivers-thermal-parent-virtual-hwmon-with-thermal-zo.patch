@@ -1,0 +1,38 @@
+From 65d1fa232d591f1102167aad7885a31eb21aba1e Mon Sep 17 00:00:00 2001
+From: Eduardo Valentin <eduardo.valentin@ti.com>
+Date: Fri, 23 Aug 2013 17:07:58 -0400
+Subject: [PATCH 0990/1302] drivers: thermal: parent virtual hwmon with thermal
+ zone
+
+When  creating virtual hwmon devices based out of thermal
+zone devices, the virtual devices won't have parents.
+
+This patch changes the code so that the parent of virtual
+hwmon devices is the thermal zone device that they are
+based of.
+
+Cc: Zhang Rui <rui.zhang@intel.com>
+Cc: linux-pm@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/thermal_hwmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/thermal/thermal_hwmon.c b/drivers/thermal/thermal_hwmon.c
+index fdb0719..eeef0e2 100644
+--- a/drivers/thermal/thermal_hwmon.c
++++ b/drivers/thermal/thermal_hwmon.c
+@@ -159,7 +159,7 @@ int thermal_add_hwmon_sysfs(struct thermal_zone_device *tz)
+ 
+ 	INIT_LIST_HEAD(&hwmon->tz_list);
+ 	strlcpy(hwmon->type, tz->type, THERMAL_NAME_LENGTH);
+-	hwmon->device = hwmon_device_register(NULL);
++	hwmon->device = hwmon_device_register(&tz->device);
+ 	if (IS_ERR(hwmon->device)) {
+ 		result = PTR_ERR(hwmon->device);
+ 		goto free_mem;
+-- 
+1.8.3.2
+

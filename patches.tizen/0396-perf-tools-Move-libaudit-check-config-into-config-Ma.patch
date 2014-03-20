@@ -1,0 +1,68 @@
+From ba02ac84ec664b7fdfb40243d32fd5fc4dd1ee23 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 25 Mar 2013 00:54:36 +0100
+Subject: [PATCH 0396/1302] perf tools: Move libaudit check config into
+ config/Makefile
+
+Moving libaudit check config into config/Makefile.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-9-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        |  9 +--------
+ tools/perf/config/Makefile | 11 +++++++++++
+ 2 files changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index 7dc6615..57d39ed 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -505,14 +505,7 @@ ifndef NO_LIBUNWIND
+ endif
+ 
+ ifndef NO_LIBAUDIT
+-	FLAGS_LIBAUDIT = $(ALL_CFLAGS) $(ALL_LDFLAGS) -laudit
+-	ifneq ($(call try-cc,$(SOURCE_LIBAUDIT),$(FLAGS_LIBAUDIT),libaudit),y)
+-		msg := $(warning No libaudit.h found, disables 'trace' tool, please install audit-libs-devel or libaudit-dev);
+-	else
+-		BASIC_CFLAGS += -DLIBAUDIT_SUPPORT
+-		BUILTIN_OBJS += $(OUTPUT)builtin-trace.o
+-		EXTLIBS += -laudit
+-	endif
++	BUILTIN_OBJS += $(OUTPUT)builtin-trace.o
+ endif
+ 
+ ifndef NO_SLANG
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index 438574b..02e58ff 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -197,3 +197,14 @@ ifndef NO_LIBUNWIND
+ 	BASIC_CFLAGS := $(LIBUNWIND_CFLAGS) $(BASIC_CFLAGS)
+ 	BASIC_LDFLAGS := $(LIBUNWIND_LDFLAGS) $(BASIC_LDFLAGS)
+ endif # NO_LIBUNWIND
++
++ifndef NO_LIBAUDIT
++	FLAGS_LIBAUDIT = $(ALL_CFLAGS) $(ALL_LDFLAGS) -laudit
++	ifneq ($(call try-cc,$(SOURCE_LIBAUDIT),$(FLAGS_LIBAUDIT),libaudit),y)
++		msg := $(warning No libaudit.h found, disables 'trace' tool, please install audit-libs-devel or libaudit-dev);
++		NO_LIBAUDIT := 1
++	else
++		BASIC_CFLAGS += -DLIBAUDIT_SUPPORT
++		EXTLIBS += -laudit
++	endif
++endif
+-- 
+1.8.3.2
+

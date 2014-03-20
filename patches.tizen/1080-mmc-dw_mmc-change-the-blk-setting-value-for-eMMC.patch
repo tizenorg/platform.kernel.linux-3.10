@@ -1,0 +1,41 @@
+From c7581cc54899f53610c83dcbfbc2fec33feba494 Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Mon, 20 Jan 2014 12:46:10 +0900
+Subject: [PATCH 1080/1302] mmc: dw_mmc: change the blk-setting value for eMMC
+
+Change the blk-setting value.
+
+(benchmark : iozone, tiotest)
+Before applied this patch,
+      Read : 17MB/s, Write : 71MB/s
+After applied this patch,
+      Read : 30MB/s, Write : 72MB/s
+
+Increased the Read performance.
+
+Change-Id: I64142e97aea3aa7ac3d1ca78726f8dd3c133692d
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/dw_mmc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/mmc/host/dw_mmc.c b/drivers/mmc/host/dw_mmc.c
+index 95e6ba8..3044395 100644
+--- a/drivers/mmc/host/dw_mmc.c
++++ b/drivers/mmc/host/dw_mmc.c
+@@ -2021,9 +2021,9 @@ static int dw_mci_init_slot(struct dw_mci *host, unsigned int id)
+ #ifdef CONFIG_MMC_DW_IDMAC
+ 		mmc->max_segs = host->ring_size;
+ 		mmc->max_blk_size = 65536;
+-		mmc->max_blk_count = host->ring_size;
+ 		mmc->max_seg_size = 0x1000;
+-		mmc->max_req_size = mmc->max_seg_size * mmc->max_blk_count;
++		mmc->max_req_size = mmc->max_seg_size * host->ring_size;
++		mmc->max_blk_count = mmc->max_req_size / 512;
+ #else
+ 		mmc->max_segs = 64;
+ 		mmc->max_blk_size = 65536; /* BLKSIZ is 16 bits */
+-- 
+1.8.3.2
+

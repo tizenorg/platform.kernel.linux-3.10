@@ -1,0 +1,663 @@
+From 2638e0bd78008199690955dd2ad5ef052ab984ae Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 8 Nov 2013 16:20:45 +0900
+Subject: [PATCH 1017/1302] cpufreq:LAB: Introduce new cpufreq LAB(Legaccy 
+ Application Boost) governor
+
+This patch introduces new cpufreq governor named 'LAB'.
+LAB governor will use scheduler, per-CPU information to determine how many
+CPUs are in busy now. As a result the number of idle CPUs is calculated
+for current load (digital low pass filtering is used to provide more stable
+results). It will determine next frequency.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+
+Conflicts:
+
+	drivers/cpufreq/cpufreq_governor.c
+Resolved-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/Kconfig            |  26 +++
+ drivers/cpufreq/Makefile           |   1 +
+ drivers/cpufreq/cpufreq_governor.c |  72 +++----
+ drivers/cpufreq/cpufreq_governor.h |  17 ++
+ drivers/cpufreq/cpufreq_lab.c      | 377 +++++++++++++++++++++++++++++++++++++
+ include/linux/cpufreq.h            |   3 +
+ 6 files changed, 464 insertions(+), 32 deletions(-)
+ create mode 100644 drivers/cpufreq/cpufreq_lab.c
+
+diff --git a/drivers/cpufreq/Kconfig b/drivers/cpufreq/Kconfig
+index 79ebd97..9ee9d3c 100644
+--- a/drivers/cpufreq/Kconfig
++++ b/drivers/cpufreq/Kconfig
+@@ -116,6 +116,18 @@ config CPU_FREQ_DEFAULT_GOV_CONSERVATIVE
+ 	  Be aware that not all cpufreq drivers support the conservative
+ 	  governor. If unsure have a look at the help section of the
+ 	  driver. Fallback governor will be the performance governor.
++
++config CPU_FREQ_DEFAULT_GOV_LAB
++	bool "lab"
++	select CPU_FREQ_GOV_LAB
++	select CPU_FREQ_GOV_PERFORMANCE
++	help
++	  Use the CPUFreq governor 'lab' as default. This allows
++	  you to get a full dynamic frequency capable system by simply
++	  loading your cpufreq low-level hardware driver.
++	  Be aware that not all cpufreq drivers support the lab governor.
++	  If unsure have a look at the help section of the driver.
++	  Fallback governor will be the performance governor.
+ endchoice
+ 
+ config CPU_FREQ_GOV_PERFORMANCE
+@@ -198,6 +210,20 @@ config CPU_FREQ_GOV_CONSERVATIVE
+ 
+ 	  If in doubt, say N.
+ 
++config CPU_FREQ_GOV_LAB
++	tristate "'lab' cpufreq policy governor"
++	select CPU_FREQ_TABLE
++	select CPU_FREQ_GOV_COMMON
++	help
++	  'lab' - This driver adds a dynamic cpufreq policy governor.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called cpufreq_ondemand.
++
++	  For details, take a look at linux/Documentation/cpu-freq.
++
++	  If in doubt, say N.
++
+ config GENERIC_CPUFREQ_CPU0
+ 	tristate "Generic CPU0 cpufreq driver"
+ 	depends on HAVE_CLK && REGULATOR && PM_OPP && OF
+diff --git a/drivers/cpufreq/Makefile b/drivers/cpufreq/Makefile
+index 315b923..d8252a7 100644
+--- a/drivers/cpufreq/Makefile
++++ b/drivers/cpufreq/Makefile
+@@ -9,6 +9,7 @@ obj-$(CONFIG_CPU_FREQ_GOV_POWERSAVE)	+= cpufreq_powersave.o
+ obj-$(CONFIG_CPU_FREQ_GOV_USERSPACE)	+= cpufreq_userspace.o
+ obj-$(CONFIG_CPU_FREQ_GOV_ONDEMAND)	+= cpufreq_ondemand.o
+ obj-$(CONFIG_CPU_FREQ_GOV_CONSERVATIVE)	+= cpufreq_conservative.o
++obj-$(CONFIG_CPU_FREQ_GOV_LAB)		+= cpufreq_lab.o
+ obj-$(CONFIG_CPU_FREQ_GOV_COMMON)		+= cpufreq_governor.o
+ 
+ # CPUfreq cross-arch helpers
+diff --git a/drivers/cpufreq/cpufreq_governor.c b/drivers/cpufreq/cpufreq_governor.c
+index a593bb4..86a3816 100644
+--- a/drivers/cpufreq/cpufreq_governor.c
++++ b/drivers/cpufreq/cpufreq_governor.c
+@@ -148,6 +148,13 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
+ 
+ 		load = 100 * (wall_time - idle_time) / wall_time;
+ 
++		if (dbs_data->cdata->governor == GOV_LAB) {
++			struct lb_cpu_dbs_info_s *lb_dbs_info =
++				dbs_data->cdata->get_cpu_dbs_info_s(j);
++
++			lb_dbs_info->idle_time = (100 * idle_time) / wall_time;
++		}
++
+ 		if (dbs_data->cdata->governor == GOV_ONDEMAND) {
+ 			int freq_avg = __cpufreq_driver_getavg(policy, j);
+ 			if (freq_avg <= 0)
+@@ -235,13 +242,16 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
+ 	struct dbs_data *dbs_data;
+ 	struct od_cpu_dbs_info_s *od_dbs_info = NULL;
+ 	struct cs_cpu_dbs_info_s *cs_dbs_info = NULL;
++	struct lb_cpu_dbs_info_s *lb_dbs_info = NULL;
+ 	struct od_ops *od_ops = NULL;
+ 	struct od_dbs_tuners *od_tuners = NULL;
+ 	struct cs_dbs_tuners *cs_tuners = NULL;
++	struct lb_dbs_tuners *lb_tuners = NULL;
+ 	struct cpu_dbs_common_info *cpu_cdbs;
+-	unsigned int sampling_rate, latency, ignore_nice, j, cpu = policy->cpu;
++	unsigned int sampling_rate = 0, ignore_nice = 0, latency, j, cpu = policy->cpu;
+ 	int io_busy = 0;
+ 	int rc;
++	int governor = cdata->governor;
+ 
+ 	if (have_governor_per_policy())
+ 		dbs_data = policy->governor_data;
+@@ -299,7 +309,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
+ 		set_sampling_rate(dbs_data, max(dbs_data->min_sampling_rate,
+ 					latency * LATENCY_MULTIPLIER));
+ 
+-		if ((cdata->governor == GOV_CONSERVATIVE) &&
++		if ((governor == GOV_CONSERVATIVE) &&
+ 				(!policy->governor->initialized)) {
+ 			struct cs_ops *cs_ops = dbs_data->cdata->gov_ops;
+ 
+@@ -319,7 +329,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
+ 			if (!have_governor_per_policy())
+ 				cpufreq_put_global_kobject();
+ 
+-			if ((dbs_data->cdata->governor == GOV_CONSERVATIVE) &&
++			if ((governor == GOV_CONSERVATIVE) &&
+ 				(policy->governor->initialized == 1)) {
+ 				struct cs_ops *cs_ops = dbs_data->cdata->gov_ops;
+ 
+@@ -338,25 +348,37 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
+ 
+ 	cpu_cdbs = dbs_data->cdata->get_cpu_cdbs(cpu);
+ 
+-	if (dbs_data->cdata->governor == GOV_CONSERVATIVE) {
+-		cs_tuners = dbs_data->tuners;
+-		cs_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
+-		sampling_rate = cs_tuners->sampling_rate;
+-		ignore_nice = cs_tuners->ignore_nice_load;
+-	} else {
+-		od_tuners = dbs_data->tuners;
+-		od_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
+-		sampling_rate = od_tuners->sampling_rate;
+-		ignore_nice = od_tuners->ignore_nice_load;
+-		od_ops = dbs_data->cdata->gov_ops;
+-		io_busy = od_tuners->io_is_busy;
+-	}
+-
+ 	switch (event) {
+ 	case CPUFREQ_GOV_START:
+ 		if (!policy->cur)
+ 			return -EINVAL;
+ 
++		if (governor == GOV_CONSERVATIVE) {
++			cs_tuners = dbs_data->tuners;
++			cs_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
++			cs_dbs_info->down_skip = 0;
++			cs_dbs_info->requested_freq = policy->cur;
++			sampling_rate = cs_tuners->sampling_rate;
++			ignore_nice = cs_tuners->ignore_nice_load;
++			cs_dbs_info->enable = 1;
++		} else if (governor == GOV_ONDEMAND) {
++			od_tuners = dbs_data->tuners;
++			od_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
++			od_dbs_info->rate_mult = 1;
++			od_dbs_info->sample_type = OD_NORMAL_SAMPLE;
++			sampling_rate = od_tuners->sampling_rate;
++			ignore_nice = od_tuners->ignore_nice_load;
++			od_ops = dbs_data->cdata->gov_ops;
++			io_busy = od_tuners->io_is_busy;
++			od_ops->powersave_bias_init_cpu(cpu);
++		} else {
++			lb_tuners = dbs_data->tuners;
++			lb_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
++			lb_dbs_info->rate_mult = 1;
++			sampling_rate = lb_tuners->sampling_rate;
++			ignore_nice = lb_tuners->ignore_nice;
++		}
++
+ 		mutex_lock(&dbs_data->mutex);
+ 
+ 		for_each_cpu(j, policy->cpus) {
+@@ -376,20 +398,6 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
+ 					     dbs_data->cdata->gov_dbs_timer);
+ 		}
+ 
+-		/*
+-		 * conservative does not implement micro like ondemand
+-		 * governor, thus we are bound to jiffes/HZ
+-		 */
+-		if (dbs_data->cdata->governor == GOV_CONSERVATIVE) {
+-			cs_dbs_info->down_skip = 0;
+-			cs_dbs_info->enable = 1;
+-			cs_dbs_info->requested_freq = policy->cur;
+-		} else {
+-			od_dbs_info->rate_mult = 1;
+-			od_dbs_info->sample_type = OD_NORMAL_SAMPLE;
+-			od_ops->powersave_bias_init_cpu(cpu);
+-		}
+-
+ 		mutex_unlock(&dbs_data->mutex);
+ 
+ 		/* Initiate timer time stamp */
+@@ -400,7 +408,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
+ 		break;
+ 
+ 	case CPUFREQ_GOV_STOP:
+-		if (dbs_data->cdata->governor == GOV_CONSERVATIVE)
++		if (governor == GOV_CONSERVATIVE)
+ 			cs_dbs_info->enable = 0;
+ 
+ 		gov_cancel_work(dbs_data, policy);
+diff --git a/drivers/cpufreq/cpufreq_governor.h b/drivers/cpufreq/cpufreq_governor.h
+index 0d9e6be..09d9603 100644
+--- a/drivers/cpufreq/cpufreq_governor.h
++++ b/drivers/cpufreq/cpufreq_governor.h
+@@ -163,6 +163,14 @@ struct cs_cpu_dbs_info_s {
+ 	unsigned int enable:1;
+ };
+ 
++struct lb_cpu_dbs_info_s {
++	struct cpu_dbs_common_info cdbs;
++	u64 prev_cpu_iowait;
++	struct cpufreq_frequency_table *freq_table;
++	unsigned int rate_mult;
++	unsigned int idle_time;
++};
++
+ /* Per policy Governers sysfs tunables */
+ struct od_dbs_tuners {
+ 	unsigned int ignore_nice_load;
+@@ -183,12 +191,21 @@ struct cs_dbs_tuners {
+ 	unsigned int freq_step;
+ };
+ 
++struct lb_dbs_tuners {
++	unsigned int ignore_nice;
++	unsigned int sampling_rate;
++	unsigned int sampling_down_factor;
++	unsigned int up_threshold;
++	unsigned int adj_up_threshold;
++};
++
+ /* Common Governer data across policies */
+ struct dbs_data;
+ struct common_dbs_data {
+ 	/* Common across governors */
+ 	#define GOV_ONDEMAND		0
+ 	#define GOV_CONSERVATIVE	1
++	#define GOV_LAB			2
+ 	int governor;
+ 	struct attribute_group *attr_group_gov_sys; /* one governor - system */
+ 	struct attribute_group *attr_group_gov_pol; /* one governor - policy */
+diff --git a/drivers/cpufreq/cpufreq_lab.c b/drivers/cpufreq/cpufreq_lab.c
+new file mode 100644
+index 0000000..3fe876b
+--- /dev/null
++++ b/drivers/cpufreq/cpufreq_lab.c
+@@ -0,0 +1,377 @@
++/*
++ *  drivers/cpufreq/cpufreq_lab.c
++ *
++ *  LAB(Legacy Application Boost) cpufreq governor
++ *
++ *  Copyright (C) SAMSUNG Electronics. CO.
++ *		Jonghwa Lee <jonghw3.lee@samusng.com>
++ *		Lukasz Majewski <l.majewski@samsung.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/cpufreq.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/kernel_stat.h>
++#include <linux/kobject.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/percpu-defs.h>
++#include <linux/sysfs.h>
++#include <linux/tick.h>
++#include <linux/types.h>
++#include <linux/cpuidle.h>
++#include <linux/slab.h>
++
++#include "cpufreq_governor.h"
++
++#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
++#define DEF_FREQUENCY_UP_THRESHOLD		(80)
++#define DEF_SAMPLING_DOWN_FACTOR		(1)
++#define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
++#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
++#define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
++
++#define MAX_HIST		5
++#define FREQ_STEP		50000
++#define IDLE_THRESHOLD		90
++
++/* Pre-calculated summation of weight, 0.5
++ * 1
++ * 1 + 0.5^1 = 1.5
++ * 1 + 0.5^1 + 0.5^2 = 1.75
++ * 1 + 0.5^1 + 0.5^2 + 0.5^3 = 1.87
++ * 1 + 0.5^1 + 0.5^2 + 0.5^3 + 0.5^4 = 1.93
++ */
++static int history_weight_sum[] = { 100, 150, 175, 187, 193 };
++
++static unsigned int idle_avg[NR_CPUS];
++static unsigned int idle_hist[NR_CPUS][MAX_HIST];
++
++static DEFINE_PER_CPU(struct lb_cpu_dbs_info_s, lb_cpu_dbs_info);
++
++#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_LAB
++static struct cpufreq_governor cpufreq_gov_lab;
++#endif
++
++/* Single polynomial approx -> all CPUs busy */
++static int a_all = -6, b_all = 1331;
++/* Single polynomial approx -> one CPUs busy */
++static int a_one = 10, b_one = 205;
++/* Single polynomial approx -> 2,3... CPUs busy */
++static int a_rest = 4, b_rest1 = 100, b_rest2 = 300;
++/* Polynomial divider */
++static int poly_div = 1024;
++
++static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
++{
++	if (p->cur == freq)
++		return;
++
++	__cpufreq_driver_target(p, freq, CPUFREQ_RELATION_L);
++}
++
++/* Calculate average of idle time with weighting 50% less to older one.
++ * With weight, average can be affected by current phase more rapidly than
++ * normal average. And it also has tolerance for temporary fluctuation of
++ * idle time as normal average has.
++ *
++ * Weigted average = sum(ai * wi) / sum(wi)
++ */
++static inline int cpu_idle_calc_avg(unsigned int *p, int size)
++{
++	int i, sum;
++
++	for (i = 0, sum = 0; i < size; p++, i++) {
++		sum += *p;
++		*p >>= 1;
++	}
++	sum *= 100;
++
++	return (int) (sum / history_weight_sum[size - 1]);
++}
++
++/*
++ * LAB governor policy adjustement
++ */
++static void lb_check_cpu(int cpu, unsigned int load_freq)
++{
++	struct lb_cpu_dbs_info_s *dbs_info = &per_cpu(lb_cpu_dbs_info, cpu);
++	struct cpufreq_policy *policy = dbs_info->cdbs.cur_policy;
++	int i, idx, idle_cpus = 0, b = 0;
++	static int cnt = 0;
++	unsigned int freq = 0;
++
++	idx = cnt++ % MAX_HIST;
++
++	for_each_possible_cpu(i) {
++		struct lb_cpu_dbs_info_s *dbs_cpu_info =
++			&per_cpu(lb_cpu_dbs_info, i);
++
++		idle_hist[i][idx] = dbs_cpu_info->idle_time;
++		idle_avg[i] = cpu_idle_calc_avg(idle_hist[i],
++					cnt < MAX_HIST ? cnt : MAX_HIST);
++
++		if (idle_avg[i] > IDLE_THRESHOLD)
++			idle_cpus++;
++	}
++
++	if (idle_cpus < 0 || idle_cpus > NR_CPUS) {
++		pr_warn("idle_cpus: %d out of range\n", idle_cpus);
++		return;
++	}
++
++	if (idle_cpus == 0) {
++		/* Full load -> reduce freq */
++		freq = policy->max * (a_all * load_freq + b_all) / poly_div;
++	} else if (idle_cpus == NR_CPUS) {
++		/* Idle cpus */
++		freq = policy->min;
++	} else if (idle_cpus == (NR_CPUS - 1)) {
++		freq = policy->max * (a_one * load_freq + b_one) / poly_div;
++	} else {
++		/* Adjust frequency with number of available CPUS */
++		/* smaller idle_cpus -> smaller frequency */
++		b = ((idle_cpus - 1) * b_rest1) + b_rest2;
++		freq = policy->max * (a_rest * load_freq + b) / poly_div;
++	}
++#if 0 
++	if (!idx)
++		pr_info("p->max:%d,freq: %d,idle_cpus: %d,avg : %d %d %d %d load_f: %d\n",
++		       policy->max, freq, idle_cpus, idle_avg[0], idle_avg[1],
++			idle_avg[2], idle_avg[3], load_freq);
++#endif
++
++	dbs_freq_increase(policy, freq);
++}
++
++static void lb_dbs_timer(struct work_struct *work)
++{
++	struct lb_cpu_dbs_info_s *dbs_info =
++		container_of(work, struct lb_cpu_dbs_info_s, cdbs.work.work);
++	unsigned int cpu = dbs_info->cdbs.cur_policy->cpu;
++	struct lb_cpu_dbs_info_s *core_dbs_info = &per_cpu(lb_cpu_dbs_info,
++			cpu);
++	struct dbs_data *dbs_data = dbs_info->cdbs.cur_policy->governor_data;
++	struct lb_dbs_tuners *lb_tuners = dbs_data->tuners;
++	int delay;
++
++	mutex_lock(&core_dbs_info->cdbs.timer_mutex);
++
++	dbs_check_cpu(dbs_data, cpu);
++
++	delay = delay_for_sampling_rate(lb_tuners->sampling_rate
++						* core_dbs_info->rate_mult);
++
++	gov_queue_work(dbs_data, dbs_info->cdbs.cur_policy, delay, false);
++	mutex_unlock(&core_dbs_info->cdbs.timer_mutex);
++}
++
++/************************** sysfs interface ************************/
++static struct common_dbs_data lb_dbs_cdata;
++
++/**
++ * update_sampling_rate - update sampling rate effective immediately if needed.
++ * @new_rate: new sampling rate
++ *
++ * If new rate is smaller than the old, simply updating
++ * dbs_tuners_int.sampling_rate might not be appropriate. For example, if the
++ * original sampling_rate was 1 second and the requested new sampling rate is 10
++ * ms because the user needs immediate reaction from lab governor, but not
++ * sure if higher frequency will be required or not, then, the governor may
++ * change the sampling rate too late; up to 1 second later. Thus, if we are
++ * reducing the sampling rate, we need to make the new value effective
++ * immediately.
++ */
++static void update_sampling_rate(struct dbs_data *dbs_data,
++			unsigned int new_rate)
++{
++	struct lb_dbs_tuners *lb_tuners = dbs_data->tuners;
++	int cpu;
++
++	lb_tuners->sampling_rate = new_rate = max(new_rate,
++			dbs_data->min_sampling_rate);
++
++	for_each_online_cpu(cpu) {
++		struct cpufreq_policy *policy;
++		struct lb_cpu_dbs_info_s *dbs_info;
++		unsigned long next_sampling, appointed_at;
++
++		policy = cpufreq_cpu_get(cpu);
++		if (!policy)
++			continue;
++		if (policy->governor != &cpufreq_gov_lab) {
++			cpufreq_cpu_put(policy);
++			continue;
++		}
++		dbs_info = &per_cpu(lb_cpu_dbs_info, cpu);
++		cpufreq_cpu_put(policy);
++
++		mutex_lock(&dbs_info->cdbs.timer_mutex);
++
++		if (!delayed_work_pending(&dbs_info->cdbs.work)) {
++			mutex_unlock(&dbs_info->cdbs.timer_mutex);
++			continue;
++		}
++
++		next_sampling = jiffies + usecs_to_jiffies(new_rate);
++		appointed_at = dbs_info->cdbs.work.timer.expires;
++
++		if (time_before(next_sampling, appointed_at)) {
++
++			mutex_unlock(&dbs_info->cdbs.timer_mutex);
++			cancel_delayed_work_sync(&dbs_info->cdbs.work);
++			mutex_lock(&dbs_info->cdbs.timer_mutex);
++
++			schedule_delayed_work_on(cpu, &dbs_info->cdbs.work,
++					usecs_to_jiffies(new_rate));
++
++		}
++		mutex_unlock(&dbs_info->cdbs.timer_mutex);
++	}
++}
++
++static ssize_t store_sampling_rate(struct dbs_data *dbs_data, const char *buf,
++				size_t count)
++{
++	unsigned int input;
++	int ret;
++	ret = sscanf(buf, "%u", &input);
++	if (ret != 1)
++		return -EINVAL;
++
++	update_sampling_rate(dbs_data, input);
++	return count;
++}
++
++show_store_one(lb, sampling_rate);
++gov_sys_pol_attr_rw(sampling_rate);
++
++static struct attribute *dbs_attributes_gov_sys[] = {
++	&sampling_rate_gov_sys.attr,
++	NULL
++};
++
++static struct attribute_group lb_attr_group_gov_sys = {
++	.attrs = dbs_attributes_gov_sys,
++	.name = "lab",
++};
++
++static struct attribute *dbs_attributes_gov_pol[] = {
++	&sampling_rate_gov_pol.attr,
++	NULL
++};
++
++static struct attribute_group lb_attr_group_gov_pol = {
++	.attrs = dbs_attributes_gov_pol,
++	.name = "lab",
++};
++
++/************************** sysfs end ************************/
++
++static int lb_init(struct dbs_data *dbs_data)
++{
++	struct lb_dbs_tuners *tuners;
++	u64 idle_time;
++	int cpu;
++
++	tuners = kzalloc(sizeof(struct od_dbs_tuners), GFP_KERNEL);
++	if (!tuners) {
++		pr_err("%s: kzalloc failed\n", __func__);
++		return -ENOMEM;
++	}
++
++	cpu = get_cpu();
++	idle_time = get_cpu_idle_time_us(cpu, NULL);
++	put_cpu();
++	if (idle_time != -1ULL) {
++		/* Idle micro accounting is supported. Use finer thresholds */
++		tuners->up_threshold = MICRO_FREQUENCY_UP_THRESHOLD;
++		tuners->adj_up_threshold = MICRO_FREQUENCY_UP_THRESHOLD -
++			MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
++		/*
++		 * In nohz/micro accounting case we set the minimum frequency
++		 * not depending on HZ, but fixed (very low). The deferred
++		 * timer might skip some samples if idle/sleeping as needed.
++		*/
++		dbs_data->min_sampling_rate = MICRO_FREQUENCY_MIN_SAMPLE_RATE;
++	} else {
++		tuners->up_threshold = DEF_FREQUENCY_UP_THRESHOLD;
++		tuners->adj_up_threshold = DEF_FREQUENCY_UP_THRESHOLD -
++			DEF_FREQUENCY_DOWN_DIFFERENTIAL;
++
++		/* For correct statistics, we need 10 ticks for each measure */
++		dbs_data->min_sampling_rate = MIN_SAMPLING_RATE_RATIO *
++			jiffies_to_usecs(10);
++	}
++
++	tuners->sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR;
++	tuners->ignore_nice = 0;
++
++	dbs_data->tuners = tuners;
++	mutex_init(&dbs_data->mutex);
++	return 0;
++}
++
++static void lb_exit(struct dbs_data *dbs_data)
++{
++	kfree(dbs_data->tuners);
++}
++
++define_get_cpu_dbs_routines(lb_cpu_dbs_info);
++
++static struct common_dbs_data lb_dbs_data = {
++	.governor = GOV_LAB,
++	.attr_group_gov_sys = &lb_attr_group_gov_sys,
++	.attr_group_gov_pol = &lb_attr_group_gov_pol,
++	.get_cpu_cdbs = get_cpu_cdbs,
++	.get_cpu_dbs_info_s = get_cpu_dbs_info_s,
++	.gov_dbs_timer = lb_dbs_timer,
++	.gov_check_cpu = lb_check_cpu,
++	.init = lb_init,
++	.exit = lb_exit,
++};
++
++static int lb_cpufreq_governor_dbs(struct cpufreq_policy *policy,
++		unsigned int event)
++{
++	return cpufreq_governor_dbs(policy, &lb_dbs_data, event);
++}
++
++#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_LAB
++static
++#endif
++struct cpufreq_governor cpufreq_gov_lab = {
++	.name			= "lab",
++	.governor		= lb_cpufreq_governor_dbs,
++	.max_transition_latency	= TRANSITION_LATENCY_LIMIT,
++	.owner			= THIS_MODULE,
++};
++
++static int __init cpufreq_gov_dbs_init(void)
++{
++	return cpufreq_register_governor(&cpufreq_gov_lab);
++}
++
++static void __exit cpufreq_gov_dbs_exit(void)
++{
++	cpufreq_unregister_governor(&cpufreq_gov_lab);
++}
++
++MODULE_AUTHOR("Jonghwa Lee <jonghwa3.lee@samsung.com>");
++MODULE_AUTHOR("Lukasz Majewski <l.majewski@samsung.com>");
++MODULE_DESCRIPTION("'cpufreq_lab' - A dynamic cpufreq governor for "
++		"Legacy Application Boosting");
++MODULE_LICENSE("GPL");
++
++#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_LAB
++fs_initcall(cpufreq_gov_dbs_init);
++#else
++module_init(cpufreq_gov_dbs_init);
++#endif
++module_exit(cpufreq_gov_dbs_exit);
+diff --git a/include/linux/cpufreq.h b/include/linux/cpufreq.h
+index dbf5744..6b076e3 100644
+--- a/include/linux/cpufreq.h
++++ b/include/linux/cpufreq.h
+@@ -403,6 +403,9 @@ extern struct cpufreq_governor cpufreq_gov_ondemand;
+ #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_CONSERVATIVE)
+ extern struct cpufreq_governor cpufreq_gov_conservative;
+ #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_conservative)
++#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_LAB)
++extern struct cpufreq_governor cpufreq_gov_lab;
++#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_lab)
+ #endif
+ 
+ 
+-- 
+1.8.3.2
+

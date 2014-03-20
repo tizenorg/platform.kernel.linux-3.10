@@ -1,0 +1,49 @@
+From 2c373f4ddf5d34207cdafa7f76742acf19a0b825 Mon Sep 17 00:00:00 2001
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Date: Tue, 18 Jun 2013 21:09:12 +0800
+Subject: [PATCH 0947/1302] Thermal: x86_pkg_temp: fix krealloc() misuse in in
+ pkg_temp_thermal_device_add()
+
+If krealloc() returns NULL, it doesn't free the original. So any code
+of the form 'foo = krealloc(foo, ...);' is almost certainly a bug.
+
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Zhang Rui <rui.zhang@intel.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/x86_pkg_temp_thermal.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/thermal/x86_pkg_temp_thermal.c b/drivers/thermal/x86_pkg_temp_thermal.c
+index 8c4a8ce..1dca011 100644
+--- a/drivers/thermal/x86_pkg_temp_thermal.c
++++ b/drivers/thermal/x86_pkg_temp_thermal.c
+@@ -394,6 +394,7 @@ static int pkg_temp_thermal_device_add(unsigned int cpu)
+ 	char buffer[30];
+ 	int thres_count;
+ 	u32 eax, ebx, ecx, edx;
++	u8 *temp;
+ 
+ 	cpuid(6, &eax, &ebx, &ecx, &edx);
+ 	thres_count = ebx & 0x07;
+@@ -417,13 +418,14 @@ static int pkg_temp_thermal_device_add(unsigned int cpu)
+ 	spin_lock(&pkg_work_lock);
+ 	if (topology_physical_package_id(cpu) > max_phy_id)
+ 		max_phy_id = topology_physical_package_id(cpu);
+-	pkg_work_scheduled = krealloc(pkg_work_scheduled,
+-				(max_phy_id+1) * sizeof(u8), GFP_ATOMIC);
+-	if (!pkg_work_scheduled) {
++	temp = krealloc(pkg_work_scheduled,
++			(max_phy_id+1) * sizeof(u8), GFP_ATOMIC);
++	if (!temp) {
+ 		spin_unlock(&pkg_work_lock);
+ 		err = -ENOMEM;
+ 		goto err_ret_free;
+ 	}
++	pkg_work_scheduled = temp;
+ 	pkg_work_scheduled[topology_physical_package_id(cpu)] = 0;
+ 	spin_unlock(&pkg_work_lock);
+ 
+-- 
+1.8.3.2
+

@@ -1,0 +1,37 @@
+From 578c3f5aacf4d7bcd6d54739a3c5da25acae452b Mon Sep 17 00:00:00 2001
+From: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Date: Wed, 5 Mar 2014 08:52:56 +0100
+Subject: [PATCH 1273/1302] iio:common:st: Prevent disable after read info raw
+ data
+
+This patch prevents disable sensor after read info raw data when
+events are enabled.
+
+Change-Id: Ifc160e7aa5a633c5dc976ea8b775a790a0efaf69
+Signed-off-by: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/iio/common/st_sensors/st_sensors_core.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/iio/common/st_sensors/st_sensors_core.c b/drivers/iio/common/st_sensors/st_sensors_core.c
+index 53fbc50..085eb7d 100644
+--- a/drivers/iio/common/st_sensors/st_sensors_core.c
++++ b/drivers/iio/common/st_sensors/st_sensors_core.c
+@@ -315,7 +315,12 @@ int st_sensors_read_info_raw(struct iio_dev *indio_dev,
+ 
+ 		*val = *val >> ch->scan_type.shift;
+ 
+-		err = st_sensors_set_enable(indio_dev, false);
++		/*
++                * When events are enabled sensor should be always enabled.
++                * It prevents unnecessary sensor off.
++                */
++                if (!sdata->events_flag)
++			err = st_sensors_set_enable(indio_dev, false);
+ 	}
+ 	mutex_unlock(&indio_dev->mlock);
+ 
+-- 
+1.8.3.2
+

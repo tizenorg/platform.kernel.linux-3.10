@@ -1,0 +1,210 @@
+From 3cf961c859baef7440ecb81d6daa361e4f52ab8e Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Wed, 27 Feb 2013 14:34:40 +0100
+Subject: [PATCH 0133/1302] m5mols: added device tree support
+
+The only property required by m5mols is "gpios",
+which should contain specification of reset GPIO.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/m5mols/m5mols.h      |  8 ++--
+ drivers/media/i2c/m5mols/m5mols_core.c | 71 ++++++++++++++++++++++++----------
+ 2 files changed, 54 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/media/i2c/m5mols/m5mols.h b/drivers/media/i2c/m5mols/m5mols.h
+index 90a6c52..0599b8a 100644
+--- a/drivers/media/i2c/m5mols/m5mols.h
++++ b/drivers/media/i2c/m5mols/m5mols.h
+@@ -18,6 +18,8 @@
+ 
+ #include <linux/sizes.h>
+ #include <media/v4l2-subdev.h>
++#include <media/m5mols.h>
++
+ #include "m5mols_reg.h"
+ 
+ 
+@@ -182,7 +184,6 @@ struct m5mols_version {
+  * @wdr: wide dynamic range control
+  * @stabilization: image stabilization control
+  * @jpeg_quality: JPEG compression quality control
+- * @set_power: optional power callback to the board code
+  * @lock: mutex protecting the structure fields below
+  * @ffmt: current fmt according to resolution type
+  * @res_type: current resolution type
+@@ -195,7 +196,8 @@ struct m5mols_version {
+  * @mode: register value for current operation mode
+  */
+ struct m5mols_info {
+-	const struct m5mols_platform_data *pdata;
++	struct m5mols_platform_data pdata;
++
+ 	struct v4l2_subdev sd;
+ 	struct media_pad pad;
+ 
+@@ -225,8 +227,6 @@ struct m5mols_info {
+ 	struct v4l2_ctrl *stabilization;
+ 	struct v4l2_ctrl *jpeg_quality;
+ 
+-	int (*set_power)(struct device *dev, int on);
+-
+ 	struct mutex lock;
+ 
+ 	struct v4l2_mbus_framefmt ffmt[M5MOLS_RESTYPE_MAX];
+diff --git a/drivers/media/i2c/m5mols/m5mols_core.c b/drivers/media/i2c/m5mols/m5mols_core.c
+index 9504d88..a8ae5d8 100644
+--- a/drivers/media/i2c/m5mols/m5mols_core.c
++++ b/drivers/media/i2c/m5mols/m5mols_core.c
+@@ -19,13 +19,13 @@
+ #include <linux/interrupt.h>
+ #include <linux/delay.h>
+ #include <linux/gpio.h>
++#include <linux/of_gpio.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/videodev2.h>
+ #include <linux/module.h>
+ #include <media/v4l2-ctrls.h>
+ #include <media/v4l2-device.h>
+ #include <media/v4l2-subdev.h>
+-#include <media/m5mols.h>
+ 
+ #include "m5mols.h"
+ #include "m5mols_reg.h"
+@@ -760,15 +760,15 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
+ {
+ 	struct v4l2_subdev *sd = &info->sd;
+ 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+-	const struct m5mols_platform_data *pdata = info->pdata;
++	struct m5mols_platform_data *pdata = &info->pdata;
+ 	int ret;
+ 
+ 	if (info->power == enable)
+ 		return 0;
+ 
+ 	if (enable) {
+-		if (info->set_power) {
+-			ret = info->set_power(&client->dev, 1);
++		if (pdata->set_power) {
++			ret = pdata->set_power(&client->dev, 1);
+ 			if (ret)
+ 				return ret;
+ 		}
+@@ -776,7 +776,7 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
+ 		ret = regulator_bulk_enable_sync(ARRAY_SIZE(supplies),
+ 						  supplies);
+ 		if (ret) {
+-			info->set_power(&client->dev, 0);
++			pdata->set_power(&client->dev, 0);
+ 			return ret;
+ 		}
+ 
+@@ -791,8 +791,8 @@ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
+ 	if (ret)
+ 		return ret;
+ 
+-	if (info->set_power)
+-		info->set_power(&client->dev, 0);
++	if (pdata->set_power)
++		pdata->set_power(&client->dev, 0);
+ 
+ 	gpio_set_value(pdata->gpio_reset, pdata->reset_polarity);
+ 	usleep_range(1000, 1000);
+@@ -969,24 +969,38 @@ static irqreturn_t m5mols_irq_handler(int irq, void *data)
+ 	return IRQ_HANDLED;
+ }
+ 
++static int m5mols_get_platform_data(struct m5mols_info *info,
++				    struct device *dev)
++{
++	struct m5mols_platform_data *pdata = dev->platform_data;
++	struct device_node *node = dev->of_node;
++	enum of_gpio_flags of_flags;
++
++	if (!node) {
++		if (!pdata) {
++			dev_err(dev, "No platform data\n");
++			return -EINVAL;
++		}
++		info->pdata = *pdata;
++		return 0;
++	}
++
++	pdata = &info->pdata;
++
++	pdata->gpio_reset = of_get_gpio_flags(node, 0, &of_flags);
++	pdata->reset_polarity = !(of_flags & OF_GPIO_ACTIVE_LOW);
++
++	return 0;
++}
++
+ static int m5mols_probe(struct i2c_client *client,
+ 			const struct i2c_device_id *id)
+ {
+-	const struct m5mols_platform_data *pdata = client->dev.platform_data;
++	struct m5mols_platform_data *pdata;
+ 	struct m5mols_info *info;
+ 	struct v4l2_subdev *sd;
+ 	int ret;
+ 
+-	if (pdata == NULL) {
+-		dev_err(&client->dev, "No platform data\n");
+-		return -EINVAL;
+-	}
+-
+-	if (!gpio_is_valid(pdata->gpio_reset)) {
+-		dev_err(&client->dev, "No valid RESET GPIO specified\n");
+-		return -EINVAL;
+-	}
+-
+ 	if (!client->irq) {
+ 		dev_err(&client->dev, "Interrupt not assigned\n");
+ 		return -EINVAL;
+@@ -996,8 +1010,16 @@ static int m5mols_probe(struct i2c_client *client,
+ 	if (!info)
+ 		return -ENOMEM;
+ 
+-	info->pdata = pdata;
+-	info->set_power	= pdata->set_power;
++	ret = m5mols_get_platform_data(info, &client->dev);
++	if (ret < 0)
++		return ret;
++
++	pdata = &info->pdata;
++
++	if (!gpio_is_valid(pdata->gpio_reset)) {
++		dev_err(&client->dev, "No valid RESET GPIO specified\n");
++		return -EINVAL;
++	}
+ 
+ 	ret = gpio_request(pdata->gpio_reset, "M5MOLS_NRST");
+ 	if (ret) {
+@@ -1060,7 +1082,7 @@ static int m5mols_remove(struct i2c_client *client)
+ 	free_irq(client->irq, sd);
+ 
+ 	regulator_bulk_free(ARRAY_SIZE(supplies), supplies);
+-	gpio_free(info->pdata->gpio_reset);
++	gpio_free(info->pdata.gpio_reset);
+ 	media_entity_cleanup(&sd->entity);
+ 	kfree(info);
+ 	return 0;
+@@ -1072,8 +1094,15 @@ static const struct i2c_device_id m5mols_id[] = {
+ };
+ MODULE_DEVICE_TABLE(i2c, m5mols_id);
+ 
++static const struct of_device_id m5mols_of_match[] = {
++	{ .compatible = "samsung,m5mols" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, m5mols_of_match);
++
+ static struct i2c_driver m5mols_i2c_driver = {
+ 	.driver = {
++		.of_match_table = m5mols_of_match,
+ 		.name	= MODULE_NAME,
+ 	},
+ 	.probe		= m5mols_probe,
+-- 
+1.8.3.2
+

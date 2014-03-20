@@ -1,0 +1,34 @@
+From f1666327c6bd87414d9f47ef80fb677e1a46f381 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 19 Jul 2013 16:18:56 +0900
+Subject: [PATCH 0423/1302] dts: arm: add arm-pmu node for exynos4412
+
+This patch enables arm-pmu node of exynos4412. It has 4 cpus. Thus, it also
+has 4 performance counter.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412.dtsi | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412.dtsi b/arch/arm/boot/dts/exynos4412.dtsi
+index 270b389..2f4ca6f 100644
+--- a/arch/arm/boot/dts/exynos4412.dtsi
++++ b/arch/arm/boot/dts/exynos4412.dtsi
+@@ -35,6 +35,12 @@
+ 			     <0 107 0>, <0 108 0>, <0 48 0>, <0 42 0>;
+ 	};
+ 
++	pmu {
++		compatible = "arm,cortex-a9-pmu";
++		interrupt-parent = <&combiner>;
++		interrupts = <2 2>, <3 2>, <18 2>, <19 2>;
++	};
++
+ 	mct@10050000 {
+ 		compatible = "samsung,exynos4412-mct";
+ 		reg = <0x10050000 0x800>;
+-- 
+1.8.3.2
+

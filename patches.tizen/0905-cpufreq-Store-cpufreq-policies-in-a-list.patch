@@ -1,0 +1,69 @@
+From 1017b34988574c883de26d12727c57006984b74b Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Tue, 2 Jul 2013 18:01:10 +0200
+Subject: [PATCH 0905/1302] cpufreq: Store cpufreq policies in a list
+
+Policies available in a cpufreq framework are now linked together. They are
+accessible via cpufreq_policy_list defined at cpufreq core.
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: Myungjoo Ham <myungjoo.ham@samsung.com>
+
+Changes for v6:
+- Move policy list entry delete code to __cpufreq_remove_dev()
+
+Changes for v5:
+- Call list_add() only when device successfully added
+
+Changes for v4:
+- New patch
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/cpufreq.c | 3 +++
+ include/linux/cpufreq.h   | 1 +
+ 2 files changed, 4 insertions(+)
+
+diff --git a/drivers/cpufreq/cpufreq.c b/drivers/cpufreq/cpufreq.c
+index 09ff1b0..2493537 100644
+--- a/drivers/cpufreq/cpufreq.c
++++ b/drivers/cpufreq/cpufreq.c
+@@ -46,6 +46,7 @@ static DEFINE_PER_CPU(struct cpufreq_policy *, cpufreq_cpu_data);
+ static DEFINE_PER_CPU(char[CPUFREQ_NAME_LEN], cpufreq_cpu_governor);
+ #endif
+ static DEFINE_RWLOCK(cpufreq_driver_lock);
++static LIST_HEAD(cpufreq_policy_list);
+ 
+ /*
+  * cpu_policy_rwsem is a per CPU reader-writer semaphore designed to cure
+@@ -993,6 +994,7 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
+ 	if (ret)
+ 		goto err_out_unregister;
+ 
++	list_add(&policy->policy_list, &cpufreq_policy_list);
+ 	kobject_uevent(&policy->kobj, KOBJ_ADD);
+ 	module_put(cpufreq_driver->owner);
+ 	pr_debug("initialization complete\n");
+@@ -1137,6 +1139,7 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
+ 		if (cpufreq_driver->exit)
+ 			cpufreq_driver->exit(data);
+ 
++		list_del(&data->policy_list);
+ 		free_cpumask_var(data->related_cpus);
+ 		free_cpumask_var(data->cpus);
+ 		kfree(data);
+diff --git a/include/linux/cpufreq.h b/include/linux/cpufreq.h
+index ab1932c..5348981 100644
+--- a/include/linux/cpufreq.h
++++ b/include/linux/cpufreq.h
+@@ -117,6 +117,7 @@ struct cpufreq_policy {
+ 
+ 	struct cpufreq_real_policy	user_policy;
+ 
++	struct list_head        policy_list;
+ 	struct kobject		kobj;
+ 	struct completion	kobj_unregister;
+ };
+-- 
+1.8.3.2
+

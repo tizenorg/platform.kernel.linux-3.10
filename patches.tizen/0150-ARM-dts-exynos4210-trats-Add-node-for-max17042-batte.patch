@@ -1,0 +1,43 @@
+From c4d7b6cc0f3a3778528f0398da9c9c4d8e81bdb4 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 1 Mar 2013 15:24:46 +0100
+Subject: [PATCH 0150/1302] ARM: dts: exynos4210-trats: Add node for max17042
+ battery fuel gauge
+
+This patch adds device tree node for max17042 battery fuel gauge present
+on Trats board.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index 7061c88..a7ed9af 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -464,6 +464,20 @@
+ 		};
+ 	};
+ 
++	i2c-gpio-0 {
++		compatible = "i2c-gpio";
++		gpios = <&gpy4 0 0>, <&gpy4 1 0>;
++		i2c-gpio,delay-us = <5>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		battery@36 {
++			compatible = "maxim,max17042";
++			reg = <0x36>;
++			maxim,rsns-microohm = <10000>;
++		};
++	};
++
+ 	usbphy@125B0000 {
+ 		status = "okay";
+ 	};
+-- 
+1.8.3.2
+

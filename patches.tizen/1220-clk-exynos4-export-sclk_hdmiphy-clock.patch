@@ -1,0 +1,52 @@
+From 7a25bffba239ef5ebfc3461952fc607ee3fd8e38 Mon Sep 17 00:00:00 2001
+From: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Date: Mon, 7 Oct 2013 14:27:52 +0200
+Subject: [PATCH 1220/1302] clk: exynos4: export sclk_hdmiphy clock
+
+Export sclk_hdmiphy clock to be usable from DT.
+
+Signed-off-by: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Change-Id: I0d1c8d0c2e2e93bd34f9fcdf82154208c2381a73
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ Documentation/devicetree/bindings/clock/exynos4-clock.txt | 1 +
+ drivers/clk/samsung/clk-exynos4.c                         | 4 ++--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/clock/exynos4-clock.txt b/Documentation/devicetree/bindings/clock/exynos4-clock.txt
+index d7a4bc9..4c62832 100644
+--- a/Documentation/devicetree/bindings/clock/exynos4-clock.txt
++++ b/Documentation/devicetree/bindings/clock/exynos4-clock.txt
+@@ -47,6 +47,7 @@ Exynos4 SoC and this is specified where applicable.
+   mout_core           19
+   mout_apll           20
+   clkout              21
++  sclk_hdmiphy        22
+ 
+ 
+             [Clock Gate for Special Clocks]
+diff --git a/drivers/clk/samsung/clk-exynos4.c b/drivers/clk/samsung/clk-exynos4.c
+index ed29bf5..02ab6cc 100644
+--- a/drivers/clk/samsung/clk-exynos4.c
++++ b/drivers/clk/samsung/clk-exynos4.c
+@@ -143,7 +143,7 @@ enum exynos4_clks {
+ 	xxti, xusbxti, fin_pll, fout_apll, fout_mpll, fout_epll, fout_vpll,
+ 	sclk_apll, sclk_mpll, sclk_epll, sclk_vpll, arm_clk, aclk200, aclk100,
+ 	aclk160, aclk133, mout_mpll_user_t, mout_mpll_user_c, mout_core,
+-	mout_apll, clkout, /* 21 */
++	mout_apll, clkout, sclk_hdmiphy, /* 22 */
+ 
+ 	/* gate for special clocks (sclk) */
+ 	sclk_fimc0 = 128, sclk_fimc1, sclk_fimc2, sclk_fimc3, sclk_cam0,
+@@ -351,7 +351,7 @@ struct samsung_fixed_rate_clock exynos4_fixed_rate_ext_clks[] __initdata = {
+ /* fixed rate clocks generated inside the soc */
+ struct samsung_fixed_rate_clock exynos4_fixed_rate_clks[] __initdata = {
+ 	FRATE(none, "sclk_hdmi24m", NULL, CLK_IS_ROOT, 24000000),
+-	FRATE(none, "sclk_hdmiphy", NULL, CLK_IS_ROOT, 27000000),
++	FRATE(sclk_hdmiphy, "sclk_hdmiphy", NULL, CLK_IS_ROOT, 27000000),
+ 	FRATE(none, "sclk_usbphy0", NULL, CLK_IS_ROOT, 48000000),
+ };
+ 
+-- 
+1.8.3.2
+

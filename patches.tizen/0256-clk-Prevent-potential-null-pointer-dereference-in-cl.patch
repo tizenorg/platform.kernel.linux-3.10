@@ -1,0 +1,31 @@
+From 9ffedfcc2ee4101d18384dd2e918748842fd376f Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 14 Jun 2013 17:10:49 +0200
+Subject: [PATCH 0256/1302] clk: Prevent potential null pointer dereference in
+ clk_set_rate()
+
+Ensure the passed clk pointer is not dereferenced if it is invalid.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/clk.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
+index 1144e8c..8d790a8 100644
+--- a/drivers/clk/clk.c
++++ b/drivers/clk/clk.c
+@@ -1212,6 +1212,9 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
+ 	struct clk *top, *fail_clk;
+ 	int ret = 0;
+ 
++	if (IS_ERR_OR_NULL(clk))
++		return -EINVAL;
++
+ 	/* prevent racing with updates to the clock topology */
+ 	clk_prepare_lock();
+ 
+-- 
+1.8.3.2
+

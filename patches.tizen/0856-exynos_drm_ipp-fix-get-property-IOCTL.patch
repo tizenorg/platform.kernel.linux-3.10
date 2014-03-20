@@ -1,0 +1,31 @@
+From 72393e0cac764bc5e75eed3b8f28e5aeec9f9aef Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Mon, 7 Oct 2013 09:22:02 +0200
+Subject: [PATCH 0856/1302] exynos_drm_ipp: fix get property IOCTL
+
+Due to incorrect assignment in EXYNOS_IPP_GET_PROPERTY
+IOCTL handler this IOCTL did not work at all.
+The patch fixes it.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_ipp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_ipp.c b/drivers/gpu/drm/exynos/exynos_drm_ipp.c
+index 4cd2b40..fb3c791 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_ipp.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_ipp.c
+@@ -349,7 +349,7 @@ int exynos_drm_ipp_get_property(struct drm_device *drm_dev, void *data,
+ 			return -EINVAL;
+ 		}
+ 
+-		prop_list = ippdrv->prop_list;
++		*prop_list = *ippdrv->prop_list;
+ 	}
+ 
+ 	return 0;
+-- 
+1.8.3.2
+

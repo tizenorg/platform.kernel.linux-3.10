@@ -1,0 +1,32 @@
+From 48e124d11ca66af97c83d77ad66fdccccc220099 Mon Sep 17 00:00:00 2001
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Thu, 26 Sep 2013 15:55:25 +0800
+Subject: [PATCH 1122/1302] usb: gadget: Use ERR_CAST inlined function instead
+ of ERR_PTR(PTR_ERR(...))
+
+trivial patch converting ERR_PTR(PTR_ERR()) into ERR_CAST().
+No functional changes.
+
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/configfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/configfs.c b/drivers/usb/gadget/configfs.c
+index 37e475b..2588511 100644
+--- a/drivers/usb/gadget/configfs.c
++++ b/drivers/usb/gadget/configfs.c
+@@ -557,7 +557,7 @@ static struct config_group *function_make(
+ 
+ 	fi = usb_get_function_instance(func_name);
+ 	if (IS_ERR(fi))
+-		return ERR_PTR(PTR_ERR(fi));
++		return ERR_CAST(fi);
+ 
+ 	ret = config_item_set_name(&fi->group.cg_item, name);
+ 	if (ret) {
+-- 
+1.8.3.2
+

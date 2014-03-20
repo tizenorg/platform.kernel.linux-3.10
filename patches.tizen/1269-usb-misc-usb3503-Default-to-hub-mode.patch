@@ -1,0 +1,35 @@
+From f37b8f3e92134160113b4ac0c6836e382a2f49eb Mon Sep 17 00:00:00 2001
+From: Mark Brown <broonie@linaro.org>
+Date: Fri, 9 Aug 2013 11:41:55 +0100
+Subject: [PATCH 1269/1302] usb: misc: usb3503: Default to hub mode
+
+Since there is no runtime interface for changing modes this is probably
+the most sensible default.
+
+Signed-off-by: Mark Brown <broonie@linaro.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+[mszyprow: mainline commit e5a0c874ec7babc1931a67489b292de152d2a641]
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: Ie5a0c874ec7babc1931a67489b292de152d2a641
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/misc/usb3503.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/misc/usb3503.c b/drivers/usb/misc/usb3503.c
+index 777102e0..8f5dff2 100644
+--- a/drivers/usb/misc/usb3503.c
++++ b/drivers/usb/misc/usb3503.c
+@@ -162,7 +162,7 @@ static int usb3503_probe(struct usb3503 *hub)
+ 	struct usb3503_platform_data *pdata = dev_get_platdata(dev);
+ 	struct device_node *np = dev->of_node;
+ 	int err;
+-	u32 mode = USB3503_MODE_UNKNOWN;
++	u32 mode = USB3503_MODE_HUB;
+ 	const u32 *property;
+ 	int len;
+ 
+-- 
+1.8.3.2
+

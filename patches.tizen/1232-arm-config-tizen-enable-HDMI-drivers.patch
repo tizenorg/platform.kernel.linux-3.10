@@ -1,0 +1,53 @@
+From 580aed482d6755e865c723a61cef68b148354cd6 Mon Sep 17 00:00:00 2001
+From: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Date: Wed, 12 Feb 2014 16:03:51 +0100
+Subject: [PATCH 1232/1302] arm: config: tizen: enable HDMI drivers
+
+This patch enables HDMI drivers including:
+- DRM HDMI
+- SII9234 HDMI-to-MHL bridge
+- Exynos PHY
+
+Signed-off-by: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Change-Id: I8d9d6d6163bdda2c8d299bcd8048b10fa7bb2f35
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_defconfig | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index 1b89de4..73702f2 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -1138,6 +1138,7 @@ CONFIG_BLK_DEV_RAM_SIZE=16384
+ # CONFIG_LATTICE_ECP3_CONFIG is not set
+ CONFIG_SLP_GLOBAL_LOCK=y
+ # CONFIG_SRAM is not set
++CONFIG_SII9234=y
+ # CONFIG_C2PORT is not set
+ 
+ #
+@@ -2215,10 +2216,10 @@ CONFIG_DRM_KMS_HELPER=y
+ # CONFIG_DRM_I2C_SIL164 is not set
+ # CONFIG_DRM_I2C_NXP_TDA998X is not set
+ CONFIG_DRM_EXYNOS=y
+-CONFIG_DRM_EXYNOS_IOMMU=y
++# CONFIG_DRM_EXYNOS_IOMMU is not set
+ CONFIG_DRM_EXYNOS_DMABUF=y
+ CONFIG_DRM_EXYNOS_FIMD=y
+-# CONFIG_DRM_EXYNOS_HDMI is not set
++CONFIG_DRM_EXYNOS_HDMI=y
+ CONFIG_DRM_EXYNOS_VIDI=y
+ CONFIG_DRM_EXYNOS_G2D=y
+ CONFIG_DRM_EXYNOS_IPP=y
+@@ -3109,6 +3110,7 @@ CONFIG_PHY_EXYNOS_MIPI_VIDEO=y
+ CONFIG_PHY_EXYNOS_USB=y
+ CONFIG_PHY_EXYNOS4210_USB=y
+ CONFIG_PHY_EXYNOS4212_USB=y
++CONFIG_EXYNOS_PHY=y
+ 
+ #
+ # File systems
+-- 
+1.8.3.2
+

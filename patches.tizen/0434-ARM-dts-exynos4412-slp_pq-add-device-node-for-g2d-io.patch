@@ -1,0 +1,57 @@
+From 178bfa57cc7f1efbe5f796a9048a349981b45da1 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Wed, 24 Jul 2013 13:41:34 +0900
+Subject: [PATCH 0434/1302] ARM: dts: exynos4412-slp_pq: add device node for
+ g2d iommu
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 10 ++++++++++
+ arch/arm/boot/dts/exynos4x12.dtsi       |  2 +-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 44f1c3a..9007770 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -1010,6 +1010,10 @@
+ 		status = "okay";
+ 	};
+ 
++	g2d@10800000 {
++		status = "okay";
++	};
++
+ 	vidi {
+ 		compatible = "samsung,exynos-drm-vidi";
+ 	};
+@@ -1020,6 +1024,12 @@
+ 		mmu-master = <&fimd>;
+ 	};
+ 
++	sysmmu-g2d {
++		clock-names = "sysmmu";
++		clocks = <&clock 280>;
++		mmu-master = <&g2d>;
++	};
++
+ 	usbphy@125B0000 {
+ 		status = "okay";
+ 	};
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index b336bd5..da3b793 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -98,7 +98,7 @@
+ 		interrupts = <0 72 0>;
+ 	};
+ 
+-	g2d@10800000 {
++	g2d: g2d@10800000 {
+ 		compatible = "samsung,exynos4212-g2d";
+ 		reg = <0x10800000 0x1000>;
+ 		interrupts = <0 89 0>;
+-- 
+1.8.3.2
+

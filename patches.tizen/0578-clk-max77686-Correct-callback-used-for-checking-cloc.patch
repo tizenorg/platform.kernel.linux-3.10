@@ -1,0 +1,42 @@
+From e570c098af68b5ced3abd717bf98328a9dc9e6aa Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 23 Aug 2013 17:24:29 +0200
+Subject: [PATCH 0578/1302] clk: max77686: Correct callback used for checking
+ clock status
+
+Changing status of clock gates in max77686 requires i2c transfers, which
+can sleep, so this is done in prepare and unprepare callbacks. Due to
+this, checking whether whether the clock is ungated must be done
+in is_prepared() callback as well, for consistency.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/clk-max77686.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/clk-max77686.c b/drivers/clk/clk-max77686.c
+index 9f57bc3..e39d463 100644
+--- a/drivers/clk/clk-max77686.c
++++ b/drivers/clk/clk-max77686.c
+@@ -66,7 +66,7 @@ static void max77686_clk_unprepare(struct clk_hw *hw)
+ 		MAX77686_REG_32KHZ, max77686->mask, ~max77686->mask);
+ }
+ 
+-static int max77686_clk_is_enabled(struct clk_hw *hw)
++static int max77686_clk_is_prepared(struct clk_hw *hw)
+ {
+ 	struct max77686_clk *max77686 = to_max77686_clk(hw);
+ 	int ret;
+@@ -84,7 +84,7 @@ static int max77686_clk_is_enabled(struct clk_hw *hw)
+ static struct clk_ops max77686_clk_ops = {
+ 	.prepare	= max77686_clk_prepare,
+ 	.unprepare	= max77686_clk_unprepare,
+-	.is_enabled	= max77686_clk_is_enabled,
++	.is_prepared	= max77686_clk_is_prepared,
+ };
+ 
+ static struct clk_init_data max77686_clks_init[MAX77686_CLKS_NUM] = {
+-- 
+1.8.3.2
+

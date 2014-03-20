@@ -1,0 +1,31 @@
+From 87b762c907e9dbda7005e98124b61538642c8766 Mon Sep 17 00:00:00 2001
+From: Hyungwon Hwang <human.hwang@samsung.com>
+Date: Thu, 6 Feb 2014 10:22:26 +0900
+Subject: [PATCH 1209/1302] video: display: s6e8aa0: fix a erratum in gamma
+ table
+
+Fix a erratum in gamma table.
+
+Change-Id: I88f9220de98fe34c5e47ae076f850de603dab8fe
+Signed-off-by: Hyungwon Hwang <human.hwang@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/video/display/panel-s6e8aa0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/video/display/panel-s6e8aa0.c b/drivers/video/display/panel-s6e8aa0.c
+index d6dbfef..cec8b83 100644
+--- a/drivers/video/display/panel-s6e8aa0.c
++++ b/drivers/video/display/panel-s6e8aa0.c
+@@ -609,7 +609,7 @@ static const s6e8aa0_gamma_table s6e8aa0_gamma_tables_v96[GAMMA_LEVEL_NUM] = {
+ 	       	0xb9, 0xd0, 0xd1, 0xcd,	0x00, 0x63, 0x00, 0x54,
+ 	       	0x00, 0x7a,
+ 	}, {
+-		0xfa, 0x01, 0x1f, 0x1f, 0x1f, 0xff, 0x00, 0xffF,
++		0xfa, 0x01, 0x1f, 0x1f, 0x1f, 0xff, 0x00, 0xff,
+ 		0xd1, 0x9e, 0xd5, 0xda, 0xcd, 0xdd, 0xbb, 0xb7,
+ 	       	0xb9, 0xce, 0xce, 0xc9,	0x00, 0x68, 0x00, 0x59,
+ 	       	0x00, 0x81,
+-- 
+1.8.3.2
+

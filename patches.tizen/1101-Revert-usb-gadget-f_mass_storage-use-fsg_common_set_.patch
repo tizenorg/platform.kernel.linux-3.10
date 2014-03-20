@@ -1,0 +1,79 @@
+From 053e09af22359427c2b020c16a20f1e14ba4278b Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 14 Jan 2014 14:27:15 +0100
+Subject: [PATCH 1101/1302] Revert "usb/gadget: f_mass_storage: use
+ fsg_common_set_num_buffers in fsg_common_init"
+
+This reverts commit 378d601a3457e66ee10ba1770bfbe9d42d8361da.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 29 ++++++++++++++++++++++++++---
+ 1 file changed, 26 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 2a71540..2f6e3c3 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -3000,12 +3000,17 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 				   struct fsg_config *cfg)
+ {
+ 	struct usb_gadget *gadget = cdev->gadget;
++	struct fsg_buffhd *bh;
+ 	struct fsg_lun **curlun_it;
+ 	struct fsg_lun_config *lcfg;
+ 	struct usb_string *us;
+ 	int nluns, i, rc;
+ 	char *pathbuf;
+ 
++	rc = fsg_num_buffers_validate(cfg->fsg_num_buffers);
++	if (rc != 0)
++		return ERR_PTR(rc);
++
+ 	/* Find out how many LUNs there should be */
+ 	nluns = cfg->nluns;
+ 	if (nluns < 1 || nluns > FSG_MAX_LUNS) {
+@@ -3019,12 +3024,15 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 	common->sysfs = true;
+ 	common->state = FSG_STATE_IDLE;
+ 
+-	rc = fsg_common_set_num_buffers(common, cfg->fsg_num_buffers);
+-	if (rc) {
++	common->fsg_num_buffers = cfg->fsg_num_buffers;
++	common->buffhds = kcalloc(common->fsg_num_buffers,
++				  sizeof *(common->buffhds), GFP_KERNEL);
++	if (!common->buffhds) {
+ 		if (common->free_storage_on_release)
+ 			kfree(common);
+-		return ERR_PTR(rc);
++		return ERR_PTR(-ENOMEM);
+ 	}
++
+ 	common->ops = cfg->ops;
+ 	common->private_data = cfg->private_data;
+ 
+@@ -3117,6 +3125,21 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 	}
+ 	common->nluns = nluns;
+ 
++	/* Data buffers cyclic list */
++	bh = common->buffhds;
++	i = common->fsg_num_buffers;
++	goto buffhds_first_it;
++	do {
++		bh->next = bh + 1;
++		++bh;
++buffhds_first_it:
++		bh->buf = kmalloc(FSG_BUFLEN, GFP_KERNEL);
++		if (unlikely(!bh->buf)) {
++			rc = -ENOMEM;
++			goto error_release;
++		}
++	} while (--i);
++	bh->next = common->buffhds;
+ 
+ 	/* Prepare inquiryString */
+ 	i = get_default_bcdDevice();
+-- 
+1.8.3.2
+

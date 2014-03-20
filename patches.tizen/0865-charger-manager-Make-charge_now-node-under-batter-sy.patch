@@ -1,0 +1,39 @@
+From 3514a200bbe8210b740a627a97bd50b82820458d Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 11 Oct 2013 22:25:13 +0900
+Subject: [PATCH 0865/1302] charger-manager : Make charge_now node under batter
+ sysfs directory.
+
+CHARGE_NOW property has beed used in wrong way, it should be fixed
+as it is planned initially. But for now, we just leave it for
+upper layer (e.g. OAL) for a while.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/power/charger-manager.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/power/charger-manager.c b/drivers/power/charger-manager.c
+index 7946b8a..2d5867d 100644
+--- a/drivers/power/charger-manager.c
++++ b/drivers/power/charger-manager.c
+@@ -911,9 +911,14 @@ static enum power_supply_property default_charger_props[] = {
+ 	POWER_SUPPLY_PROP_CAPACITY,
+ 	POWER_SUPPLY_PROP_ONLINE,
+ 	POWER_SUPPLY_PROP_CHARGE_FULL,
++
++	/* FIXME : 20131011
++	 * This property has been used in wrong way.
++	 * It'll be fixed sooner to it's original purpose.
++	 */
++	POWER_SUPPLY_PROP_CHARGE_NOW,
+ 	/*
+ 	 * Optional properties are:
+-	 * POWER_SUPPLY_PROP_CHARGE_NOW,
+ 	 * POWER_SUPPLY_PROP_CURRENT_NOW,
+ 	 * POWER_SUPPLY_PROP_TEMP, and
+ 	 * POWER_SUPPLY_PROP_TEMP_AMBIENT,
+-- 
+1.8.3.2
+

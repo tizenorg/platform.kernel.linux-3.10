@@ -1,0 +1,33 @@
+From 3f99ac798c1577b32388ccd2921259b098c66262 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 9 Sep 2013 17:24:35 +0900
+Subject: [PATCH 0763/1302] usb: s3c-hsotg: do not disconnect gadget when
+ receiving ErlySusp intr
+
+DWC2 databook indicates if the core sets "ErlySusp" bit, an idle state has been
+detected on the USB for 3 ms. This situation can be occurred when waiting
+a request from user daemon. So, we should keep the connection between udc and
+gadget even though this interrupt is occurred.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 5fc87ce..afcd326 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -2476,8 +2476,6 @@ irq_retry:
+ 	if (gintsts & GINTSTS_ErlySusp) {
+ 		dev_dbg(hsotg->dev, "GINTSTS_ErlySusp\n");
+ 		writel(GINTSTS_ErlySusp, hsotg->regs + GINTSTS);
+-
+-		s3c_hsotg_disconnect(hsotg);
+ 	}
+ 
+ 	/*
+-- 
+1.8.3.2
+

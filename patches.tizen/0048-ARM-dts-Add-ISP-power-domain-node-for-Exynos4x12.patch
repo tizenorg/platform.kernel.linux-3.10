@@ -1,0 +1,34 @@
+From 1e881c2001e9d00c04a0cef8887d093c0027e76b Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 10 Dec 2012 15:23:38 +0100
+Subject: [PATCH 0048/1302] ARM: dts: Add ISP power domain node for Exynos4x12
+
+The ISP power domain is a common power domain for fimc-lite
+and fimc-is (ISP) devices.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 6aca431..2a5ac7b 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -28,6 +28,11 @@
+ 		pinctrl3 = &pinctrl_3;
+ 	};
+ 
++	pd_isp: isp-power-domain@10023CA0 {
++		compatible = "samsung,exynos4210-pd";
++		reg = <0x10023CA0 0x20>;
++	};
++
+ 	combiner:interrupt-controller@10440000 {
+ 		interrupts = <0 0 0>, <0 1 0>, <0 2 0>, <0 3 0>,
+ 			     <0 4 0>, <0 5 0>, <0 6 0>, <0 7 0>,
+-- 
+1.8.3.2
+

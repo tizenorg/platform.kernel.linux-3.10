@@ -1,0 +1,43 @@
+From c638c305b24f7824ac3f1aed3644e97f9c57c2f0 Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Mon, 16 Dec 2013 18:40:49 +0900
+Subject: [PATCH 1178/1302] usb: gadget: f_loopback: Fix sparse warning
+
+Make local symbols static in order to fix the following sparse
+warnings.
+
+drivers/usb/gadget/f_loopback.c:123:34: warning: symbol 'ss_loop_source_comp_desc' was not declared. Should it be static?
+drivers/usb/gadget/f_loopback.c:139:34: warning: symbol 'ss_loop_sink_comp_desc' was not declared. Should it be static?
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_loopback.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_loopback.c b/drivers/usb/gadget/f_loopback.c
+index c35bb40..4557cd0 100644
+--- a/drivers/usb/gadget/f_loopback.c
++++ b/drivers/usb/gadget/f_loopback.c
+@@ -120,7 +120,7 @@ static struct usb_endpoint_descriptor ss_loop_source_desc = {
+ 	.wMaxPacketSize =	cpu_to_le16(1024),
+ };
+ 
+-struct usb_ss_ep_comp_descriptor ss_loop_source_comp_desc = {
++static struct usb_ss_ep_comp_descriptor ss_loop_source_comp_desc = {
+ 	.bLength =		USB_DT_SS_EP_COMP_SIZE,
+ 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+ 	.bMaxBurst =		0,
+@@ -136,7 +136,7 @@ static struct usb_endpoint_descriptor ss_loop_sink_desc = {
+ 	.wMaxPacketSize =	cpu_to_le16(1024),
+ };
+ 
+-struct usb_ss_ep_comp_descriptor ss_loop_sink_comp_desc = {
++static struct usb_ss_ep_comp_descriptor ss_loop_sink_comp_desc = {
+ 	.bLength =		USB_DT_SS_EP_COMP_SIZE,
+ 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+ 	.bMaxBurst =		0,
+-- 
+1.8.3.2
+

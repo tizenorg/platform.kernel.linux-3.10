@@ -1,0 +1,38 @@
+From 3b12494a4b8938874ae77d4d8acb5a577876d444 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 28 Dec 2012 16:44:10 +0100
+Subject: [PATCH 0030/1302] ARM: dts: exynos4: Add node for USB PHY
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 77ac4af..9ef9926 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -351,6 +351,19 @@
+ 		status = "disabled";
+ 	};
+ 
++	usbphy@125B0000 {
++		compatible = "samsung,exynos4210-usbphy";
++		reg = <0x125B0000 0x100>;
++		ranges;
++		#address-cells = <1>;
++		#size-cells = <1>;
++		status = "disabled";
++
++		usbphy-sys {
++			reg = <0x10020704 0x8>;
++		};
++	};
++
+ 	hsotg@12480000 {
+ 		compatible = "samsung,s3c-hsotg";
+ 		reg = <0x12480000 0x20000>;
+-- 
+1.8.3.2
+

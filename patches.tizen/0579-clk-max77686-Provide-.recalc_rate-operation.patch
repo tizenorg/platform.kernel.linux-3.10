@@ -1,0 +1,39 @@
+From 5073000c844c00cf1f69939701a8729c7d58a712 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 23 Aug 2013 18:28:17 +0200
+Subject: [PATCH 0579/1302] clk: max77686: Provide .recalc_rate() operation
+
+It is usually nice to know frequency of a clock, so this patch adds a
+.recalc_rate() callback returning rates of provided clocks.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/clk-max77686.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/clk/clk-max77686.c b/drivers/clk/clk-max77686.c
+index e39d463..e40ecdb 100644
+--- a/drivers/clk/clk-max77686.c
++++ b/drivers/clk/clk-max77686.c
+@@ -81,10 +81,17 @@ static int max77686_clk_is_prepared(struct clk_hw *hw)
+ 	return val & max77686->mask;
+ }
+ 
++static unsigned long max77686_recalc_rate(struct clk_hw *hw,
++					  unsigned long parent_rate)
++{
++	return 32768;
++}
++
+ static struct clk_ops max77686_clk_ops = {
+ 	.prepare	= max77686_clk_prepare,
+ 	.unprepare	= max77686_clk_unprepare,
+ 	.is_prepared	= max77686_clk_is_prepared,
++	.recalc_rate	= max77686_recalc_rate,
+ };
+ 
+ static struct clk_init_data max77686_clks_init[MAX77686_CLKS_NUM] = {
+-- 
+1.8.3.2
+

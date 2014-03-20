@@ -1,0 +1,122 @@
+From 2804ec5fe10232797945a2fd0239175c88aef877 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 18 Jan 2013 19:14:50 +0100
+Subject: [PATCH 0056/1302] ARM: dts: Add camera clocks definitions to
+ exynos4/x12.dtsi
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi    | 17 +++++++++++++++++
+ arch/arm/boot/dts/exynos4x12.dtsi |  8 ++++++++
+ 2 files changed, 25 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index e81937c..758e321 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -106,16 +106,23 @@
+ 
+ 	camera {
+ 		compatible = "samsung,fimc", "simple-bus";
++		clocks = <&clock 132>, <&clock 133>, <&clock 351>, <&clock 352>,
++		         <&clock 388>, <&clock 389>, <&clock 17>;
++		clock-names = "sclk_cam0", "sclk_cam1", "pxl_async0",
++			    "pxl_async1", "mux_cam0", "mux_cam1", "parent";
+ 		status = "disabled";
+ 		#address-cells = <1>;
+ 		#size-cells = <1>;
+ 		ranges;
+ 
++
+ 		fimc_0: fimc@11800000 {
+ 			compatible = "samsung,exynos4210-fimc";
+ 			reg = <0x11800000 0x1000>;
+ 			interrupts = <0 84 0>;
+ 			samsung,power-domain = <&pd_cam>;
++			clocks = <&clock 256>, <&clock 128>, <&clock 384>, <&clock 17>;
++			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+ 			status = "disabled";
+ 		};
+ 
+@@ -124,6 +131,8 @@
+ 			reg = <0x11810000 0x1000>;
+ 			interrupts = <0 85 0>;
+ 			samsung,power-domain = <&pd_cam>;
++			clocks = <&clock 257>, <&clock 129>, <&clock 385>, <&clock 17>;
++			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+ 			status = "disabled";
+ 		};
+ 
+@@ -132,6 +141,8 @@
+ 			reg = <0x11820000 0x1000>;
+ 			interrupts = <0 86 0>;
+ 			samsung,power-domain = <&pd_cam>;
++			clocks = <&clock 258>, <&clock 130>, <&clock 386>, <&clock 17>;
++			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+ 			status = "disabled";
+ 		};
+ 
+@@ -140,6 +151,8 @@
+ 			reg = <0x11830000 0x1000>;
+ 			interrupts = <0 87 0>;
+ 			samsung,power-domain = <&pd_cam>;
++			clocks = <&clock 259>, <&clock 131>, <&clock 387>, <&clock 17>;
++			clock-names = "fimc", "sclk_fimc", "mux", "parent";
+ 			status = "disabled";
+ 		};
+ 
+@@ -149,6 +162,8 @@
+ 			interrupts = <0 78 0>;
+ 			bus-width = <4>;
+ 			samsung,power-domain = <&pd_cam>;
++			clocks = <&clock 260>, <&clock 134>, <&clock 390>, <&clock 17>;
++			clock-names = "csis", "sclk_csis", "mux", "parent";
+ 			status = "disabled";
+ 		};
+ 
+@@ -158,6 +173,8 @@
+ 			interrupts = <0 80 0>;
+ 			bus-width = <2>;
+ 			samsung,power-domain = <&pd_cam>;
++			clocks = <&clock 261>, <&clock 135>, <&clock 391>, <&clock 17>;
++			clock-names = "csis", "sclk_csis", "mux", "parent";
+ 			status = "disabled";
+ 		};
+ 	};
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 3b4a16b..621301c 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -204,6 +204,10 @@
+ 			reg = <0x12000000 0x260000>;
+ 			interrupts = <0 90 0>, <0 95 0>;
+ 			samsung,power-domain = <&pd_isp>;
++			clocks = <&clock 353>, <&clock 354>, <&clock 355>,
++			         <&clock 356>, <&clock 342>, <&clock 17>;
++			clock-names = "flite0", "flite1", "ppmuispx",
++			        "ppmuispmx", "sysreg", "mpll";
+ 			status = "disabled";
+ 			#address-cells = <1>;
+ 			#size-cells = <1>;
+@@ -214,6 +218,8 @@
+ 				reg = <0x12390000 0x1000>;
+ 				interrupts = <0 105 0>;
+ 				samsung,power-domain = <&pd_isp>;
++				clocks = <&clock 353>;
++				clock-names = "flite";
+ 				status = "disabled";
+ 			};
+ 
+@@ -222,6 +228,8 @@
+ 				reg = <0x123A0000 0x1000>;
+ 				interrupts = <0 106 0>;
+ 				samsung,power-domain = <&pd_isp>;
++				clocks = <&clock 354>;
++				clock-names = "flite";
+ 				status = "disabled";
+ 			};
+ 		};
+-- 
+1.8.3.2
+

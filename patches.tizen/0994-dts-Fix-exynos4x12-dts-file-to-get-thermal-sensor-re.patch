@@ -1,0 +1,82 @@
+From 8b406abadeb34e4dfab97b20495ce6401273b344 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 1 Nov 2013 17:32:40 +0900
+Subject: [PATCH 0994/1302] dts: Fix exynos4x12 dts file to get thermal sensor
+ regualtor properly.
+
+Fixes regulator consumer name from DT from 'vdd_ts' to 'vtmu' which
+is used in Exynos tmu driver. And also enable tmu in all exynos4412 boards.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4212-slp_pd.dts     | 2 +-
+ arch/arm/boot/dts/exynos4412-redwood.dts    | 5 -----
+ arch/arm/boot/dts/exynos4412-redwoodlte.dts | 5 -----
+ arch/arm/boot/dts/exynos4412-slp_pq.dts     | 5 +++++
+ 4 files changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4212-slp_pd.dts b/arch/arm/boot/dts/exynos4212-slp_pd.dts
+index 4c8d1a7..cdf5cc3 100644
+--- a/arch/arm/boot/dts/exynos4212-slp_pd.dts
++++ b/arch/arm/boot/dts/exynos4212-slp_pd.dts
+@@ -355,7 +355,7 @@
+ 	};
+ 
+ 	tmu@100C0000 {
+-		vdd_ts-supply = <&ldo4_reg>;
++		vtmu-supply = <&ldo4_reg>;
+ 		status = "okay";
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index a8c99fd..e6dca07 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -144,11 +144,6 @@
+ 		status = "okay";
+ 	};
+ 
+-	tmu@100C0000 {
+-		vdd_ts-supply = <&ldo10_reg>;
+-		status = "okay";
+-	};
+-
+ 	ehci@12580000 {
+ 		status = "okay";
+ 	};
+diff --git a/arch/arm/boot/dts/exynos4412-redwoodlte.dts b/arch/arm/boot/dts/exynos4412-redwoodlte.dts
+index bc61f1c..6d38430 100644
+--- a/arch/arm/boot/dts/exynos4412-redwoodlte.dts
++++ b/arch/arm/boot/dts/exynos4412-redwoodlte.dts
+@@ -750,11 +750,6 @@
+ 		max_overclocking_freq = <1500000>;
+ 	};
+ 
+-	tmu@100C0000 {
+-		vdd_ts-supply = <&ldo10_reg>;
+-		status = "okay";
+-	};
+-
+ 	ehci@12580000 {
+ 		status = "okay";
+ 	};
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index e05f3fa..e99ddc9 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -1397,6 +1397,11 @@
+ 		vdd-supply = <&ldo3_reg>;
+ 		status = "ok";
+ 	};
++
++	tmu@100C0000 {
++		vtmu-supply = <&ldo10_reg>;
++		status = "okay";
++	};
+ };
+ 
+ &pinctrl_1 {
+-- 
+1.8.3.2
+

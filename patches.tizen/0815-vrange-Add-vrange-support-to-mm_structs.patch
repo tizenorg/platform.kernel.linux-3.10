@@ -1,0 +1,196 @@
+From 30cf4af092fb003edd9c5f6ac87900838deb6f01 Mon Sep 17 00:00:00 2001
+From: Minchan Kim <minchan@kernel.org>
+Date: Thu, 25 Jul 2013 13:44:32 +0900
+Subject: [PATCH 0815/1302] vrange: Add vrange support to mm_structs
+
+This patch addes vroot on mm_struct so process can have volatile
+ranges on anonymous memory.
+
+This is somewhat wasteful, as it increases the mm struct even
+if the process doesn't use vrange syscall. So an following patch
+will make it dynamically allocated.
+
+One of note on this patch is vrange_fork. Its could deadlock with
+direct reclaim's purging logic due to vrange_lock so vrange_fork
+uses GFP_NOIO.
+
+It does make sense because purging is kind of I/O operation although
+it doesn't do anything related to I/O issuing and it could be very
+understandable when I will introduce vrange-file, which should avoid
+direct purging when caller pass GFP_FS to avoid deadlock.
+
+If vrange_fork fails, it isn't critical because worst case from user
+POV is that pages in vrange of parent can't be purged, which is likely
+better than having fork fail.
+
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Android Kernel Team <kernel-team@android.com>
+Cc: Robert Love <rlove@google.com>
+Cc: Mel Gorman <mel@csn.ul.ie>
+Cc: Hugh Dickins <hughd@google.com>
+Cc: Dave Hansen <dave@linux.vnet.ibm.com>
+Cc: Rik van Riel <riel@redhat.com>
+Cc: Dmitry Adamushko <dmitry.adamushko@gmail.com>
+Cc: Dave Chinner <david@fromorbit.com>
+Cc: Neil Brown <neilb@suse.de>
+Cc: Andrea Righi <andrea@betterlinux.com>
+Cc: Andrea Arcangeli <aarcange@redhat.com>
+Cc: Aneesh Kumar K.V <aneesh.kumar@linux.vnet.ibm.com>
+Cc: Mike Hommey <mh@glandium.org>
+Cc: Taras Glek <tglek@mozilla.com>
+Cc: Dhaval Giani <dgiani@mozilla.com>
+Cc: Jan Kara <jack@suse.cz>
+Cc: KOSAKI Motohiro <kosaki.motohiro@gmail.com>
+Cc: Michel Lespinasse <walken@google.com>
+Cc: Minchan Kim <minchan@kernel.org>
+Cc: linux-mm@kvack.org <linux-mm@kvack.org>
+Signed-off-by: Minchan Kim <minchan@kernel.org>
+[jstultz: Bit of refactoring. Comment cleanups]
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ include/linux/mm_types.h |  4 ++++
+ include/linux/vrange.h   |  7 ++++++-
+ kernel/fork.c            | 11 +++++++++++
+ mm/vrange.c              | 40 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 61 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
+index 4a189ba..7e14abd 100644
+--- a/include/linux/mm_types.h
++++ b/include/linux/mm_types.h
+@@ -13,6 +13,7 @@
+ #include <linux/page-debug-flags.h>
+ #include <linux/uprobes.h>
+ #include <linux/page-flags-layout.h>
++#include <linux/vrange_types.h>
+ #include <asm/page.h>
+ #include <asm/mmu.h>
+ 
+@@ -352,6 +353,9 @@ struct mm_struct {
+ 						 */
+ 
+ 
++#ifdef CONFIG_MMU
++	struct vrange_root vroot;
++#endif
+ 	unsigned long hiwater_rss;	/* High-watermark of RSS usage */
+ 	unsigned long hiwater_vm;	/* High-water virtual memory usage */
+ 
+diff --git a/include/linux/vrange.h b/include/linux/vrange.h
+index 27d4c2e..fc0baf6 100644
+--- a/include/linux/vrange.h
++++ b/include/linux/vrange.h
+@@ -35,11 +35,16 @@ static inline int vrange_type(struct vrange *vrange)
+ }
+ 
+ extern void vrange_root_cleanup(struct vrange_root *vroot);
+-
++extern int vrange_fork(struct mm_struct *new,
++					struct mm_struct *old);
+ #else
+ 
+ static inline void vrange_root_init(struct vrange_root *vroot, int type) {};
+ static inline void vrange_root_cleanup(struct vrange_root *vroot) {};
++static inline int vrange_fork(struct mm_struct *new, struct mm_struct *old)
++{
++	return 0;
++}
+ 
+ #endif
+ #endif /* _LINIUX_VRANGE_H */
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 80d92e9..88f5b9f 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -71,6 +71,7 @@
+ #include <linux/signalfd.h>
+ #include <linux/uprobes.h>
+ #include <linux/aio.h>
++#include <linux/vrange.h>
+ 
+ #include <asm/pgtable.h>
+ #include <asm/pgalloc.h>
+@@ -379,6 +380,14 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
+ 	retval = khugepaged_fork(mm, oldmm);
+ 	if (retval)
+ 		goto out;
++	/*
++	 * Note: vrange_fork can fail in the case of ENOMEM, but
++	 * this only results in the child not having any active
++	 * volatile ranges. This is not harmful. Thus in this case
++	 * the child will not see any pages purged unless it remarks
++	 * them as volatile.
++	 */
++	vrange_fork(mm, oldmm);
+ 
+ 	prev = NULL;
+ 	for (mpnt = oldmm->mmap; mpnt; mpnt = mpnt->vm_next) {
+@@ -540,6 +549,7 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p)
+ 	mm->nr_ptes = 0;
+ 	memset(&mm->rss_stat, 0, sizeof(mm->rss_stat));
+ 	spin_lock_init(&mm->page_table_lock);
++	vrange_root_init(&mm->vroot, VRANGE_MM);
+ 	mm->free_area_cache = TASK_UNMAPPED_BASE;
+ 	mm->cached_hole_size = ~0UL;
+ 	mm_init_aio(mm);
+@@ -613,6 +623,7 @@ void mmput(struct mm_struct *mm)
+ 
+ 	if (atomic_dec_and_test(&mm->mm_users)) {
+ 		uprobe_clear_state(mm);
++		vrange_root_cleanup(&mm->vroot);
+ 		exit_aio(mm);
+ 		ksm_exit(mm);
+ 		khugepaged_exit(mm); /* must run before exit_mmap */
+diff --git a/mm/vrange.c b/mm/vrange.c
+index 2e1caf3..ccd9ff0 100644
+--- a/mm/vrange.c
++++ b/mm/vrange.c
+@@ -182,3 +182,43 @@ void vrange_root_cleanup(struct vrange_root *vroot)
+ 	vrange_unlock(vroot);
+ }
+ 
++/*
++ * It's okay to fail vrange_fork because worst case is child process
++ * can't have copied own vrange data structure so that pages in the
++ * vrange couldn't be purged. It would be better rather than failing
++ * fork.
++ */
++int vrange_fork(struct mm_struct *new_mm, struct mm_struct *old_mm)
++{
++	struct vrange_root *new, *old;
++	struct vrange *range, *new_range;
++	struct rb_node *next;
++
++	new = &new_mm->vroot;
++	old = &old_mm->vroot;
++
++	vrange_lock(old);
++	next = rb_first(&old->v_rb);
++	while (next) {
++		range = vrange_entry(next);
++		next = rb_next(next);
++		/*
++		 * We can't use GFP_KERNEL because direct reclaim's
++		 * purging logic on vrange could be deadlock by
++		 * vrange_lock.
++		 */
++		new_range = __vrange_alloc(GFP_NOIO);
++		if (!new_range)
++			goto fail;
++		__vrange_set(new_range, range->node.start,
++					range->node.last, range->purged);
++		__vrange_add(new_range, new);
++
++	}
++	vrange_unlock(old);
++	return 0;
++fail:
++	vrange_unlock(old);
++	vrange_root_cleanup(new);
++	return 0;
++}
+-- 
+1.8.3.2
+

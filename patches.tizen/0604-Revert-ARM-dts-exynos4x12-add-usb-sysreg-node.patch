@@ -1,0 +1,28 @@
+From 641461333d3c6c23561257354bdd6248014a3214 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 2 Sep 2013 15:37:11 +0900
+Subject: [PATCH 0604/1302] Revert "ARM: dts: exynos4x12: add usb sysreg node"
+
+This reverts commit 4c3885e75920886c5a4f9dd206bc2774eb345ed0.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 7c11261..77241e1 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -199,7 +199,7 @@
+ 		status = "disabled";
+ 
+ 		usbphy-sys {
+-			reg = <0x10020704 0x0c>, <0x1001021C 0x04>;
++			reg = <0x10020704 0x0c>;
+ 		};
+ 	};
+ 
+-- 
+1.8.3.2
+

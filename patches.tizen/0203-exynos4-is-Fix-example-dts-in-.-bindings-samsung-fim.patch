@@ -1,0 +1,58 @@
+From 0a79f52a79040f7f2319bb806f444ba41c47e91a Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 8 May 2013 19:24:14 +0200
+Subject: [PATCH 0203/1302] exynos4-is: Fix example dts in
+ .../bindings/samsung-fimc.txt
+
+The s5c73m3 sensor node should be off an I2C bus controller node.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../devicetree/bindings/media/samsung-fimc.txt     | 26 +++++++++++-----------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/media/samsung-fimc.txt b/Documentation/devicetree/bindings/media/samsung-fimc.txt
+index 51c776b..96312f6 100644
+--- a/Documentation/devicetree/bindings/media/samsung-fimc.txt
++++ b/Documentation/devicetree/bindings/media/samsung-fimc.txt
+@@ -127,22 +127,22 @@ Example:
+ 				};
+ 			};
+ 		};
+-	};
+ 
+-	/* MIPI CSI-2 bus IF sensor */
+-	s5c73m3: sensor@0x1a {
+-		compatible = "samsung,s5c73m3";
+-		reg = <0x1a>;
+-		vddio-supply = <...>;
++		/* MIPI CSI-2 bus IF sensor */
++		s5c73m3: sensor@0x1a {
++			compatible = "samsung,s5c73m3";
++			reg = <0x1a>;
++			vddio-supply = <...>;
+ 
+-		clock-frequency = <24000000>;
+-		clocks = <...>;
+-		clock-names = "mclk";
++			clock-frequency = <24000000>;
++			clocks = <...>;
++			clock-names = "mclk";
+ 
+-		port {
+-			s5c73m3_1: endpoint {
+-				data-lanes = <1 2 3 4>;
+-				remote-endpoint = <&csis0_ep>;
++			port {
++				s5c73m3_1: endpoint {
++					data-lanes = <1 2 3 4>;
++					remote-endpoint = <&csis0_ep>;
++				};
+ 			};
+ 		};
+ 	};
+-- 
+1.8.3.2
+

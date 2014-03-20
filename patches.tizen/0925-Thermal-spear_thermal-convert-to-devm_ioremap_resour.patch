@@ -1,0 +1,67 @@
+From 541144bd711d70ced26c2d3b00f93a381c7b870f Mon Sep 17 00:00:00 2001
+From: Zhang Rui <rui.zhang@intel.com>
+Date: Thu, 16 May 2013 02:16:20 +0000
+Subject: [PATCH 0925/1302] Thermal: spear_thermal: convert to
+ devm_ioremap_resource
+
+Use the newly introduced devm_ioremap_resource().
+
+devm_ioremap_resource() provides its own error messages; so all explicit
+error messages can be removed from the failure code paths.
+
+CC: Vincenzo Frascino <vincenzo.frascino@st.com>
+Signed-off-by: Zhang Rui <rui.zhang@intel.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/spear_thermal.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/thermal/spear_thermal.c b/drivers/thermal/spear_thermal.c
+index 1a14eaa..1b652ab 100644
+--- a/drivers/thermal/spear_thermal.c
++++ b/drivers/thermal/spear_thermal.c
+@@ -104,7 +104,7 @@ static int spear_thermal_probe(struct platform_device *pdev)
+ 	struct thermal_zone_device *spear_thermal = NULL;
+ 	struct spear_thermal_dev *stdev;
+ 	struct device_node *np = pdev->dev.of_node;
+-	struct resource *stres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	struct resource *res;
+ 	int ret = 0, val;
+ 
+ 	if (!np || !of_property_read_u32(np, "st,thermal-flags", &val)) {
+@@ -112,23 +112,23 @@ static int spear_thermal_probe(struct platform_device *pdev)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (!stres) {
+-		dev_err(&pdev->dev, "memory resource missing\n");
+-		return -ENODEV;
+-	}
+-
+ 	stdev = devm_kzalloc(&pdev->dev, sizeof(*stdev), GFP_KERNEL);
+ 	if (!stdev) {
+ 		dev_err(&pdev->dev, "kzalloc fail\n");
+ 		return -ENOMEM;
+ 	}
+ 
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res) {
++		dev_err(&pdev->dev, "memory resource missing\n");
++		return -ENODEV;
++	}
++
+ 	/* Enable thermal sensor */
+-	stdev->thermal_base = devm_ioremap(&pdev->dev, stres->start,
+-			resource_size(stres));
+-	if (!stdev->thermal_base) {
++	stdev->thermal_base = devm_ioremap_resource(dev, res);
++	if (IS_ERR(stdev->thermal_base)) {
+ 		dev_err(&pdev->dev, "ioremap failed\n");
+-		return -ENOMEM;
++		return PTR_ERR(stdev->thermal_base);
+ 	}
+ 
+ 	stdev->clk = devm_clk_get(&pdev->dev, NULL);
+-- 
+1.8.3.2
+

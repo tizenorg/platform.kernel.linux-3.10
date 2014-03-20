@@ -1,0 +1,54 @@
+From 30aee1cf6402bc6046179c564e4f8de676a30cf7 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Tue, 21 May 2013 18:28:10 +0200
+Subject: [PATCH 0241/1302] ARM: dts: exynos4412-slp_pq: Add aliases for
+ bit-banged I2C buses
+
+This patch adds missing aliases of bit-banged I2C buses required for
+numbered I2C bus registration.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 7e89324..c052fc0 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -19,6 +19,13 @@
+ 	model = "Samsung SLP PQ based on Exynos4412";
+ 	compatible = "samsung,slp_pq", "samsung,exynos4412";
+ 
++	aliases {
++		i2c8 = &i2c_ak8975;
++		i2c9 = &i2c_lps331ap;
++		i2c10 = &i2c_if_pmic;
++		i2c11 = &i2c_fuel;
++	};
++
+ 	memory {
+ 		reg =  <0x40000000 0x10000000
+ 			0x50000000 0x10000000
+@@ -139,7 +146,7 @@
+ 		};
+ 	};
+ 
+-	i2c-gpio-0 {
++	i2c_ak8975: i2c-gpio-0 {
+ 		compatible = "i2c-gpio";
+ 		gpios = <&gpy2 4 0>, <&gpy2 5 0>;
+ 		i2c-gpio,delay-us = <2>;
+@@ -155,7 +162,7 @@
+ 		};
+ 	};
+ 
+-	i2c-gpio-1 {
++	i2c_lps331ap: i2c-gpio-1 {
+ 		compatible = "i2c-gpio";
+ 		gpios = <&gpy2 2 0>, <&gpy2 3 0>;
+ 		i2c-gpio,delay-us = <2>;
+-- 
+1.8.3.2
+

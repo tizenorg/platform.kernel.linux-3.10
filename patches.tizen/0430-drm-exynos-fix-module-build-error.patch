@@ -1,0 +1,68 @@
+From 873194bdec78086cadc49779b1199046a7211541 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Mon, 22 Jul 2013 19:57:05 +0900
+Subject: [PATCH 0430/1302] drm/exynos: fix module build error
+
+Exynos drm drivers don't need to export device tables because
+all devices of Exynos drm include in one SoC so they cannot be
+plugged in.
+
+P.S. we need to create MODULE_DEVICE_TABLE in case of enabling
+the linux-hotplug system to load the driver automatically when
+the device is plugged in.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_fimd.c    | 2 --
+ drivers/gpu/drm/exynos/exynos_drm_g2d.c     | 1 -
+ drivers/gpu/drm/exynos/exynos_drm_rotator.c | 1 -
+ 3 files changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimd.c b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+index e8465f5..5c68289 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimd.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+@@ -117,7 +117,6 @@ static const struct of_device_id fimd_driver_dt_match[] = {
+ 	  .data = &exynos5_fimd_driver_data },
+ 	{},
+ };
+-MODULE_DEVICE_TABLE(of, fimd_driver_dt_match);
+ #endif
+ 
+ static inline struct fimd_driver_data *drm_fimd_get_driver_data(
+@@ -1120,7 +1119,6 @@ static struct platform_device_id fimd_driver_ids[] = {
+ 	},
+ 	{},
+ };
+-MODULE_DEVICE_TABLE(platform, fimd_driver_ids);
+ 
+ static const struct dev_pm_ops fimd_pm_ops = {
+ 	SET_SYSTEM_SLEEP_PM_OPS(fimd_suspend, fimd_resume)
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_g2d.c b/drivers/gpu/drm/exynos/exynos_drm_g2d.c
+index 7a6e310..310fbe8 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_g2d.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_g2d.c
+@@ -1526,7 +1526,6 @@ static const struct of_device_id exynos_g2d_match[] = {
+ 	{ .compatible = "samsung,exynos5250-g2d" },
+ 	{},
+ };
+-MODULE_DEVICE_TABLE(of, exynos_g2d_match);
+ #endif
+ 
+ struct platform_driver g2d_driver = {
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_rotator.c b/drivers/gpu/drm/exynos/exynos_drm_rotator.c
+index 039e23a..3d38a91 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_rotator.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_rotator.c
+@@ -645,7 +645,6 @@ static const struct of_device_id exynos_rotator_match[] = {
+ 	},
+ 	{},
+ };
+-MODULE_DEVICE_TABLE(of, exynos_rotator_match);
+ 
+ static int rotator_parse_dt_tbl(struct device_node *np, struct rot_limit *rlim)
+ {
+-- 
+1.8.3.2
+

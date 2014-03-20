@@ -1,0 +1,34 @@
+From 04e53873f327296fe4f7c71f6b279b553d0b2e97 Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Thu, 16 May 2013 10:28:10 +0000
+Subject: [PATCH 0933/1302] Thermal: kirkwood: Remove redundant use of
+ of_match_ptr
+
+'kirkwood_thermal_id_table' is always compiled in and the driver
+is dependent on OF. Hence use of of_match_ptr is unnecessary.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Cc: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
+Acked-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: Zhang Rui <rui.zhang@intel.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/kirkwood_thermal.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/thermal/kirkwood_thermal.c b/drivers/thermal/kirkwood_thermal.c
+index 7160164..3b034a0 100644
+--- a/drivers/thermal/kirkwood_thermal.c
++++ b/drivers/thermal/kirkwood_thermal.c
+@@ -115,7 +115,7 @@ static struct platform_driver kirkwood_thermal_driver = {
+ 	.driver = {
+ 		.name = "kirkwood_thermal",
+ 		.owner = THIS_MODULE,
+-		.of_match_table = of_match_ptr(kirkwood_thermal_id_table),
++		.of_match_table = kirkwood_thermal_id_table,
+ 	},
+ };
+ 
+-- 
+1.8.3.2
+

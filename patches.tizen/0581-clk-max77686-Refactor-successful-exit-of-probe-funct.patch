@@ -1,0 +1,40 @@
+From 86ef77d763c32579731a041c6f838f80dbb45a40 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 23 Aug 2013 18:56:31 +0200
+Subject: [PATCH 0581/1302] clk: max77686: Refactor successful exit of probe
+ function
+
+The function can simply return 0, without jumping to a separate label,
+which does exactly the same. This patch does not introduce any
+functional change, just a clean-up.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/clk-max77686.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/clk/clk-max77686.c b/drivers/clk/clk-max77686.c
+index e40ecdb..5d78460 100644
+--- a/drivers/clk/clk-max77686.c
++++ b/drivers/clk/clk-max77686.c
+@@ -178,7 +178,7 @@ static int max77686_clk_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, max77686_clks);
+ 
+-	goto out;
++	return 0;
+ 
+ err_clk_pmic:
+ 	clkdev_drop(max77686_clks[MAX77686_CLK_CP]->lookup);
+@@ -187,7 +187,6 @@ err_clk_cp:
+ 	clkdev_drop(max77686_clks[MAX77686_CLK_AP]->lookup);
+ 	kfree(max77686_clks[MAX77686_CLK_AP]->hw.clk);
+ err_clk_ap:
+-out:
+ 	return ret;
+ }
+ 
+-- 
+1.8.3.2
+

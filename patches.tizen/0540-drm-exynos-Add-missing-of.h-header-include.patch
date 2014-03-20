@@ -1,0 +1,95 @@
+From 5ccfab2a31bb421ca5d2ef029717702c73f479b5 Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Wed, 14 Aug 2013 16:38:01 +0530
+Subject: [PATCH 0540/1302] drm/exynos: Add missing of.h header include
+
+Add of.h explicitly for of_* APIs.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_ddc.c      | 2 +-
+ drivers/gpu/drm/exynos/exynos_drm_fimc.c | 1 +
+ drivers/gpu/drm/exynos/exynos_drm_fimd.c | 1 +
+ drivers/gpu/drm/exynos/exynos_hdmi.c     | 1 +
+ drivers/gpu/drm/exynos/exynos_hdmiphy.c  | 1 +
+ drivers/gpu/drm/exynos/exynos_mixer.c    | 1 +
+ 6 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_ddc.c b/drivers/gpu/drm/exynos/exynos_ddc.c
+index ee9b889..45f28f7 100644
+--- a/drivers/gpu/drm/exynos/exynos_ddc.c
++++ b/drivers/gpu/drm/exynos/exynos_ddc.c
+@@ -15,7 +15,7 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/i2c.h>
+-
++#include <linux/of.h>
+ 
+ #include "exynos_drm_drv.h"
+ #include "exynos_hdmi.h"
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimc.c b/drivers/gpu/drm/exynos/exynos_drm_fimc.c
+index 087f5bb..fc62c81 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimc.c
+@@ -17,6 +17,7 @@
+ #include <linux/regmap.h>
+ #include <linux/clk.h>
+ #include <linux/pm_runtime.h>
++#include <linux/of.h>
+ 
+ #include <drm/drmP.h>
+ #include <drm/exynos_drm.h>
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimd.c b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+index 2622369..0e602e3 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimd.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+@@ -16,6 +16,7 @@
+ #include <linux/kernel.h>
+ #include <linux/platform_device.h>
+ #include <linux/clk.h>
++#include <linux/of.h>
+ #include <linux/of_device.h>
+ #include <linux/pm_runtime.h>
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_hdmi.c b/drivers/gpu/drm/exynos/exynos_hdmi.c
+index 0432ede..3f5460e 100644
+--- a/drivers/gpu/drm/exynos/exynos_hdmi.c
++++ b/drivers/gpu/drm/exynos/exynos_hdmi.c
+@@ -32,6 +32,7 @@
+ #include <linux/clk.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/io.h>
++#include <linux/of.h>
+ #include <linux/of_gpio.h>
+ 
+ #include <drm/exynos_drm.h>
+diff --git a/drivers/gpu/drm/exynos/exynos_hdmiphy.c b/drivers/gpu/drm/exynos/exynos_hdmiphy.c
+index 10a2848..0113471 100644
+--- a/drivers/gpu/drm/exynos/exynos_hdmiphy.c
++++ b/drivers/gpu/drm/exynos/exynos_hdmiphy.c
+@@ -15,6 +15,7 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/i2c.h>
++#include <linux/of.h>
+ 
+ #include "exynos_drm_drv.h"
+ #include "exynos_hdmi.h"
+diff --git a/drivers/gpu/drm/exynos/exynos_mixer.c b/drivers/gpu/drm/exynos/exynos_mixer.c
+index b9cf88f..9cf165e 100644
+--- a/drivers/gpu/drm/exynos/exynos_mixer.c
++++ b/drivers/gpu/drm/exynos/exynos_mixer.c
+@@ -30,6 +30,7 @@
+ #include <linux/pm_runtime.h>
+ #include <linux/clk.h>
+ #include <linux/regulator/consumer.h>
++#include <linux/of.h>
+ 
+ #include <drm/exynos_drm.h>
+ 
+-- 
+1.8.3.2
+

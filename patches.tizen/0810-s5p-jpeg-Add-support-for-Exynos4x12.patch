@@ -1,0 +1,2588 @@
+From 5da96b9e545bcbd2fa3fa4cf8551ad0e2cbc7d69 Mon Sep 17 00:00:00 2001
+From: Jacek Anaszewski <j.anaszewski@samsung.com>
+Date: Thu, 26 Sep 2013 15:36:07 +0200
+Subject: [PATCH 0810/1302] s5p-jpeg: Add support for Exynos4x12
+
+Added support for Exynos4x12 to the s5p-jpeg driver.
+This is work-in-progress - only conversions among formats
+compatible with S5P version are currently reliable.
+
+Signed-off-by: Jacek Anaszewski <j.anaszewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/s5p-jpeg/Makefile         |   2 +-
+ drivers/media/platform/s5p-jpeg/jpeg-core.c      | 764 ++++++++++++++++++-----
+ drivers/media/platform/s5p-jpeg/jpeg-core.h      |  52 +-
+ drivers/media/platform/s5p-jpeg/jpeg-hw-exynos.c | 335 ++++++++++
+ drivers/media/platform/s5p-jpeg/jpeg-hw-exynos.h |  43 ++
+ drivers/media/platform/s5p-jpeg/jpeg-hw-s5p.h    | 354 +++++++++++
+ drivers/media/platform/s5p-jpeg/jpeg-hw.h        | 357 -----------
+ drivers/media/platform/s5p-jpeg/jpeg-regs.h      | 182 ++++++
+ 8 files changed, 1578 insertions(+), 511 deletions(-)
+ create mode 100644 drivers/media/platform/s5p-jpeg/jpeg-hw-exynos.c
+ create mode 100644 drivers/media/platform/s5p-jpeg/jpeg-hw-exynos.h
+ create mode 100644 drivers/media/platform/s5p-jpeg/jpeg-hw-s5p.h
+ delete mode 100644 drivers/media/platform/s5p-jpeg/jpeg-hw.h
+
+diff --git a/drivers/media/platform/s5p-jpeg/Makefile b/drivers/media/platform/s5p-jpeg/Makefile
+index d18cb5e..53527b9 100644
+--- a/drivers/media/platform/s5p-jpeg/Makefile
++++ b/drivers/media/platform/s5p-jpeg/Makefile
+@@ -1,2 +1,2 @@
+-s5p-jpeg-objs := jpeg-core.o
++s5p-jpeg-objs := jpeg-core.o jpeg-hw-exynos.o
+ obj-$(CONFIG_VIDEO_SAMSUNG_S5P_JPEG) += s5p-jpeg.o
+diff --git a/drivers/media/platform/s5p-jpeg/jpeg-core.c b/drivers/media/platform/s5p-jpeg/jpeg-core.c
+index cdeb128..58cf5cf 100644
+--- a/drivers/media/platform/s5p-jpeg/jpeg-core.c
++++ b/drivers/media/platform/s5p-jpeg/jpeg-core.c
+@@ -4,6 +4,7 @@
+  *		http://www.samsung.com
+  *
+  * Author: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
++ * Author: Jacek Anaszewski <j.anaszewski@samsung.com>
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -29,80 +30,148 @@
+ #include <media/videobuf2-dma-contig.h>
+ 
+ #include "jpeg-core.h"
+-#include "jpeg-hw.h"
++#include "jpeg-hw-s5p.h"
++#include "jpeg-hw-exynos.h"
++#include "jpeg-regs.h"
+ 
+-static struct s5p_jpeg_fmt formats_enc[] = {
++static struct s5p_jpeg_fmt sjpeg_formats[] = {
+ 	{
+ 		.name		= "JPEG JFIF",
+ 		.fourcc		= V4L2_PIX_FMT_JPEG,
+-		.colplanes	= 1,
+-		.types		= MEM2MEM_CAPTURE,
++		.types		= SJPEG_FMT_FLAG_ENC_CAPTURE |
++				  SJPEG_FMT_FLAG_DEC_OUTPUT |
++				  SJPEG_FMT_FLAG_S5P |
++				  SJPEG_FMT_FLAG_EXYNOS,
+ 	},
+ 	{
+ 		.name		= "YUV 4:2:2 packed, YCbYCr",
+ 		.fourcc		= V4L2_PIX_FMT_YUYV,
+ 		.depth		= 16,
+ 		.colplanes	= 1,
+-		.types		= MEM2MEM_OUTPUT,
++		.h_align	= 4,
++		.v_align	= 3,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_S5P |
++				  SJPEG_FMT_FLAG_EXYNOS,
+ 	},
+ 	{
+ 		.name		= "RGB565",
+ 		.fourcc		= V4L2_PIX_FMT_RGB565,
+ 		.depth		= 16,
+ 		.colplanes	= 1,
+-		.types		= MEM2MEM_OUTPUT,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_S5P |
++				  SJPEG_FMT_FLAG_EXYNOS,
++	},
++	{
++		.name		= "ARGB8888, 32 bpp",
++		.fourcc		= V4L2_PIX_FMT_RGB32,
++		.depth		= 32,
++		.colplanes	= 1,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_EXYNOS,
++	},
++	{
++		.name		= "YUV 4:4:4 planar, Y/CbCr",
++		.fourcc		= V4L2_PIX_FMT_NV24,
++		.depth		= 24,
++		.colplanes	= 2,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_EXYNOS,
+ 	},
+-};
+-#define NUM_FORMATS_ENC ARRAY_SIZE(formats_enc)
+-
+-static struct s5p_jpeg_fmt formats_dec[] = {
+ 	{
+-		.name		= "YUV 4:2:0 planar, YCbCr",
++		.name		= "YUV 4:4:4 planar, Y/CrCb",
++		.fourcc		= V4L2_PIX_FMT_NV42,
++		.depth		= 24,
++		.colplanes	= 2,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_EXYNOS,
++	},
++	{
++		.name		= "YUV 4:2:2 planar, Y/CrCb",
++		.fourcc		= V4L2_PIX_FMT_NV61,
++		.depth		= 16,
++		.colplanes	= 2,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_EXYNOS,
++	},
++	{
++		.name		= "YUV 4:2:2 planar, Y/CbCr",
++		.fourcc		= V4L2_PIX_FMT_NV16,
++		.depth		= 16,
++		.colplanes	= 2,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_EXYNOS,
++	},
++	{
++		.name		= "YUV 4:2:0 planar, Y/CbCr",
++		.fourcc		= V4L2_PIX_FMT_NV12,
++		.depth		= 12,
++		.colplanes	= 2,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_EXYNOS,
++	},
++	{
++		.name		= "YUV 4:2:0 planar, Y/CrCb",
++		.fourcc		= V4L2_PIX_FMT_NV21,
++		.depth		= 12,
++		.colplanes	= 2,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_EXYNOS,
++	},
++	{
++		.name		= "YUV 4:2:0 contiguous 3-planar, Y/Cb/Cr",
+ 		.fourcc		= V4L2_PIX_FMT_YUV420,
+ 		.depth		= 12,
+ 		.colplanes	= 3,
+ 		.h_align	= 4,
+ 		.v_align	= 4,
+-		.types		= MEM2MEM_CAPTURE,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_S5P |
++				  SJPEG_FMT_FLAG_EXYNOS,
+ 	},
+ 	{
+-		.name		= "YUV 4:2:2 packed, YCbYCr",
+-		.fourcc		= V4L2_PIX_FMT_YUYV,
+-		.depth		= 16,
+-		.colplanes	= 1,
+-		.h_align	= 4,
+-		.v_align	= 3,
+-		.types		= MEM2MEM_CAPTURE,
++		.name		= "YUV 4:2:0 contiguous 3-planar, Y/Cr/Cb",
++		.fourcc		= V4L2_PIX_FMT_YVU420,
++		.depth		= 12,
++		.colplanes	= 3,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_EXYNOS,
+ 	},
+ 	{
+-		.name		= "JPEG JFIF",
+-		.fourcc		= V4L2_PIX_FMT_JPEG,
++		.name		= "Gray",
++		.fourcc		= V4L2_PIX_FMT_GREY,
++		.depth		= 8,
+ 		.colplanes	= 1,
+-		.types		= MEM2MEM_OUTPUT,
++		.types		= SJPEG_FMT_FLAG_ENC_OUTPUT |
++				  SJPEG_FMT_FLAG_DEC_CAPTURE |
++				  SJPEG_FMT_FLAG_EXYNOS,
+ 	},
+ };
+-#define NUM_FORMATS_DEC ARRAY_SIZE(formats_dec)
++#define SJPEG_NUM_FORMATS ARRAY_SIZE(sjpeg_formats)
+ 
++/* Quantization and Huffman tables for Exynos 4210 IP */
+ static const unsigned char qtbl_luminance[4][64] = {
+-	{/* level 1 - high quality */
+-		 8,  6,  6,  8, 12, 14, 16, 17,
+-		 6,  6,  6,  8, 10, 13, 12, 15,
+-		 6,  6,  7,  8, 13, 14, 18, 24,
+-		 8,  8,  8, 14, 13, 19, 24, 35,
+-		12, 10, 13, 13, 20, 26, 34, 39,
+-		14, 13, 14, 19, 26, 34, 39, 39,
+-		16, 12, 18, 24, 34, 39, 39, 39,
+-		17, 15, 24, 35, 39, 39, 39, 39
+-	},
+-	{/* level 2 */
+-		12,  8,  8, 12, 17, 21, 24, 23,
+-		 8,  9,  9, 11, 15, 19, 18, 23,
+-		 8,  9, 10, 12, 19, 20, 27, 36,
+-		12, 11, 12, 21, 20, 28, 36, 53,
+-		17, 15, 19, 20, 30, 39, 51, 59,
+-		21, 19, 20, 28, 39, 51, 59, 59,
+-		24, 18, 27, 36, 51, 59, 59, 59,
+-		23, 23, 36, 53, 59, 59, 59, 59
++	{/*level 4 - low quality */
++		20, 16, 25, 39, 50, 46, 62, 68,
++		16, 18, 23, 38, 38, 53, 65, 68,
++		25, 23, 31, 38, 53, 65, 68, 68,
++		39, 38, 38, 53, 65, 68, 68, 68,
++		50, 38, 53, 65, 68, 68, 68, 68,
++		46, 53, 65, 68, 68, 68, 68, 68,
++		62, 65, 68, 68, 68, 68, 68, 68,
++		68, 68, 68, 68, 68, 68, 68, 68
+ 	},
+ 	{/* level 3 */
+ 		16, 11, 11, 16, 23, 27, 31, 30,
+@@ -114,38 +183,38 @@ static const unsigned char qtbl_luminance[4][64] = {
+ 		31, 23, 35, 47, 64, 64, 64, 64,
+ 		30, 30, 47, 64, 64, 64, 64, 64
+ 	},
+-	{/*level 4 - low quality */
+-		20, 16, 25, 39, 50, 46, 62, 68,
+-		16, 18, 23, 38, 38, 53, 65, 68,
+-		25, 23, 31, 38, 53, 65, 68, 68,
+-		39, 38, 38, 53, 65, 68, 68, 68,
+-		50, 38, 53, 65, 68, 68, 68, 68,
+-		46, 53, 65, 68, 68, 68, 68, 68,
+-		62, 65, 68, 68, 68, 68, 68, 68,
+-		68, 68, 68, 68, 68, 68, 68, 68
++	{/* level 2 */
++		12,  8,  8, 12, 17, 21, 24, 23,
++		 8,  9,  9, 11, 15, 19, 18, 23,
++		 8,  9, 10, 12, 19, 20, 27, 36,
++		12, 11, 12, 21, 20, 28, 36, 53,
++		17, 15, 19, 20, 30, 39, 51, 59,
++		21, 19, 20, 28, 39, 51, 59, 59,
++		24, 18, 27, 36, 51, 59, 59, 59,
++		23, 23, 36, 53, 59, 59, 59, 59
++	},
++	{/* level 1 - high quality */
++		 8,  6,  6,  8, 12, 14, 16, 17,
++		 6,  6,  6,  8, 10, 13, 12, 15,
++		 6,  6,  7,  8, 13, 14, 18, 24,
++		 8,  8,  8, 14, 13, 19, 24, 35,
++		12, 10, 13, 13, 20, 26, 34, 39,
++		14, 13, 14, 19, 26, 34, 39, 39,
++		16, 12, 18, 24, 34, 39, 39, 39,
++		17, 15, 24, 35, 39, 39, 39, 39
+ 	}
+ };
+ 
+ static const unsigned char qtbl_chrominance[4][64] = {
+-	{/* level 1 - high quality */
+-		 9,  8,  9, 11, 14, 17, 19, 24,
+-		 8, 10,  9, 11, 14, 13, 17, 22,
+-		 9,  9, 13, 14, 13, 15, 23, 26,
+-		11, 11, 14, 14, 15, 20, 26, 33,
+-		14, 14, 13, 15, 20, 24, 33, 39,
+-		17, 13, 15, 20, 24, 32, 39, 39,
+-		19, 17, 23, 26, 33, 39, 39, 39,
+-		24, 22, 26, 33, 39, 39, 39, 39
+-	},
+-	{/* level 2 */
+-		13, 11, 13, 16, 20, 20, 29, 37,
+-		11, 14, 14, 14, 16, 20, 26, 32,
+-		13, 14, 15, 17, 20, 23, 35, 40,
+-		16, 14, 17, 21, 23, 30, 40, 50,
+-		20, 16, 20, 23, 30, 37, 50, 59,
+-		20, 20, 23, 30, 37, 48, 59, 59,
+-		29, 26, 35, 40, 50, 59, 59, 59,
+-		37, 32, 40, 50, 59, 59, 59, 59
++	{/*level 4 - low quality */
++		21, 25, 32, 38, 54, 68, 68, 68,
++		25, 28, 24, 38, 54, 68, 68, 68,
++		32, 24, 32, 43, 66, 68, 68, 68,
++		38, 38, 43, 53, 68, 68, 68, 68,
++		54, 54, 66, 68, 68, 68, 68, 68,
++		68, 68, 68, 68, 68, 68, 68, 68,
++		68, 68, 68, 68, 68, 68, 68, 68,
++		68, 68, 68, 68, 68, 68, 68, 68
+ 	},
+ 	{/* level 3 */
+ 		17, 15, 17, 21, 20, 26, 38, 48,
+@@ -157,15 +226,25 @@ static const unsigned char qtbl_chrominance[4][64] = {
+ 		38, 35, 46, 53, 64, 64, 64, 64,
+ 		48, 43, 53, 64, 64, 64, 64, 64
+ 	},
+-	{/*level 4 - low quality */
+-		21, 25, 32, 38, 54, 68, 68, 68,
+-		25, 28, 24, 38, 54, 68, 68, 68,
+-		32, 24, 32, 43, 66, 68, 68, 68,
+-		38, 38, 43, 53, 68, 68, 68, 68,
+-		54, 54, 66, 68, 68, 68, 68, 68,
+-		68, 68, 68, 68, 68, 68, 68, 68,
+-		68, 68, 68, 68, 68, 68, 68, 68,
+-		68, 68, 68, 68, 68, 68, 68, 68
++	{/* level 2 */
++		13, 11, 13, 16, 20, 20, 29, 37,
++		11, 14, 14, 14, 16, 20, 26, 32,
++		13, 14, 15, 17, 20, 23, 35, 40,
++		16, 14, 17, 21, 23, 30, 40, 50,
++		20, 16, 20, 23, 30, 37, 50, 59,
++		20, 20, 23, 30, 37, 48, 59, 59,
++		29, 26, 35, 40, 50, 59, 59, 59,
++		37, 32, 40, 50, 59, 59, 59, 59
++	},
++	{/* level 1 - high quality */
++		 9,  8,  9, 11, 14, 17, 19, 24,
++		 8, 10,  9, 11, 14, 13, 17, 22,
++		 9,  9, 13, 14, 13, 15, 23, 26,
++		11, 11, 14, 14, 15, 20, 26, 33,
++		14, 14, 13, 15, 20, 24, 33, 39,
++		17, 13, 15, 20, 24, 32, 39, 39,
++		19, 17, 23, 26, 33, 39, 39, 39,
++		24, 22, 26, 33, 39, 39, 39, 39
+ 	}
+ };
+ 
+@@ -203,6 +282,87 @@ static const unsigned char hactblg0[162] = {
+ 	0xf9, 0xfa
+ };
+ 
++/*
++ * Quantization and Huffman tables for Exynos 4412 IP
++ * ITU standard Q-table
++ */
++const unsigned int ITU_Q_tbl[4][16] = {
++	{
++		/*level 4 - low quality */
++		0x2f181211, 0x63636363, 0x421a1512, 0x63636363,
++		0x63381a18, 0x63636363, 0x6363422f, 0x63636363,
++		0x63636363, 0x63636363, 0x63636363, 0x63636363,
++		0x63636363, 0x63636363, 0x63636363, 0x63636363
++	}, {	/* level 3 */
++		0x100a0b10, 0x3d332818, 0x130e0c0c, 0x373c3a1a,
++		0x18100d0e, 0x38453928, 0x1d16110e, 0x3e505733,
++		0x38251612, 0x4d676d44, 0x40372318, 0x5c716851,
++		0x574e4031, 0x65787967, 0x625f5c48, 0x63676470
++	}, {
++		/* level 2 FIXME: Same as index 0 */
++		0x2f181211, 0x63636363, 0x421a1512, 0x63636363,
++		0x63381a18, 0x63636363, 0x6363422f, 0x63636363,
++		0x63636363, 0x63636363, 0x63636363, 0x63636363,
++		0x63636363, 0x63636363, 0x63636363, 0x63636363
++	}, {
++		/* level 1 - high quality FIXME: Same as index 1 */
++		0x100a0b10, 0x3d332818, 0x130e0c0c, 0x373c3a1a,
++		0x18100d0e, 0x38453928, 0x1d16110e, 0x3e505733,
++		0x38251612, 0x4d676d44, 0x40372318, 0x5c716851,
++		0x574e4031, 0x65787967, 0x625f5c48, 0x63676470
++	}
++};
++
++/* ITU Luminace Huffman Table */
++static unsigned int itu_h_tbl_len_dc_luminance[4] = {
++	0x00000000, 0x00000000, 0x00000000, 0x00000c00
++};
++static unsigned int itu_h_tbl_val_dc_luminance[3] = {
++	0x03020100, 0x07060504, 0x0b0a0908
++};
++
++/* ITU Chrominace Huffman Table */
++static unsigned int itu_h_tbl_len_dc_chrominance[4] = {
++	0x00000000, 0x00000000, 0x00000000, 0x000c0000
++};
++static unsigned int itu_h_tbl_val_dc_chrominance[3] = {
++	0x03020100, 0x07060504, 0x0b0a0908
++};
++static unsigned int itu_h_tbl_len_ac_luminance[4] = {
++	0x00000000, 0x00000000, 0x00000000, 0xa2000000
++};
++
++static unsigned int itu_h_tbl_val_ac_luminance[41] = {
++	0x00030201, 0x12051104, 0x06413121, 0x07615113,
++	0x32147122, 0x08a19181, 0xc1b14223, 0xf0d15215,
++	0x72623324, 0x160a0982, 0x1a191817, 0x28272625,
++	0x35342a29, 0x39383736, 0x4544433a, 0x49484746,
++	0x5554534a, 0x59585756, 0x6564635a, 0x69686766,
++	0x7574736a, 0x79787776, 0x8584837a, 0x89888786,
++	0x9493928a, 0x98979695, 0xa3a29a99, 0xa7a6a5a4,
++	0xb2aaa9a8, 0xb6b5b4b3, 0xbab9b8b7, 0xc5c4c3c2,
++	0xc9c8c7c6, 0xd4d3d2ca, 0xd8d7d6d5, 0xe2e1dad9,
++	0xe6e5e4e3, 0xeae9e8e7, 0xf4f3f2f1, 0xf8f7f6f5,
++	0x0000faf9
++};
++
++static u32 itu_h_tbl_len_ac_chrominance[4] = {
++	0x00000000, 0x00000000, 0x51000000, 0x00000051
++};
++static u32 itu_h_tbl_val_ac_chrominance[41] = {
++	0x00030201, 0x12051104, 0x06413121, 0x07615113,
++	0x32147122, 0x08a19181, 0xc1b14223, 0xf0d15215,
++	0x72623324, 0x160a0982, 0x1a191817, 0x28272625,
++	0x35342a29, 0x39383736, 0x4544433a, 0x49484746,
++	0x5554534a, 0x59585756, 0x6564635a, 0x69686766,
++	0x7574736a, 0x79787776, 0x8584837a, 0x89888786,
++	0x9493928a, 0x98979695, 0xa3a29a99, 0xa7a6a5a4,
++	0xb2aaa9a8, 0xb6b5b4b3, 0xbab9b8b7, 0xc5c4c3c2,
++	0xc9c8c7c6, 0xd4d3d2ca, 0xd8d7d6d5, 0xe2e1dad9,
++	0xe6e5e4e3, 0xeae9e8e7, 0xf4f3f2f1, 0xf8f7f6f5,
++	0x0000faf9
++};
++
+ static inline struct s5p_jpeg_ctx *ctrl_to_ctx(struct v4l2_ctrl *c)
+ {
+ 	return container_of(c->handler, struct s5p_jpeg_ctx, ctrl_handler);
+@@ -269,6 +429,72 @@ static inline void jpeg_set_hactblg(void __iomem *regs)
+ 	jpeg_set_htbl(regs, hactblg0, S5P_JPG_HACTBLG(0), ARRAY_SIZE(hactblg0));
+ }
+ 
++void jpeg_set_enc_tbl(void __iomem *base)
++{
++	int i;
++
++	for (i = 0; i < 16; i++) {
++		writel((unsigned int)ITU_Q_tbl[0][i],
++			base + S5P_JPEG_QUAN_TBL_ENTRY_REG + (i*0x04));
++	}
++
++	for (i = 0; i < 16; i++) {
++		writel((unsigned int)ITU_Q_tbl[1][i],
++			base + S5P_JPEG_QUAN_TBL_ENTRY_REG + 0x40 + (i*0x04));
++	}
++
++	for (i = 0; i < 16; i++) {
++		writel((unsigned int)ITU_Q_tbl[2][i],
++			base + S5P_JPEG_QUAN_TBL_ENTRY_REG + 0x80 + (i*0x04));
++	}
++
++	for (i = 0; i < 16; i++) {
++		writel((unsigned int)ITU_Q_tbl[3][i],
++			base + S5P_JPEG_QUAN_TBL_ENTRY_REG + 0xc0 + (i*0x04));
++	}
++
++	for (i = 0; i < 4; i++) {
++		writel((unsigned int)itu_h_tbl_len_dc_luminance[i],
++			base + S5P_JPEG_HUFF_TBL_ENTRY_REG + (i*0x04));
++	}
++
++	for (i = 0; i < 3; i++) {
++		writel((unsigned int)itu_h_tbl_val_dc_luminance[i],
++			base + S5P_JPEG_HUFF_TBL_ENTRY_REG + 0x10 + (i*0x04));
++	}
++
++	for (i = 0; i < 4; i++) {
++		writel((unsigned int)itu_h_tbl_len_dc_chrominance[i],
++			base + S5P_JPEG_HUFF_TBL_ENTRY_REG + 0x20 + (i*0x04));
++	}
++
++	for (i = 0; i < 3; i++) {
++		writel((unsigned int)itu_h_tbl_val_dc_chrominance[i],
++			base + S5P_JPEG_HUFF_TBL_ENTRY_REG + 0x30 + (i*0x04));
++	}
++
++	for (i = 0; i < 4; i++) {
++		writel((unsigned int)itu_h_tbl_len_ac_luminance[i],
++			base + S5P_JPEG_HUFF_TBL_ENTRY_REG + 0x40 + (i*0x04));
++	}
++
++	for (i = 0; i < 41; i++) {
++		writel((unsigned int)itu_h_tbl_val_ac_luminance[i],
++			base + S5P_JPEG_HUFF_TBL_ENTRY_REG + 0x50 + (i*0x04));
++	}
++
++	for (i = 0; i < 4; i++) {
++		writel((unsigned int)itu_h_tbl_len_ac_chrominance[i],
++			base + S5P_JPEG_HUFF_TBL_ENTRY_REG + 0x100 + (i*0x04));
++	}
++
++	for (i = 0; i < 41; i++) {
++		writel((unsigned int)itu_h_tbl_val_ac_chrominance[i],
++			base + S5P_JPEG_HUFF_TBL_ENTRY_REG + 0x110 + (i*0x04));
++	}
++
++}
++
+ /*
+  * ============================================================================
+  * Device file operations
+@@ -277,8 +503,8 @@ static inline void jpeg_set_hactblg(void __iomem *regs)
+ 
+ static int queue_init(void *priv, struct vb2_queue *src_vq,
+ 		      struct vb2_queue *dst_vq);
+-static struct s5p_jpeg_fmt *s5p_jpeg_find_format(unsigned int mode,
+-						 __u32 pixelformat);
++static struct s5p_jpeg_fmt *s5p_jpeg_find_format(struct s5p_jpeg_ctx *ctx,
++				__u32 pixelformat, unsigned int fmt_type);
+ static int s5p_jpeg_controls_create(struct s5p_jpeg_ctx *ctx);
+ 
+ static int s5p_jpeg_open(struct file *file)
+@@ -286,7 +512,7 @@ static int s5p_jpeg_open(struct file *file)
+ 	struct s5p_jpeg *jpeg = video_drvdata(file);
+ 	struct video_device *vfd = video_devdata(file);
+ 	struct s5p_jpeg_ctx *ctx;
+-	struct s5p_jpeg_fmt *out_fmt;
++	struct s5p_jpeg_fmt *out_fmt, *cap_fmt;
+ 	int ret = 0;
+ 
+ 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+@@ -306,11 +532,17 @@ static int s5p_jpeg_open(struct file *file)
+ 
+ 	ctx->jpeg = jpeg;
+ 	if (vfd == jpeg->vfd_encoder) {
+-		ctx->mode = S5P_JPEG_ENCODE;
+-		out_fmt = s5p_jpeg_find_format(ctx->mode, V4L2_PIX_FMT_RGB565);
++		ctx->mode = SJPEG_ENCODE;
++		out_fmt = s5p_jpeg_find_format(ctx, V4L2_PIX_FMT_RGB565,
++							FMT_TYPE_OUTPUT);
++		cap_fmt = s5p_jpeg_find_format(ctx, V4L2_PIX_FMT_JPEG,
++							FMT_TYPE_CAPTURE);
+ 	} else {
+-		ctx->mode = S5P_JPEG_DECODE;
+-		out_fmt = s5p_jpeg_find_format(ctx->mode, V4L2_PIX_FMT_JPEG);
++		ctx->mode = SJPEG_DECODE;
++		out_fmt = s5p_jpeg_find_format(ctx, V4L2_PIX_FMT_JPEG,
++							FMT_TYPE_OUTPUT);
++		cap_fmt = s5p_jpeg_find_format(ctx, V4L2_PIX_FMT_YUYV,
++							FMT_TYPE_CAPTURE);
+ 	}
+ 
+ 	ret = s5p_jpeg_controls_create(ctx);
+@@ -324,7 +556,7 @@ static int s5p_jpeg_open(struct file *file)
+ 	}
+ 
+ 	ctx->out_q.fmt = out_fmt;
+-	ctx->cap_q.fmt = s5p_jpeg_find_format(ctx->mode, V4L2_PIX_FMT_YUYV);
++	ctx->cap_q.fmt = cap_fmt;
+ 	mutex_unlock(&jpeg->lock);
+ 	return 0;
+ 
+@@ -474,7 +706,7 @@ static int s5p_jpeg_querycap(struct file *file, void *priv,
+ {
+ 	struct s5p_jpeg_ctx *ctx = fh_to_ctx(priv);
+ 
+-	if (ctx->mode == S5P_JPEG_ENCODE) {
++	if (ctx->mode == SJPEG_ENCODE) {
+ 		strlcpy(cap->driver, S5P_JPEG_M2M_NAME " encoder",
+ 			sizeof(cap->driver));
+ 		strlcpy(cap->card, S5P_JPEG_M2M_NAME " encoder",
+@@ -496,13 +728,13 @@ static int s5p_jpeg_querycap(struct file *file, void *priv,
+ 	return 0;
+ }
+ 
+-static int enum_fmt(struct s5p_jpeg_fmt *formats, int n,
++static int enum_fmt(struct s5p_jpeg_fmt *sjpeg_formats, int n,
+ 		    struct v4l2_fmtdesc *f, u32 type)
+ {
+ 	int i, num = 0;
+ 
+ 	for (i = 0; i < n; ++i) {
+-		if (formats[i].types & type) {
++		if (sjpeg_formats[i].types & type) {
+ 			/* index-th format of type type found ? */
+ 			if (num == f->index)
+ 				break;
+@@ -516,8 +748,8 @@ static int enum_fmt(struct s5p_jpeg_fmt *formats, int n,
+ 	if (i >= n)
+ 		return -EINVAL;
+ 
+-	strlcpy(f->description, formats[i].name, sizeof(f->description));
+-	f->pixelformat = formats[i].fourcc;
++	strlcpy(f->description, sjpeg_formats[i].name, sizeof(f->description));
++	f->pixelformat = sjpeg_formats[i].fourcc;
+ 
+ 	return 0;
+ }
+@@ -527,11 +759,12 @@ static int s5p_jpeg_enum_fmt_vid_cap(struct file *file, void *priv,
+ {
+ 	struct s5p_jpeg_ctx *ctx = fh_to_ctx(priv);
+ 
+-	if (ctx->mode == S5P_JPEG_ENCODE)
+-		return enum_fmt(formats_enc, NUM_FORMATS_ENC, f,
+-				MEM2MEM_CAPTURE);
++	if (ctx->mode == SJPEG_ENCODE)
++		return enum_fmt(sjpeg_formats, SJPEG_NUM_FORMATS, f,
++				SJPEG_FMT_FLAG_ENC_CAPTURE);
+ 
+-	return enum_fmt(formats_dec, NUM_FORMATS_DEC, f, MEM2MEM_CAPTURE);
++	return enum_fmt(sjpeg_formats, SJPEG_NUM_FORMATS, f,
++					SJPEG_FMT_FLAG_DEC_CAPTURE);
+ }
+ 
+ static int s5p_jpeg_enum_fmt_vid_out(struct file *file, void *priv,
+@@ -539,11 +772,12 @@ static int s5p_jpeg_enum_fmt_vid_out(struct file *file, void *priv,
+ {
+ 	struct s5p_jpeg_ctx *ctx = fh_to_ctx(priv);
+ 
+-	if (ctx->mode == S5P_JPEG_ENCODE)
+-		return enum_fmt(formats_enc, NUM_FORMATS_ENC, f,
+-				MEM2MEM_OUTPUT);
++	if (ctx->mode == SJPEG_ENCODE)
++		return enum_fmt(sjpeg_formats, SJPEG_NUM_FORMATS, f,
++				SJPEG_FMT_FLAG_ENC_OUTPUT);
+ 
+-	return enum_fmt(formats_dec, NUM_FORMATS_DEC, f, MEM2MEM_OUTPUT);
++	return enum_fmt(sjpeg_formats, SJPEG_NUM_FORMATS, f,
++					SJPEG_FMT_FLAG_DEC_OUTPUT);
+ }
+ 
+ static struct s5p_jpeg_q_data *get_q_data(struct s5p_jpeg_ctx *ctx,
+@@ -569,7 +803,7 @@ static int s5p_jpeg_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
+ 		return -EINVAL;
+ 
+ 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE &&
+-	    ct->mode == S5P_JPEG_DECODE && !ct->hdr_parsed)
++	    ct->mode == SJPEG_DECODE && !ct->hdr_parsed)
+ 		return -EINVAL;
+ 	q_data = get_q_data(ct, f->type);
+ 	BUG_ON(q_data == NULL);
+@@ -590,29 +824,34 @@ static int s5p_jpeg_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
+ 	return 0;
+ }
+ 
+-static struct s5p_jpeg_fmt *s5p_jpeg_find_format(unsigned int mode,
+-						 u32 pixelformat)
++static struct s5p_jpeg_fmt *s5p_jpeg_find_format(struct s5p_jpeg_ctx *ctx,
++				u32 pixelformat, unsigned int fmt_type)
+ {
+-	unsigned int k;
+-	struct s5p_jpeg_fmt *formats;
+-	int n;
++	unsigned int k, fmt_flag, ver_flag;
+ 
+-	if (mode == S5P_JPEG_ENCODE) {
+-		formats = formats_enc;
+-		n = NUM_FORMATS_ENC;
+-	} else {
+-		formats = formats_dec;
+-		n = NUM_FORMATS_DEC;
+-	}
+-
+-	for (k = 0; k < n; k++) {
+-		struct s5p_jpeg_fmt *fmt = &formats[k];
+-		if (fmt->fourcc == pixelformat)
++	if (ctx->mode == SJPEG_ENCODE)
++		fmt_flag = (fmt_type == FMT_TYPE_OUTPUT) ?
++				SJPEG_FMT_FLAG_ENC_OUTPUT :
++				SJPEG_FMT_FLAG_ENC_CAPTURE;
++	else
++		fmt_flag = (fmt_type == FMT_TYPE_OUTPUT) ?
++				SJPEG_FMT_FLAG_DEC_OUTPUT :
++				SJPEG_FMT_FLAG_DEC_CAPTURE;
++
++	ver_flag = (ctx->jpeg->variant->version == SJPEG_S5P) ?
++			SJPEG_FMT_FLAG_S5P :
++			SJPEG_FMT_FLAG_EXYNOS;
++
++	for (k = 0; k < ARRAY_SIZE(sjpeg_formats); k++) {
++		struct s5p_jpeg_fmt *fmt = &sjpeg_formats[k];
++		if (fmt->fourcc == pixelformat &&
++		    fmt->types & fmt_flag &&
++		    fmt->types & ver_flag) {
+ 			return fmt;
++		}
+ 	}
+ 
+ 	return NULL;
+-
+ }
+ 
+ static void jpeg_bound_align_image(u32 *w, unsigned int wmin, unsigned int wmax,
+@@ -633,7 +872,6 @@ static void jpeg_bound_align_image(u32 *w, unsigned int wmin, unsigned int wmax,
+ 		*w += w_step;
+ 	if (*h < height && (*h + h_step) < hmax)
+ 		*h += h_step;
+-
+ }
+ 
+ static int vidioc_try_fmt(struct v4l2_format *f, struct s5p_jpeg_fmt *fmt,
+@@ -648,7 +886,7 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct s5p_jpeg_fmt *fmt,
+ 
+ 	/* V4L2 specification suggests the driver corrects the format struct
+ 	 * if any of the dimensions is unsupported */
+-	if (q_type == MEM2MEM_OUTPUT)
++	if (q_type == FMT_TYPE_OUTPUT)
+ 		jpeg_bound_align_image(&pix->width, S5P_JPEG_MIN_WIDTH,
+ 				       S5P_JPEG_MAX_WIDTH, 0,
+ 				       &pix->height, S5P_JPEG_MIN_HEIGHT,
+@@ -686,15 +924,16 @@ static int s5p_jpeg_try_fmt_vid_cap(struct file *file, void *priv,
+ 	struct s5p_jpeg_ctx *ctx = fh_to_ctx(priv);
+ 	struct s5p_jpeg_fmt *fmt;
+ 
+-	fmt = s5p_jpeg_find_format(ctx->mode, f->fmt.pix.pixelformat);
+-	if (!fmt || !(fmt->types & MEM2MEM_CAPTURE)) {
++	fmt = s5p_jpeg_find_format(ctx, f->fmt.pix.pixelformat,
++						FMT_TYPE_CAPTURE);
++	if (!fmt) {
+ 		v4l2_err(&ctx->jpeg->v4l2_dev,
+ 			 "Fourcc format (0x%08x) invalid.\n",
+ 			 f->fmt.pix.pixelformat);
+ 		return -EINVAL;
+ 	}
+ 
+-	return vidioc_try_fmt(f, fmt, ctx, MEM2MEM_CAPTURE);
++	return vidioc_try_fmt(f, fmt, ctx, FMT_TYPE_CAPTURE);
+ }
+ 
+ static int s5p_jpeg_try_fmt_vid_out(struct file *file, void *priv,
+@@ -703,15 +942,16 @@ static int s5p_jpeg_try_fmt_vid_out(struct file *file, void *priv,
+ 	struct s5p_jpeg_ctx *ctx = fh_to_ctx(priv);
+ 	struct s5p_jpeg_fmt *fmt;
+ 
+-	fmt = s5p_jpeg_find_format(ctx->mode, f->fmt.pix.pixelformat);
+-	if (!fmt || !(fmt->types & MEM2MEM_OUTPUT)) {
++	fmt = s5p_jpeg_find_format(ctx, f->fmt.pix.pixelformat,
++						FMT_TYPE_OUTPUT);
++	if (!fmt) {
+ 		v4l2_err(&ctx->jpeg->v4l2_dev,
+ 			 "Fourcc format (0x%08x) invalid.\n",
+ 			 f->fmt.pix.pixelformat);
+ 		return -EINVAL;
+ 	}
+ 
+-	return vidioc_try_fmt(f, fmt, ctx, MEM2MEM_OUTPUT);
++	return vidioc_try_fmt(f, fmt, ctx, FMT_TYPE_OUTPUT);
+ }
+ 
+ static int s5p_jpeg_s_fmt(struct s5p_jpeg_ctx *ct, struct v4l2_format *f)
+@@ -719,6 +959,7 @@ static int s5p_jpeg_s_fmt(struct s5p_jpeg_ctx *ct, struct v4l2_format *f)
+ 	struct vb2_queue *vq;
+ 	struct s5p_jpeg_q_data *q_data = NULL;
+ 	struct v4l2_pix_format *pix = &f->fmt.pix;
++	unsigned int f_type;
+ 
+ 	vq = v4l2_m2m_get_vq(ct->fh.m2m_ctx, f->type);
+ 	if (!vq)
+@@ -732,7 +973,10 @@ static int s5p_jpeg_s_fmt(struct s5p_jpeg_ctx *ct, struct v4l2_format *f)
+ 		return -EBUSY;
+ 	}
+ 
+-	q_data->fmt = s5p_jpeg_find_format(ct->mode, pix->pixelformat);
++	f_type = (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) ?
++			FMT_TYPE_OUTPUT : FMT_TYPE_CAPTURE;
++
++	q_data->fmt = s5p_jpeg_find_format(ct, pix->pixelformat, f_type);
+ 	q_data->w = pix->width;
+ 	q_data->h = pix->height;
+ 	if (q_data->fmt->fourcc != V4L2_PIX_FMT_JPEG)
+@@ -834,7 +1078,7 @@ static int s5p_jpeg_s_ctrl(struct v4l2_ctrl *ctrl)
+ 
+ 	switch (ctrl->id) {
+ 	case V4L2_CID_JPEG_COMPRESSION_QUALITY:
+-		ctx->compr_quality = S5P_JPEG_COMPR_QUAL_WORST - ctrl->val;
++		ctx->compr_quality = ctrl->val;
+ 		break;
+ 	case V4L2_CID_JPEG_RESTART_INTERVAL:
+ 		ctx->restart_interval = ctrl->val;
+@@ -860,15 +1104,16 @@ static int s5p_jpeg_controls_create(struct s5p_jpeg_ctx *ctx)
+ 
+ 	v4l2_ctrl_handler_init(&ctx->ctrl_handler, 3);
+ 
+-	if (ctx->mode == S5P_JPEG_ENCODE) {
++	if (ctx->mode == SJPEG_ENCODE) {
+ 		v4l2_ctrl_new_std(&ctx->ctrl_handler, &s5p_jpeg_ctrl_ops,
+ 				  V4L2_CID_JPEG_COMPRESSION_QUALITY,
+-				  0, 3, 1, 3);
++				  0, 3, 1, S5P_JPEG_COMPR_QUAL_WORST);
+ 
+ 		v4l2_ctrl_new_std(&ctx->ctrl_handler, &s5p_jpeg_ctrl_ops,
+ 				  V4L2_CID_JPEG_RESTART_INTERVAL,
+ 				  0, 3, 0xffff, 0);
+-		mask = ~0x06; /* 422, 420 */
++		if (ctx->jpeg->variant->version == SJPEG_S5P)
++			mask = ~0x06; /* 422, 420 */
+ 	}
+ 
+ 	ctrl = v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &s5p_jpeg_ctrl_ops,
+@@ -879,9 +1124,16 @@ static int s5p_jpeg_controls_create(struct s5p_jpeg_ctx *ctx)
+ 	if (ctx->ctrl_handler.error)
+ 		return ctx->ctrl_handler.error;
+ 
+-	if (ctx->mode == S5P_JPEG_DECODE)
++	if (ctx->mode == SJPEG_DECODE)
+ 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
+ 			V4L2_CTRL_FLAG_READ_ONLY;
++
++	v4l2_ctrl_handler_setup(&ctx->ctrl_handler);
++
++	ctx->compr_quality = S5P_JPEG_COMPR_QUAL_WORST;
++	ctx->restart_interval = 0;
++	ctx->subsampling = V4L2_JPEG_CHROMA_SUBSAMPLING_422;
++
+ 	return 0;
+ }
+ 
+@@ -902,6 +1154,7 @@ static const struct v4l2_ioctl_ops s5p_jpeg_ioctl_ops = {
+ 
+ 	.vidioc_reqbufs			= v4l2_m2m_ioctl_reqbufs,
+ 	.vidioc_querybuf		= v4l2_m2m_ioctl_querybuf,
++
+ 	.vidioc_qbuf			= v4l2_m2m_ioctl_qbuf,
+ 	.vidioc_dqbuf			= v4l2_m2m_ioctl_dqbuf,
+ 
+@@ -932,7 +1185,7 @@ static void s5p_jpeg_device_run(void *priv)
+ 	jpeg_reset(jpeg->regs);
+ 	jpeg_poweron(jpeg->regs);
+ 	jpeg_proc_mode(jpeg->regs, ctx->mode);
+-	if (ctx->mode == S5P_JPEG_ENCODE) {
++	if (ctx->mode == SJPEG_ENCODE) {
+ 		if (ctx->out_q.fmt->fourcc == V4L2_PIX_FMT_RGB565)
+ 			jpeg_input_raw_mode(jpeg->regs, S5P_JPEG_RAW_IN_565);
+ 		else
+@@ -977,7 +1230,7 @@ static void s5p_jpeg_device_run(void *priv)
+ 		jpeg_htbl_dc(jpeg->regs, 2);
+ 		jpeg_htbl_ac(jpeg->regs, 3);
+ 		jpeg_htbl_dc(jpeg->regs, 3);
+-	} else { /* S5P_JPEG_DECODE */
++	} else { /* SJPEG_DECODE */
+ 		jpeg_rst_int_enable(jpeg->regs, true);
+ 		jpeg_data_num_int_enable(jpeg->regs, true);
+ 		jpeg_final_mcu_num_int_enable(jpeg->regs, true);
+@@ -992,11 +1245,96 @@ static void s5p_jpeg_device_run(void *priv)
+ 	jpeg_start(jpeg->regs);
+ }
+ 
++static void exynos_jpeg_set_img_addr(struct s5p_jpeg_ctx *ctx)
++{
++	struct s5p_jpeg *jpeg = ctx->jpeg;
++	struct s5p_jpeg_fmt *fmt;
++	struct vb2_buffer *vb;
++	u32 pix_size, buf_addr = 0, buf_addr2 = 0, buf_addr3 = 0;
++
++	pix_size = ctx->out_q.w * ctx->out_q.h;
++
++	if (ctx->mode == SJPEG_ENCODE) {
++		vb = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
++		fmt = ctx->out_q.fmt;
++	} else {
++		vb = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
++		fmt = ctx->cap_q.fmt;
++	}
++
++	buf_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
++
++	if (fmt->colplanes == 2) {
++		buf_addr2 = (u32)(buf_addr + pix_size);
++	} else if (fmt->colplanes == 3) {
++		buf_addr2 = (u32)(buf_addr + pix_size);
++		if (fmt->fourcc == V4L2_PIX_FMT_YUV420 ||
++		    fmt->fourcc == V4L2_PIX_FMT_YVU420)
++			buf_addr3 = (u32)(buf_addr2 + (pix_size >> 2));
++		else
++			buf_addr3 = (u32)(buf_addr2 + (pix_size >> 1));
++	}
++
++	jpeg_set_frame_buf_address(jpeg->regs, fmt->fourcc, buf_addr,
++					buf_addr2, buf_addr3);
++}
++
++static void exynos_jpeg_set_jpeg_addr(struct s5p_jpeg_ctx *ctx)
++{
++	struct s5p_jpeg *jpeg = ctx->jpeg;
++	struct vb2_buffer *vb;
++	unsigned int jpeg_addr = 0;
++
++	if (ctx->mode == SJPEG_ENCODE)
++		vb = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
++	else
++		vb = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
++
++	jpeg_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
++	jpeg_set_stream_buf_address(jpeg->regs, jpeg_addr);
++}
++
++static void exynos_jpeg_device_run(void *priv)
++{
++	struct s5p_jpeg_ctx *ctx = priv;
++	struct s5p_jpeg *jpeg = ctx->jpeg;
++	unsigned int bitstream_size;
++
++	if (ctx->mode == SJPEG_ENCODE) {
++		jpeg_sw_reset(jpeg->regs);
++		jpeg_set_interrupt(jpeg->regs);
++		jpeg_set_huf_table_enable(jpeg->regs, 1);
++		jpeg_set_enc_tbl(jpeg->regs);
++		jpeg_set_encode_tbl_select(jpeg->regs, ctx->compr_quality);
++		jpeg_set_stream_size(jpeg->regs, ctx->out_q.w, ctx->out_q.h);
++		jpeg_set_enc_out_fmt(jpeg->regs, ctx->subsampling);
++		jpeg_set_img_fmt(jpeg->regs, ctx->out_q.fmt->fourcc);
++		exynos_jpeg_set_img_addr(ctx);
++		exynos_jpeg_set_jpeg_addr(ctx);
++		jpeg_set_encode_hoff_cnt(jpeg->regs, ctx->out_q.fmt->fourcc);
++	} else {
++		jpeg_sw_reset(jpeg->regs);
++		jpeg_set_interrupt(jpeg->regs);
++		exynos_jpeg_set_img_addr(ctx);
++		exynos_jpeg_set_jpeg_addr(ctx);
++		jpeg_set_img_fmt(jpeg->regs, ctx->cap_q.fmt->fourcc);
++
++		if ((ctx->out_q.size % 32) == 0)
++			bitstream_size = (ctx->out_q.size / 32);
++		else
++			bitstream_size = (ctx->out_q.size / 32) + 1;
++
++		jpeg_set_dec_bitstream_size(jpeg->regs, bitstream_size);
++	}
++
++	jpeg_set_enc_dec_mode(jpeg->regs, ctx->mode);
++}
++
+ static int s5p_jpeg_job_ready(void *priv)
+ {
+ 	struct s5p_jpeg_ctx *ctx = priv;
+ 
+-	if (ctx->mode == S5P_JPEG_DECODE)
++	if (ctx->mode == SJPEG_DECODE)
+ 		return ctx->hdr_parsed;
+ 	return 1;
+ }
+@@ -1009,6 +1347,12 @@ static struct v4l2_m2m_ops s5p_jpeg_m2m_ops = {
+ 	.device_run	= s5p_jpeg_device_run,
+ 	.job_ready	= s5p_jpeg_job_ready,
+ 	.job_abort	= s5p_jpeg_job_abort,
++}
++;
++static struct v4l2_m2m_ops exynos_jpeg_m2m_ops = {
++	.device_run	= exynos_jpeg_device_run,
++	.job_ready	= s5p_jpeg_job_ready,
++	.job_abort	= s5p_jpeg_job_abort,
+ };
+ 
+ /*
+@@ -1035,7 +1379,7 @@ static int s5p_jpeg_queue_setup(struct vb2_queue *vq,
+ 	 * header is parsed during decoding and parsed information stored
+ 	 * in the context so we do not allow another buffer to overwrite it
+ 	 */
+-	if (ctx->mode == S5P_JPEG_DECODE)
++	if (ctx->mode == SJPEG_DECODE)
+ 		count = 1;
+ 
+ 	*nbuffers = count;
+@@ -1070,7 +1414,7 @@ static void s5p_jpeg_buf_queue(struct vb2_buffer *vb)
+ {
+ 	struct s5p_jpeg_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+ 
+-	if (ctx->mode == S5P_JPEG_DECODE &&
++	if (ctx->mode == SJPEG_DECODE &&
+ 	    vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
+ 		struct s5p_jpeg_q_data tmp, *q_data;
+ 		ctx->hdr_parsed = s5p_jpeg_parse_hdr(&tmp,
+@@ -1185,11 +1529,11 @@ static irqreturn_t s5p_jpeg_irq(int irq, void *dev_id)
+ 	src_buf = v4l2_m2m_src_buf_remove(curr_ctx->fh.m2m_ctx);
+ 	dst_buf = v4l2_m2m_dst_buf_remove(curr_ctx->fh.m2m_ctx);
+ 
+-	if (curr_ctx->mode == S5P_JPEG_ENCODE)
++	if (curr_ctx->mode == SJPEG_ENCODE)
+ 		enc_jpeg_too_large = jpeg_enc_stream_stat(jpeg->regs);
+ 	timer_elapsed = jpeg_timer_stat(jpeg->regs);
+ 	op_completed = jpeg_result_stat_ok(jpeg->regs);
+-	if (curr_ctx->mode == S5P_JPEG_DECODE)
++	if (curr_ctx->mode == SJPEG_DECODE)
+ 		op_completed = op_completed && jpeg_stream_stat_ok(jpeg->regs);
+ 
+ 	if (enc_jpeg_too_large) {
+@@ -1208,7 +1552,7 @@ static irqreturn_t s5p_jpeg_irq(int irq, void *dev_id)
+ 	dst_buf->v4l2_buf.timestamp = src_buf->v4l2_buf.timestamp;
+ 
+ 	v4l2_m2m_buf_done(src_buf, state);
+-	if (curr_ctx->mode == S5P_JPEG_ENCODE)
++	if (curr_ctx->mode == SJPEG_ENCODE)
+ 		vb2_set_plane_payload(dst_buf, 0, payload_size);
+ 	v4l2_m2m_buf_done(dst_buf, state);
+ 	v4l2_m2m_job_finish(jpeg->m2m_dev, curr_ctx->fh.m2m_ctx);
+@@ -1221,6 +1565,79 @@ static irqreturn_t s5p_jpeg_irq(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
+ 
++int jpeg_int_pending(struct s5p_jpeg *ctrl)
++{
++	unsigned int    int_status;
++
++	int_status = jpeg_get_int_status(ctrl->regs);
++
++	return int_status;
++}
++
++static irqreturn_t exynos_jpeg_irq(int irq, void *priv)
++{
++	unsigned int int_status;
++	struct vb2_buffer *src_vb, *dst_vb;
++	struct s5p_jpeg *jpeg = priv;
++	struct s5p_jpeg_ctx *curr_ctx;
++	unsigned long payload_size = 0;
++
++	spin_lock(&jpeg->slock);
++
++	curr_ctx = v4l2_m2m_get_curr_priv(jpeg->m2m_dev);
++
++	src_vb = v4l2_m2m_src_buf_remove(curr_ctx->fh.m2m_ctx);
++	dst_vb = v4l2_m2m_dst_buf_remove(curr_ctx->fh.m2m_ctx);
++
++	int_status = jpeg_int_pending(jpeg);
++
++	if (int_status) {
++		switch (int_status & 0x1f) {
++		case 0x1:
++			jpeg->irq_ret = ERR_PROT;
++			break;
++		case 0x2:
++			jpeg->irq_ret = OK_ENC_OR_DEC;
++			break;
++		case 0x4:
++			jpeg->irq_ret = ERR_DEC_INVALID_FORMAT;
++			break;
++		case 0x8:
++			jpeg->irq_ret = ERR_MULTI_SCAN;
++			break;
++		case 0x10:
++			jpeg->irq_ret = ERR_FRAME;
++			break;
++		default:
++			jpeg->irq_ret = ERR_UNKNOWN;
++			break;
++		}
++	} else {
++		jpeg->irq_ret = ERR_UNKNOWN;
++	}
++
++	if (jpeg->irq_ret == OK_ENC_OR_DEC) {
++		if (curr_ctx->mode == SJPEG_ENCODE) {
++			payload_size = jpeg_get_stream_size(jpeg->regs);
++			vb2_set_plane_payload(dst_vb, 0, payload_size);
++		}
++		v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_DONE);
++		v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_DONE);
++	} else {
++		v4l2_m2m_buf_done(src_vb, VB2_BUF_STATE_ERROR);
++		v4l2_m2m_buf_done(dst_vb, VB2_BUF_STATE_ERROR);
++	}
++
++	v4l2_m2m_job_finish(jpeg->m2m_dev, curr_ctx->fh.m2m_ctx);
++	curr_ctx->subsampling = jpeg_get_frame_fmt(jpeg->regs);
++
++	spin_unlock(&jpeg->slock);
++	return IRQ_HANDLED;
++}
++
++
++static void *jpeg_get_drv_data(struct platform_device *pdev);
++
+ /*
+  * ============================================================================
+  * Driver basic infrastructure
+@@ -1231,6 +1648,7 @@ static int s5p_jpeg_probe(struct platform_device *pdev)
+ {
+ 	struct s5p_jpeg *jpeg;
+ 	struct resource *res;
++	struct v4l2_m2m_ops *samsung_jpeg_m2m_ops;
+ 	int ret;
+ 
+ 	/* JPEG IP abstraction struct */
+@@ -1238,6 +1656,8 @@ static int s5p_jpeg_probe(struct platform_device *pdev)
+ 	if (!jpeg)
+ 		return -ENOMEM;
+ 
++	jpeg->variant = jpeg_get_drv_data(pdev);
++
+ 	mutex_init(&jpeg->lock);
+ 	spin_lock_init(&jpeg->slock);
+ 	jpeg->dev = &pdev->dev;
+@@ -1256,8 +1676,8 @@ static int s5p_jpeg_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
+-	ret = devm_request_irq(&pdev->dev, jpeg->irq, s5p_jpeg_irq, 0,
+-			dev_name(&pdev->dev), jpeg);
++	ret = devm_request_irq(&pdev->dev, jpeg->irq, jpeg->variant->jpeg_irq,
++				0, dev_name(&pdev->dev), jpeg);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "cannot claim IRQ %d\n", jpeg->irq);
+ 		return ret;
+@@ -1280,8 +1700,13 @@ static int s5p_jpeg_probe(struct platform_device *pdev)
+ 		goto clk_get_rollback;
+ 	}
+ 
++	if (jpeg->variant->version == SJPEG_S5P)
++		samsung_jpeg_m2m_ops = &s5p_jpeg_m2m_ops;
++	else
++		samsung_jpeg_m2m_ops = &exynos_jpeg_m2m_ops;
++
+ 	/* mem2mem device */
+-	jpeg->m2m_dev = v4l2_m2m_init(&s5p_jpeg_m2m_ops);
++	jpeg->m2m_dev = v4l2_m2m_init(samsung_jpeg_m2m_ops);
+ 	if (IS_ERR(jpeg->m2m_dev)) {
+ 		v4l2_err(&jpeg->v4l2_dev, "Failed to init mem2mem device\n");
+ 		ret = PTR_ERR(jpeg->m2m_dev);
+@@ -1430,21 +1855,57 @@ static const struct dev_pm_ops s5p_jpeg_pm_ops = {
+ };
+ 
+ #ifdef CONFIG_OF
+-static const struct of_device_id s5p_jpeg_of_match[] = {
+-	{ .compatible = "samsung,s5pv210-jpeg" },
+-	{ .compatible = "samsung,exynos4210-jpeg" },
+-	{ /* sentinel */ },
++static struct s5p_jpeg_variant s5p_jpeg_drvdata = {
++	.version	= SJPEG_S5P,
++	.jpeg_irq	= s5p_jpeg_irq,
++};
++
++static struct s5p_jpeg_variant exynos_jpeg_drvdata = {
++	.version	= SJPEG_EXYNOS,
++	.jpeg_irq	= exynos_jpeg_irq,
+ };
+-MODULE_DEVICE_TABLE(of, s5p_jpeg_of_match);
++
++static const struct of_device_id samsung_jpeg_match[] = {
++	{
++		.compatible = "samsung,s5pv210-jpeg",
++		.data = &s5p_jpeg_drvdata,
++	}, {
++		.compatible = "samsung,exynos4210-jpeg",
++		.data = &s5p_jpeg_drvdata,
++	}, {
++		.compatible = "samsung,exynos4212-jpeg",
++		.data = &exynos_jpeg_drvdata,
++	},
++	{},
++};
++
++MODULE_DEVICE_TABLE(of, samsung_jpeg_match);
++
++static void *jpeg_get_drv_data(struct platform_device *pdev)
++{
++	struct s5p_jpeg_variant *driver_data = NULL;
++
++	if (pdev->dev.of_node) {
++		const struct of_device_id *match;
++		match = of_match_node(of_match_ptr(samsung_jpeg_match),
++					 pdev->dev.of_node);
++		if (match)
++			driver_data = (struct s5p_jpeg_variant *)match->data;
++		} else {
++			driver_data = (struct s5p_jpeg_variant *)
++				platform_get_device_id(pdev)->driver_data;
++		}
++	return driver_data;
++}
+ #endif
+ 
+ static struct platform_driver s5p_jpeg_driver = {
+ 	.probe = s5p_jpeg_probe,
+ 	.remove = s5p_jpeg_remove,
+ 	.driver = {
+-		.of_match_table = of_match_ptr(s5p_jpeg_of_match),
+-		.owner = THIS_MODULE,
+-		.name = S5P_JPEG_M2M_NAME,
++		.of_match_table	= of_match_ptr(samsung_jpeg_match),
++		.owner 		= THIS_MODULE,
++		.name 		= S5P_JPEG_M2M_NAME,
+ 		.pm = &s5p_jpeg_pm_ops,
+ 	},
+ };
+@@ -1452,5 +1913,6 @@ static struct platform_driver s5p_jpeg_driver = {
+ module_platform_driver(s5p_jpeg_driver);
+ 
+ MODULE_AUTHOR("Andrzej Pietrasiewicz <andrzej.p@samsung.com>");
++MODULE_AUTHOR("Jacek Anaszewski <j.anaszewski@samsung.com>");
+ MODULE_DESCRIPTION("Samsung JPEG codec driver");
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/media/platform/s5p-jpeg/jpeg-core.h b/drivers/media/platform/s5p-jpeg/jpeg-core.h
+index 4a4776b..f299654 100644
+--- a/drivers/media/platform/s5p-jpeg/jpeg-core.h
++++ b/drivers/media/platform/s5p-jpeg/jpeg-core.h
+@@ -13,12 +13,15 @@
+ #ifndef JPEG_CORE_H_
+ #define JPEG_CORE_H_
+ 
++#include <linux/interrupt.h>
+ #include <media/v4l2-device.h>
+ #include <media/v4l2-fh.h>
+ #include <media/v4l2-ctrls.h>
+ 
+ #define S5P_JPEG_M2M_NAME		"s5p-jpeg"
+ 
++#define JPEG_MAX_PLANE		3
++
+ /* JPEG compression quality setting */
+ #define S5P_JPEG_COMPR_QUAL_BEST	0
+ #define S5P_JPEG_COMPR_QUAL_WORST	3
+@@ -43,8 +46,45 @@
+ #define DHP				0xde
+ 
+ /* Flags that indicate a format can be used for capture/output */
+-#define MEM2MEM_CAPTURE			(1 << 0)
+-#define MEM2MEM_OUTPUT			(1 << 1)
++#define SJPEG_FMT_FLAG_ENC_CAPTURE	(1 << 0)
++#define SJPEG_FMT_FLAG_ENC_OUTPUT	(1 << 1)
++#define SJPEG_FMT_FLAG_DEC_CAPTURE	(1 << 2)
++#define SJPEG_FMT_FLAG_DEC_OUTPUT	(1 << 3)
++#define SJPEG_FMT_FLAG_S5P		(1 << 4)
++#define SJPEG_FMT_FLAG_EXYNOS		(1 << 5)
++
++#define SJPEG_ENCODE		0
++#define SJPEG_DECODE		1
++
++#define FMT_TYPE_OUTPUT		0
++#define FMT_TYPE_CAPTURE	1
++
++/* Version numbers */
++
++#define SJPEG_S5P	1
++#define SJPEG_EXYNOS	2
++
++enum exynos_jpeg_result {
++	OK_ENC_OR_DEC,
++	ERR_PROT,
++	ERR_DEC_INVALID_FORMAT,
++	ERR_MULTI_SCAN,
++	ERR_FRAME,
++	ERR_UNKNOWN,
++};
++
++enum  exynos_jpeg_img_quality_level {
++	QUALITY_LEVEL_1 = 0,	/* high */
++	QUALITY_LEVEL_2,
++	QUALITY_LEVEL_3,
++	QUALITY_LEVEL_4,	/* low */
++};
++
++enum exynos_jpeg_scale_value {
++	JPEG_SCALE_NORMAL,
++	JPEG_SCALE_2,
++	JPEG_SCALE_4,
++};
+ 
+ /**
+  * struct s5p_jpeg - JPEG IP abstraction
+@@ -71,9 +111,16 @@ struct s5p_jpeg {
+ 
+ 	void __iomem		*regs;
+ 	unsigned int		irq;
++	enum exynos_jpeg_result	irq_ret;
+ 	struct clk		*clk;
+ 	struct device		*dev;
+ 	void			*alloc_ctx;
++	struct s5p_jpeg_variant *variant;
++};
++
++struct s5p_jpeg_variant {
++	unsigned int	version;
++	irqreturn_t	(*jpeg_irq)(int irq, void *priv);
+ };
+ 
+ /**
+@@ -91,6 +138,7 @@ struct s5p_jpeg_fmt {
+ 	u32	fourcc;
+ 	int	depth;
+ 	int	colplanes;
++	int	memplanes;
+ 	int	h_align;
+ 	int	v_align;
+ 	u32	types;
+diff --git a/drivers/media/platform/s5p-jpeg/jpeg-hw-exynos.c b/drivers/media/platform/s5p-jpeg/jpeg-hw-exynos.c
+new file mode 100644
+index 0000000..7b48a17
+--- /dev/null
++++ b/drivers/media/platform/s5p-jpeg/jpeg-hw-exynos.c
+@@ -0,0 +1,335 @@
++/* Copyright (c) 2013 Samsung Electronics Co., Ltd.
++ *		http://www.samsung.com/
++ *
++ * Register interface file for JPEG driver on Exynos4x12 and 5250.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#include <linux/io.h>
++#include <linux/delay.h>
++
++#include "jpeg-hw-exynos.h"
++#include "jpeg-regs.h"
++
++void jpeg_sw_reset(void __iomem *base)
++{
++	unsigned int reg;
++
++	reg = readl(base + S5P_JPEG_CNTL_REG);
++	writel(reg & ~S5P_JPEG_SOFT_RESET_HI,
++			base + S5P_JPEG_CNTL_REG);
++
++	ndelay(100000);
++
++	writel(reg | S5P_JPEG_SOFT_RESET_HI,
++			base + S5P_JPEG_CNTL_REG);
++}
++
++void jpeg_set_enc_dec_mode(void __iomem *base, unsigned int mode)
++{
++	unsigned int reg;
++
++	reg = readl(base + S5P_JPEG_CNTL_REG);
++	/* set jpeg mod register */
++	if (mode == SJPEG_DECODE) {
++		writel((reg & S5P_JPEG_ENC_DEC_MODE_MASK) | S5P_JPEG_DEC_MODE,
++			base + S5P_JPEG_CNTL_REG);
++	} else {/* encode */
++		writel((reg & S5P_JPEG_ENC_DEC_MODE_MASK) | S5P_JPEG_ENC_MODE,
++			base + S5P_JPEG_CNTL_REG);
++	}
++}
++
++void jpeg_set_img_fmt(void __iomem *base, unsigned int img_fmt)
++{
++	unsigned int reg;
++
++	reg = readl(base + S5P_JPEG_IMG_FMT_REG) &
++			S5P_JPEG_ENC_IN_FMT_MASK; /* clear except enc format */
++
++	switch (img_fmt) {
++	case V4L2_PIX_FMT_GREY:
++		reg = reg | S5P_JPEG_ENC_GRAY_IMG | S5P_JPEG_GRAY_IMG_IP;
++		break;
++	case V4L2_PIX_FMT_RGB32:
++		reg = reg | S5P_JPEG_ENC_RGB_IMG |
++				S5P_JPEG_RGB_IP_RGB_32BIT_IMG;
++		break;
++	case V4L2_PIX_FMT_RGB565:
++		reg = reg | S5P_JPEG_ENC_RGB_IMG |
++				S5P_JPEG_RGB_IP_RGB_16BIT_IMG;
++		break;
++	case V4L2_PIX_FMT_NV24:
++		reg = reg | S5P_JPEG_ENC_YUV_444_IMG |
++				S5P_JPEG_YUV_444_IP_YUV_444_2P_IMG |
++				S5P_JPEG_SWAP_CHROMA_CbCr;
++		break;
++	case V4L2_PIX_FMT_NV42:
++		reg = reg | S5P_JPEG_ENC_YUV_444_IMG |
++				S5P_JPEG_YUV_444_IP_YUV_444_2P_IMG |
++				S5P_JPEG_SWAP_CHROMA_CrCb;
++		break;
++	case V4L2_PIX_FMT_YUYV:
++		reg = reg | S5P_JPEG_DEC_YUV_422_IMG |
++				S5P_JPEG_YUV_422_IP_YUV_422_1P_IMG |
++				S5P_JPEG_SWAP_CHROMA_CbCr;
++		break;
++
++	case V4L2_PIX_FMT_YVYU:
++		reg = reg | S5P_JPEG_DEC_YUV_422_IMG |
++				S5P_JPEG_YUV_422_IP_YUV_422_1P_IMG |
++				S5P_JPEG_SWAP_CHROMA_CrCb;
++		break;
++	case V4L2_PIX_FMT_NV16:
++		reg = reg | S5P_JPEG_DEC_YUV_422_IMG |
++				S5P_JPEG_YUV_422_IP_YUV_422_2P_IMG |
++				S5P_JPEG_SWAP_CHROMA_CbCr;
++		break;
++	case V4L2_PIX_FMT_NV61:
++		reg = reg | S5P_JPEG_DEC_YUV_422_IMG |
++				S5P_JPEG_YUV_422_IP_YUV_422_2P_IMG |
++				S5P_JPEG_SWAP_CHROMA_CrCb;
++		break;
++	case V4L2_PIX_FMT_NV12:
++		reg = reg | S5P_JPEG_DEC_YUV_420_IMG |
++				S5P_JPEG_YUV_420_IP_YUV_420_2P_IMG |
++				S5P_JPEG_SWAP_CHROMA_CbCr;
++		break;
++	case V4L2_PIX_FMT_NV21:
++		reg = reg | S5P_JPEG_DEC_YUV_420_IMG |
++				S5P_JPEG_YUV_420_IP_YUV_420_2P_IMG |
++				S5P_JPEG_SWAP_CHROMA_CrCb;
++		break;
++	case V4L2_PIX_FMT_YUV420:
++		reg = reg | S5P_JPEG_DEC_YUV_420_IMG |
++				S5P_JPEG_YUV_420_IP_YUV_420_3P_IMG |
++				S5P_JPEG_SWAP_CHROMA_CbCr;
++		break;
++	case V4L2_PIX_FMT_YVU420:
++		reg = reg | S5P_JPEG_DEC_YUV_420_IMG |
++				S5P_JPEG_YUV_420_IP_YUV_420_3P_IMG |
++				S5P_JPEG_SWAP_CHROMA_CrCb;
++		break;
++	default:
++		break;
++
++	}
++
++	writel(reg, base + S5P_JPEG_IMG_FMT_REG);
++}
++
++void jpeg_set_enc_out_fmt(void __iomem *base, unsigned int out_fmt)
++{
++	unsigned int reg;
++
++	reg = readl(base + S5P_JPEG_IMG_FMT_REG) &
++			~S5P_JPEG_ENC_FMT_MASK; /* clear enc format */
++
++	switch (out_fmt) {
++	case V4L2_JPEG_CHROMA_SUBSAMPLING_GRAY:
++		reg = reg | S5P_JPEG_ENC_FMT_GRAY;
++		break;
++
++	case V4L2_JPEG_CHROMA_SUBSAMPLING_444:
++		reg = reg | S5P_JPEG_ENC_FMT_YUV_444;
++		break;
++
++	case V4L2_JPEG_CHROMA_SUBSAMPLING_422:
++		reg = reg | S5P_JPEG_ENC_FMT_YUV_422;
++		break;
++
++	case V4L2_JPEG_CHROMA_SUBSAMPLING_420:
++		reg = reg | S5P_JPEG_ENC_FMT_YUV_420;
++		break;
++
++	default:
++		break;
++	}
++
++	writel(reg, base + S5P_JPEG_IMG_FMT_REG);
++}
++
++void jpeg_set_interrupt(void __iomem *base)
++{
++	unsigned int reg;
++
++	reg = readl(base + S5P_JPEG_INT_EN_REG) & ~S5P_JPEG_INT_EN_MASK;
++	writel(S5P_JPEG_INT_EN_ALL, base + S5P_JPEG_INT_EN_REG);
++}
++
++unsigned int jpeg_get_int_status(void __iomem *base)
++{
++	unsigned int	int_status;
++
++	int_status = readl(base + S5P_JPEG_INT_STATUS_REG);
++
++	return int_status;
++}
++
++void jpeg_set_huf_table_enable(void __iomem *base, int value)
++{
++	unsigned int	reg;
++
++	reg = readl(base + S5P_JPEG_CNTL_REG) & ~S5P_JPEG_HUF_TBL_EN;
++
++	if (value == 1)
++		writel(reg | S5P_JPEG_HUF_TBL_EN, base + S5P_JPEG_CNTL_REG);
++	else
++		writel(reg | ~S5P_JPEG_HUF_TBL_EN, base + S5P_JPEG_CNTL_REG);
++}
++
++void jpeg_set_dec_scaling(void __iomem *base,
++		enum exynos_jpeg_scale_value x_value, enum exynos_jpeg_scale_value y_value)
++{
++	unsigned int	reg;
++
++	reg = readl(base + S5P_JPEG_CNTL_REG) &
++			~(S5P_JPEG_HOR_SCALING_MASK |
++				S5P_JPEG_VER_SCALING_MASK);
++
++	writel(reg | S5P_JPEG_HOR_SCALING(x_value) |
++			S5P_JPEG_VER_SCALING(y_value),
++				base + S5P_JPEG_CNTL_REG);
++}
++
++void jpeg_set_sys_int_enable(void __iomem *base, int value)
++{
++	unsigned int	reg;
++
++	reg = readl(base + S5P_JPEG_CNTL_REG) & ~(S5P_JPEG_SYS_INT_EN);
++
++	if (value == 1)
++		writel(S5P_JPEG_SYS_INT_EN, base + S5P_JPEG_CNTL_REG);
++	else
++		writel(~S5P_JPEG_SYS_INT_EN, base + S5P_JPEG_CNTL_REG);
++}
++
++void jpeg_set_stream_buf_address(void __iomem *base, unsigned int address)
++{
++	writel(address, base + S5P_JPEG_OUT_MEM_BASE_REG);
++}
++
++void jpeg_set_stream_size(void __iomem *base,
++		unsigned int x_value, unsigned int y_value)
++{
++	writel(0x0, base + S5P_JPEG_IMG_SIZE_REG); /* clear */
++	writel(S5P_JPEG_X_SIZE(x_value) | S5P_JPEG_Y_SIZE(y_value),
++			base + S5P_JPEG_IMG_SIZE_REG);
++}
++
++void jpeg_set_frame_buf_address(void __iomem *base,
++		unsigned int fmt, unsigned int address_1p,
++		unsigned int address_2p, unsigned int address_3p)
++{
++	switch (fmt) {
++	case V4L2_PIX_FMT_GREY:
++	case V4L2_PIX_FMT_RGB565:
++	case V4L2_PIX_FMT_RGB32:
++	case V4L2_PIX_FMT_YUYV:
++	case V4L2_PIX_FMT_YVYU:
++		writel(address_1p, base + S5P_JPEG_IMG_BA_PLANE_1_REG);
++		writel(0, base + S5P_JPEG_IMG_BA_PLANE_2_REG);
++		writel(0, base + S5P_JPEG_IMG_BA_PLANE_3_REG);
++		break;
++	case V4L2_PIX_FMT_NV24:
++	case V4L2_PIX_FMT_NV42:
++	case V4L2_PIX_FMT_NV16:
++	case V4L2_PIX_FMT_NV61:
++	case V4L2_PIX_FMT_NV12:
++	case V4L2_PIX_FMT_NV21:
++		writel(address_1p, base + S5P_JPEG_IMG_BA_PLANE_1_REG);
++		writel(address_2p, base + S5P_JPEG_IMG_BA_PLANE_2_REG);
++		writel(0, base + S5P_JPEG_IMG_BA_PLANE_3_REG);
++		break;
++	case V4L2_PIX_FMT_YUV420:
++	case V4L2_PIX_FMT_YVU420:
++		writel(address_1p, base + S5P_JPEG_IMG_BA_PLANE_1_REG);
++		writel(address_2p, base + S5P_JPEG_IMG_BA_PLANE_2_REG);
++		writel(address_3p, base + S5P_JPEG_IMG_BA_PLANE_3_REG);
++		break;
++	default:
++		break;
++	}
++}
++void jpeg_set_encode_tbl_select(void __iomem *base,
++		enum exynos_jpeg_img_quality_level level)
++{
++	unsigned int	reg;
++
++	switch (level) {
++	case QUALITY_LEVEL_1:
++		reg = S5P_JPEG_Q_TBL_COMP1_0 | S5P_JPEG_Q_TBL_COMP2_0 |
++			S5P_JPEG_Q_TBL_COMP3_0 |
++			S5P_JPEG_HUFF_TBL_COMP1_AC_0_DC_1 |
++			S5P_JPEG_HUFF_TBL_COMP2_AC_0_DC_0 |
++			S5P_JPEG_HUFF_TBL_COMP3_AC_1_DC_1;
++		break;
++	case QUALITY_LEVEL_2:
++		reg = S5P_JPEG_Q_TBL_COMP1_1 | S5P_JPEG_Q_TBL_COMP2_1 |
++			S5P_JPEG_Q_TBL_COMP3_1 |
++			S5P_JPEG_HUFF_TBL_COMP1_AC_0_DC_1 |
++			S5P_JPEG_HUFF_TBL_COMP2_AC_0_DC_0 |
++			S5P_JPEG_HUFF_TBL_COMP3_AC_1_DC_1;
++		break;
++	case QUALITY_LEVEL_3:
++		reg = S5P_JPEG_Q_TBL_COMP1_2 | S5P_JPEG_Q_TBL_COMP2_2 |
++			S5P_JPEG_Q_TBL_COMP3_2 |
++			S5P_JPEG_HUFF_TBL_COMP1_AC_0_DC_1 |
++			S5P_JPEG_HUFF_TBL_COMP2_AC_0_DC_0 |
++			S5P_JPEG_HUFF_TBL_COMP3_AC_1_DC_1;
++		break;
++	case QUALITY_LEVEL_4:
++		reg = S5P_JPEG_Q_TBL_COMP1_3 | S5P_JPEG_Q_TBL_COMP2_3 |
++			S5P_JPEG_Q_TBL_COMP3_3 |
++			S5P_JPEG_HUFF_TBL_COMP1_AC_0_DC_1 |
++			S5P_JPEG_HUFF_TBL_COMP2_AC_0_DC_0 |
++			S5P_JPEG_HUFF_TBL_COMP3_AC_1_DC_1;
++		break;
++	default:
++		reg = S5P_JPEG_Q_TBL_COMP1_0 | S5P_JPEG_Q_TBL_COMP2_0 |
++			S5P_JPEG_Q_TBL_COMP3_1 |
++			S5P_JPEG_HUFF_TBL_COMP1_AC_0_DC_1 |
++			S5P_JPEG_HUFF_TBL_COMP2_AC_0_DC_0 |
++			S5P_JPEG_HUFF_TBL_COMP3_AC_1_DC_1;
++		break;
++	}
++	writel(reg, base + S5P_JPEG_TBL_SEL_REG);
++}
++
++void jpeg_set_encode_hoff_cnt(void __iomem *base, unsigned int fmt)
++{
++	if (fmt == V4L2_PIX_FMT_GREY)
++		writel(0xd2, base + S5P_JPEG_HUFF_CNT_REG);
++	else
++		writel(0x1a2, base + S5P_JPEG_HUFF_CNT_REG);
++}
++
++unsigned int jpeg_get_stream_size(void __iomem *base)
++{
++	unsigned int size;
++
++	size = readl(base + S5P_JPEG_BITSTREAM_SIZE_REG);
++	return size;
++}
++
++void jpeg_set_dec_bitstream_size(void __iomem *base, unsigned int size)
++{
++	writel(size, base + S5P_JPEG_BITSTREAM_SIZE_REG);
++}
++
++void jpeg_get_frame_size(void __iomem *base,
++			unsigned int *width, unsigned int *height)
++{
++	*width = (readl(base + S5P_JPEG_DECODE_XY_SIZE_REG) &
++				S5P_JPEG_DECODED_SIZE_MASK);
++	*height = (readl(base + S5P_JPEG_DECODE_XY_SIZE_REG) >> 16) &
++				S5P_JPEG_DECODED_SIZE_MASK;
++}
++
++unsigned int jpeg_get_frame_fmt(void __iomem *base)
++{
++	return readl(base + S5P_JPEG_DECODE_IMG_FMT_REG) &
++				EXYNOS_JPEG_DECODED_IMG_FMT_MASK;
++}
+diff --git a/drivers/media/platform/s5p-jpeg/jpeg-hw-exynos.h b/drivers/media/platform/s5p-jpeg/jpeg-hw-exynos.h
+new file mode 100644
+index 0000000..7ec3def
+--- /dev/null
++++ b/drivers/media/platform/s5p-jpeg/jpeg-hw-exynos.h
+@@ -0,0 +1,43 @@
++/* Copyright (c) 2013 Samsung Electronics Co., Ltd.
++ *		http://www.samsung.com/
++ *
++ * Header file of the register interface for JPEG driver on Exynos4x12 and 5250.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++
++#ifndef __JPEG_REGS_H__
++#define __JPEG_REGS_H__
++
++#include "jpeg-core.h"
++
++void jpeg_sw_reset(void __iomem *base);
++void jpeg_set_enc_dec_mode(void __iomem *base, unsigned int mode);
++void jpeg_set_img_fmt(void __iomem *base, unsigned int img_fmt);
++void jpeg_set_enc_out_fmt(void __iomem *base, unsigned int out_fmt);
++void jpeg_set_enc_tbl(void __iomem *base);
++void jpeg_set_interrupt(void __iomem *base);
++unsigned int jpeg_get_int_status(void __iomem *base);
++void jpeg_set_huf_table_enable(void __iomem *base, int value);
++void jpeg_set_dec_scaling(void __iomem *base,
++		enum exynos_jpeg_scale_value x_value,
++		enum exynos_jpeg_scale_value y_value);
++void jpeg_set_sys_int_enable(void __iomem *base, int value);
++void jpeg_set_stream_buf_address(void __iomem *base, unsigned int address);
++void jpeg_set_stream_size(void __iomem *base,
++		unsigned int x_value, unsigned int y_value);
++void jpeg_set_frame_buf_address(void __iomem *base,
++		unsigned int fmt, unsigned int address,
++		unsigned int address_2p, unsigned int address_3p);
++void jpeg_set_encode_tbl_select(void __iomem *base,
++		enum exynos_jpeg_img_quality_level level);
++void jpeg_set_encode_hoff_cnt(void __iomem *base, unsigned int fmt);
++void jpeg_set_dec_bitstream_size(void __iomem *base, unsigned int size);
++unsigned int jpeg_get_stream_size(void __iomem *base);
++void jpeg_get_frame_size(void __iomem *base,
++			unsigned int *width, unsigned int *height);
++unsigned int jpeg_get_frame_fmt(void __iomem *base);
++
++#endif /* __JPEG_REGS_H__ */
+diff --git a/drivers/media/platform/s5p-jpeg/jpeg-hw-s5p.h b/drivers/media/platform/s5p-jpeg/jpeg-hw-s5p.h
+new file mode 100644
+index 0000000..4ec5266
+--- /dev/null
++++ b/drivers/media/platform/s5p-jpeg/jpeg-hw-s5p.h
+@@ -0,0 +1,354 @@
++/* linux/drivers/media/platform/s5p-jpeg/jpeg-hw.h
++ *
++ * Copyright (c) 2011 Samsung Electronics Co., Ltd.
++ *		http://www.samsung.com
++ *
++ * Author: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#ifndef JPEG_HW_H_
++#define JPEG_HW_H_
++
++#include <linux/io.h>
++#include <linux/videodev2.h>
++
++#include "jpeg-regs.h"
++
++#define S5P_JPEG_MIN_WIDTH		32
++#define S5P_JPEG_MIN_HEIGHT		32
++#define S5P_JPEG_MAX_WIDTH		8192
++#define S5P_JPEG_MAX_HEIGHT		8192
++#define S5P_JPEG_RAW_IN_565		0
++#define S5P_JPEG_RAW_IN_422		1
++#define S5P_JPEG_RAW_OUT_422		0
++#define S5P_JPEG_RAW_OUT_420		1
++
++static inline void jpeg_reset(void __iomem *regs)
++{
++	unsigned long reg;
++
++	writel(1, regs + S5P_JPG_SW_RESET);
++	reg = readl(regs + S5P_JPG_SW_RESET);
++	/* no other way but polling for when JPEG IP becomes operational */
++	while (reg != 0) {
++		cpu_relax();
++		reg = readl(regs + S5P_JPG_SW_RESET);
++	}
++}
++
++static inline void jpeg_poweron(void __iomem *regs)
++{
++	writel(S5P_POWER_ON, regs + S5P_JPGCLKCON);
++}
++
++static inline void jpeg_input_raw_mode(void __iomem *regs, unsigned long mode)
++{
++	unsigned long reg, m;
++
++	m = S5P_MOD_SEL_565;
++	if (mode == S5P_JPEG_RAW_IN_565)
++		m = S5P_MOD_SEL_565;
++	else if (mode == S5P_JPEG_RAW_IN_422)
++		m = S5P_MOD_SEL_422;
++
++	reg = readl(regs + S5P_JPGCMOD);
++	reg &= ~S5P_MOD_SEL_MASK;
++	reg |= m;
++	writel(reg, regs + S5P_JPGCMOD);
++}
++
++static inline void jpeg_input_raw_y16(void __iomem *regs, bool y16)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPGCMOD);
++	if (y16)
++		reg |= S5P_MODE_Y16;
++	else
++		reg &= ~S5P_MODE_Y16_MASK;
++	writel(reg, regs + S5P_JPGCMOD);
++}
++
++static inline void jpeg_proc_mode(void __iomem *regs, unsigned long mode)
++{
++	unsigned long reg, m;
++
++	m = S5P_PROC_MODE_DECOMPR;
++	if (mode == SJPEG_ENCODE)
++		m = S5P_PROC_MODE_COMPR;
++	else
++		m = S5P_PROC_MODE_DECOMPR;
++	reg = readl(regs + S5P_JPGMOD);
++	reg &= ~S5P_PROC_MODE_MASK;
++	reg |= m;
++	writel(reg, regs + S5P_JPGMOD);
++}
++
++static inline void jpeg_subsampling_mode(void __iomem *regs, unsigned int mode)
++{
++	unsigned long reg, m;
++
++	if (mode == V4L2_JPEG_CHROMA_SUBSAMPLING_420)
++		m = S5P_SUBSAMPLING_MODE_420;
++	else
++		m = S5P_SUBSAMPLING_MODE_422;
++
++	reg = readl(regs + S5P_JPGMOD);
++	reg &= ~S5P_SUBSAMPLING_MODE_MASK;
++	reg |= m;
++	writel(reg, regs + S5P_JPGMOD);
++}
++
++static inline unsigned int jpeg_get_subsampling_mode(void __iomem *regs)
++{
++	return readl(regs + S5P_JPGMOD) & S5P_SUBSAMPLING_MODE_MASK;
++}
++
++static inline void jpeg_dri(void __iomem *regs, unsigned int dri)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPGDRI_U);
++	reg &= ~0xff;
++	reg |= (dri >> 8) & 0xff;
++	writel(reg, regs + S5P_JPGDRI_U);
++
++	reg = readl(regs + S5P_JPGDRI_L);
++	reg &= ~0xff;
++	reg |= dri & 0xff;
++	writel(reg, regs + S5P_JPGDRI_L);
++}
++
++static inline void jpeg_qtbl(void __iomem *regs, unsigned int t, unsigned int n)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPG_QTBL);
++	reg &= ~S5P_QT_NUMt_MASK(t);
++	reg |= (n << S5P_QT_NUMt_SHIFT(t)) & S5P_QT_NUMt_MASK(t);
++	writel(reg, regs + S5P_JPG_QTBL);
++}
++
++static inline void jpeg_htbl_ac(void __iomem *regs, unsigned int t)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPG_HTBL);
++	reg &= ~S5P_HT_NUMt_AC_MASK(t);
++	/* this driver uses table 0 for all color components */
++	reg |= (0 << S5P_HT_NUMt_AC_SHIFT(t)) & S5P_HT_NUMt_AC_MASK(t);
++	writel(reg, regs + S5P_JPG_HTBL);
++}
++
++static inline void jpeg_htbl_dc(void __iomem *regs, unsigned int t)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPG_HTBL);
++	reg &= ~S5P_HT_NUMt_DC_MASK(t);
++	/* this driver uses table 0 for all color components */
++	reg |= (0 << S5P_HT_NUMt_DC_SHIFT(t)) & S5P_HT_NUMt_DC_MASK(t);
++	writel(reg, regs + S5P_JPG_HTBL);
++}
++
++static inline void jpeg_y(void __iomem *regs, unsigned int y)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPGY_U);
++	reg &= ~0xff;
++	reg |= (y >> 8) & 0xff;
++	writel(reg, regs + S5P_JPGY_U);
++
++	reg = readl(regs + S5P_JPGY_L);
++	reg &= ~0xff;
++	reg |= y & 0xff;
++	writel(reg, regs + S5P_JPGY_L);
++}
++
++static inline void jpeg_x(void __iomem *regs, unsigned int x)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPGX_U);
++	reg &= ~0xff;
++	reg |= (x >> 8) & 0xff;
++	writel(reg, regs + S5P_JPGX_U);
++
++	reg = readl(regs + S5P_JPGX_L);
++	reg &= ~0xff;
++	reg |= x & 0xff;
++	writel(reg, regs + S5P_JPGX_L);
++}
++
++static inline void jpeg_rst_int_enable(void __iomem *regs, bool enable)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPGINTSE);
++	reg &= ~S5P_RSTm_INT_EN_MASK;
++	if (enable)
++		reg |= S5P_RSTm_INT_EN;
++	writel(reg, regs + S5P_JPGINTSE);
++}
++
++static inline void jpeg_data_num_int_enable(void __iomem *regs, bool enable)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPGINTSE);
++	reg &= ~S5P_DATA_NUM_INT_EN_MASK;
++	if (enable)
++		reg |= S5P_DATA_NUM_INT_EN;
++	writel(reg, regs + S5P_JPGINTSE);
++}
++
++static inline void jpeg_final_mcu_num_int_enable(void __iomem *regs, bool enbl)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPGINTSE);
++	reg &= ~S5P_FINAL_MCU_NUM_INT_EN_MASK;
++	if (enbl)
++		reg |= S5P_FINAL_MCU_NUM_INT_EN;
++	writel(reg, regs + S5P_JPGINTSE);
++}
++
++static inline void jpeg_timer_enable(void __iomem *regs, unsigned long val)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPG_TIMER_SE);
++	reg |= S5P_TIMER_INT_EN;
++	reg &= ~S5P_TIMER_INIT_MASK;
++	reg |= val & S5P_TIMER_INIT_MASK;
++	writel(reg, regs + S5P_JPG_TIMER_SE);
++}
++
++static inline void jpeg_timer_disable(void __iomem *regs)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPG_TIMER_SE);
++	reg &= ~S5P_TIMER_INT_EN_MASK;
++	writel(reg, regs + S5P_JPG_TIMER_SE);
++}
++
++static inline int jpeg_timer_stat(void __iomem *regs)
++{
++	return (int)((readl(regs + S5P_JPG_TIMER_ST) & S5P_TIMER_INT_STAT_MASK)
++		     >> S5P_TIMER_INT_STAT_SHIFT);
++}
++
++static inline void jpeg_clear_timer_stat(void __iomem *regs)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPG_TIMER_SE);
++	reg &= ~S5P_TIMER_INT_STAT_MASK;
++	writel(reg, regs + S5P_JPG_TIMER_SE);
++}
++
++static inline void jpeg_enc_stream_int(void __iomem *regs, unsigned long size)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPG_ENC_STREAM_INTSE);
++	reg &= ~S5P_ENC_STREAM_BOUND_MASK;
++	reg |= S5P_ENC_STREAM_INT_EN;
++	reg |= size & S5P_ENC_STREAM_BOUND_MASK;
++	writel(reg, regs + S5P_JPG_ENC_STREAM_INTSE);
++}
++
++static inline int jpeg_enc_stream_stat(void __iomem *regs)
++{
++	return (int)(readl(regs + S5P_JPG_ENC_STREAM_INTST) &
++		     S5P_ENC_STREAM_INT_STAT_MASK);
++}
++
++static inline void jpeg_clear_enc_stream_stat(void __iomem *regs)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPG_ENC_STREAM_INTSE);
++	reg &= ~S5P_ENC_STREAM_INT_MASK;
++	writel(reg, regs + S5P_JPG_ENC_STREAM_INTSE);
++}
++
++static inline void jpeg_outform_raw(void __iomem *regs, unsigned long format)
++{
++	unsigned long reg, f;
++
++	f = S5P_DEC_OUT_FORMAT_422;
++	if (format == S5P_JPEG_RAW_OUT_422)
++		f = S5P_DEC_OUT_FORMAT_422;
++	else if (format == S5P_JPEG_RAW_OUT_420)
++		f = S5P_DEC_OUT_FORMAT_420;
++	reg = readl(regs + S5P_JPG_OUTFORM);
++	reg &= ~S5P_DEC_OUT_FORMAT_MASK;
++	reg |= f;
++	writel(reg, regs + S5P_JPG_OUTFORM);
++}
++
++static inline void jpeg_jpgadr(void __iomem *regs, unsigned long addr)
++{
++	writel(addr, regs + S5P_JPG_JPGADR);
++}
++
++static inline void jpeg_imgadr(void __iomem *regs, unsigned long addr)
++{
++	writel(addr, regs + S5P_JPG_IMGADR);
++}
++
++static inline void jpeg_coef(void __iomem *regs, unsigned int i,
++			     unsigned int j, unsigned int coef)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPG_COEF(i));
++	reg &= ~S5P_COEFn_MASK(j);
++	reg |= (coef << S5P_COEFn_SHIFT(j)) & S5P_COEFn_MASK(j);
++	writel(reg, regs + S5P_JPG_COEF(i));
++}
++
++static inline void jpeg_start(void __iomem *regs)
++{
++	writel(1, regs + S5P_JSTART);
++}
++
++static inline int jpeg_result_stat_ok(void __iomem *regs)
++{
++	return (int)((readl(regs + S5P_JPGINTST) & S5P_RESULT_STAT_MASK)
++		     >> S5P_RESULT_STAT_SHIFT);
++}
++
++static inline int jpeg_stream_stat_ok(void __iomem *regs)
++{
++	return !(int)((readl(regs + S5P_JPGINTST) & S5P_STREAM_STAT_MASK)
++		      >> S5P_STREAM_STAT_SHIFT);
++}
++
++static inline void jpeg_clear_int(void __iomem *regs)
++{
++	unsigned long reg;
++
++	reg = readl(regs + S5P_JPGINTST);
++	writel(S5P_INT_RELEASE, regs + S5P_JPGCOM);
++	reg = readl(regs + S5P_JPGOPR);
++}
++
++static inline unsigned int jpeg_compressed_size(void __iomem *regs)
++{
++	unsigned long jpeg_size = 0;
++
++	jpeg_size |= (readl(regs + S5P_JPGCNT_U) & 0xff) << 16;
++	jpeg_size |= (readl(regs + S5P_JPGCNT_M) & 0xff) << 8;
++	jpeg_size |= (readl(regs + S5P_JPGCNT_L) & 0xff);
++
++	return (unsigned int)jpeg_size;
++}
++
++#endif /* JPEG_HW_H_ */
+diff --git a/drivers/media/platform/s5p-jpeg/jpeg-hw.h b/drivers/media/platform/s5p-jpeg/jpeg-hw.h
+deleted file mode 100644
+index b47e887..0000000
+--- a/drivers/media/platform/s5p-jpeg/jpeg-hw.h
++++ /dev/null
+@@ -1,357 +0,0 @@
+-/* linux/drivers/media/platform/s5p-jpeg/jpeg-hw.h
+- *
+- * Copyright (c) 2011 Samsung Electronics Co., Ltd.
+- *		http://www.samsung.com
+- *
+- * Author: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- */
+-#ifndef JPEG_HW_H_
+-#define JPEG_HW_H_
+-
+-#include <linux/io.h>
+-#include <linux/videodev2.h>
+-
+-#include "jpeg-hw.h"
+-#include "jpeg-regs.h"
+-
+-#define S5P_JPEG_MIN_WIDTH		32
+-#define S5P_JPEG_MIN_HEIGHT		32
+-#define S5P_JPEG_MAX_WIDTH		8192
+-#define S5P_JPEG_MAX_HEIGHT		8192
+-#define S5P_JPEG_ENCODE			0
+-#define S5P_JPEG_DECODE			1
+-#define S5P_JPEG_RAW_IN_565		0
+-#define S5P_JPEG_RAW_IN_422		1
+-#define S5P_JPEG_RAW_OUT_422		0
+-#define S5P_JPEG_RAW_OUT_420		1
+-
+-static inline void jpeg_reset(void __iomem *regs)
+-{
+-	unsigned long reg;
+-
+-	writel(1, regs + S5P_JPG_SW_RESET);
+-	reg = readl(regs + S5P_JPG_SW_RESET);
+-	/* no other way but polling for when JPEG IP becomes operational */
+-	while (reg != 0) {
+-		cpu_relax();
+-		reg = readl(regs + S5P_JPG_SW_RESET);
+-	}
+-}
+-
+-static inline void jpeg_poweron(void __iomem *regs)
+-{
+-	writel(S5P_POWER_ON, regs + S5P_JPGCLKCON);
+-}
+-
+-static inline void jpeg_input_raw_mode(void __iomem *regs, unsigned long mode)
+-{
+-	unsigned long reg, m;
+-
+-	m = S5P_MOD_SEL_565;
+-	if (mode == S5P_JPEG_RAW_IN_565)
+-		m = S5P_MOD_SEL_565;
+-	else if (mode == S5P_JPEG_RAW_IN_422)
+-		m = S5P_MOD_SEL_422;
+-
+-	reg = readl(regs + S5P_JPGCMOD);
+-	reg &= ~S5P_MOD_SEL_MASK;
+-	reg |= m;
+-	writel(reg, regs + S5P_JPGCMOD);
+-}
+-
+-static inline void jpeg_input_raw_y16(void __iomem *regs, bool y16)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPGCMOD);
+-	if (y16)
+-		reg |= S5P_MODE_Y16;
+-	else
+-		reg &= ~S5P_MODE_Y16_MASK;
+-	writel(reg, regs + S5P_JPGCMOD);
+-}
+-
+-static inline void jpeg_proc_mode(void __iomem *regs, unsigned long mode)
+-{
+-	unsigned long reg, m;
+-
+-	m = S5P_PROC_MODE_DECOMPR;
+-	if (mode == S5P_JPEG_ENCODE)
+-		m = S5P_PROC_MODE_COMPR;
+-	else
+-		m = S5P_PROC_MODE_DECOMPR;
+-	reg = readl(regs + S5P_JPGMOD);
+-	reg &= ~S5P_PROC_MODE_MASK;
+-	reg |= m;
+-	writel(reg, regs + S5P_JPGMOD);
+-}
+-
+-static inline void jpeg_subsampling_mode(void __iomem *regs, unsigned int mode)
+-{
+-	unsigned long reg, m;
+-
+-	if (mode == V4L2_JPEG_CHROMA_SUBSAMPLING_420)
+-		m = S5P_SUBSAMPLING_MODE_420;
+-	else
+-		m = S5P_SUBSAMPLING_MODE_422;
+-
+-	reg = readl(regs + S5P_JPGMOD);
+-	reg &= ~S5P_SUBSAMPLING_MODE_MASK;
+-	reg |= m;
+-	writel(reg, regs + S5P_JPGMOD);
+-}
+-
+-static inline unsigned int jpeg_get_subsampling_mode(void __iomem *regs)
+-{
+-	return readl(regs + S5P_JPGMOD) & S5P_SUBSAMPLING_MODE_MASK;
+-}
+-
+-static inline void jpeg_dri(void __iomem *regs, unsigned int dri)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPGDRI_U);
+-	reg &= ~0xff;
+-	reg |= (dri >> 8) & 0xff;
+-	writel(reg, regs + S5P_JPGDRI_U);
+-
+-	reg = readl(regs + S5P_JPGDRI_L);
+-	reg &= ~0xff;
+-	reg |= dri & 0xff;
+-	writel(reg, regs + S5P_JPGDRI_L);
+-}
+-
+-static inline void jpeg_qtbl(void __iomem *regs, unsigned int t, unsigned int n)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPG_QTBL);
+-	reg &= ~S5P_QT_NUMt_MASK(t);
+-	reg |= (n << S5P_QT_NUMt_SHIFT(t)) & S5P_QT_NUMt_MASK(t);
+-	writel(reg, regs + S5P_JPG_QTBL);
+-}
+-
+-static inline void jpeg_htbl_ac(void __iomem *regs, unsigned int t)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPG_HTBL);
+-	reg &= ~S5P_HT_NUMt_AC_MASK(t);
+-	/* this driver uses table 0 for all color components */
+-	reg |= (0 << S5P_HT_NUMt_AC_SHIFT(t)) & S5P_HT_NUMt_AC_MASK(t);
+-	writel(reg, regs + S5P_JPG_HTBL);
+-}
+-
+-static inline void jpeg_htbl_dc(void __iomem *regs, unsigned int t)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPG_HTBL);
+-	reg &= ~S5P_HT_NUMt_DC_MASK(t);
+-	/* this driver uses table 0 for all color components */
+-	reg |= (0 << S5P_HT_NUMt_DC_SHIFT(t)) & S5P_HT_NUMt_DC_MASK(t);
+-	writel(reg, regs + S5P_JPG_HTBL);
+-}
+-
+-static inline void jpeg_y(void __iomem *regs, unsigned int y)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPGY_U);
+-	reg &= ~0xff;
+-	reg |= (y >> 8) & 0xff;
+-	writel(reg, regs + S5P_JPGY_U);
+-
+-	reg = readl(regs + S5P_JPGY_L);
+-	reg &= ~0xff;
+-	reg |= y & 0xff;
+-	writel(reg, regs + S5P_JPGY_L);
+-}
+-
+-static inline void jpeg_x(void __iomem *regs, unsigned int x)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPGX_U);
+-	reg &= ~0xff;
+-	reg |= (x >> 8) & 0xff;
+-	writel(reg, regs + S5P_JPGX_U);
+-
+-	reg = readl(regs + S5P_JPGX_L);
+-	reg &= ~0xff;
+-	reg |= x & 0xff;
+-	writel(reg, regs + S5P_JPGX_L);
+-}
+-
+-static inline void jpeg_rst_int_enable(void __iomem *regs, bool enable)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPGINTSE);
+-	reg &= ~S5P_RSTm_INT_EN_MASK;
+-	if (enable)
+-		reg |= S5P_RSTm_INT_EN;
+-	writel(reg, regs + S5P_JPGINTSE);
+-}
+-
+-static inline void jpeg_data_num_int_enable(void __iomem *regs, bool enable)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPGINTSE);
+-	reg &= ~S5P_DATA_NUM_INT_EN_MASK;
+-	if (enable)
+-		reg |= S5P_DATA_NUM_INT_EN;
+-	writel(reg, regs + S5P_JPGINTSE);
+-}
+-
+-static inline void jpeg_final_mcu_num_int_enable(void __iomem *regs, bool enbl)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPGINTSE);
+-	reg &= ~S5P_FINAL_MCU_NUM_INT_EN_MASK;
+-	if (enbl)
+-		reg |= S5P_FINAL_MCU_NUM_INT_EN;
+-	writel(reg, regs + S5P_JPGINTSE);
+-}
+-
+-static inline void jpeg_timer_enable(void __iomem *regs, unsigned long val)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPG_TIMER_SE);
+-	reg |= S5P_TIMER_INT_EN;
+-	reg &= ~S5P_TIMER_INIT_MASK;
+-	reg |= val & S5P_TIMER_INIT_MASK;
+-	writel(reg, regs + S5P_JPG_TIMER_SE);
+-}
+-
+-static inline void jpeg_timer_disable(void __iomem *regs)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPG_TIMER_SE);
+-	reg &= ~S5P_TIMER_INT_EN_MASK;
+-	writel(reg, regs + S5P_JPG_TIMER_SE);
+-}
+-
+-static inline int jpeg_timer_stat(void __iomem *regs)
+-{
+-	return (int)((readl(regs + S5P_JPG_TIMER_ST) & S5P_TIMER_INT_STAT_MASK)
+-		     >> S5P_TIMER_INT_STAT_SHIFT);
+-}
+-
+-static inline void jpeg_clear_timer_stat(void __iomem *regs)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPG_TIMER_SE);
+-	reg &= ~S5P_TIMER_INT_STAT_MASK;
+-	writel(reg, regs + S5P_JPG_TIMER_SE);
+-}
+-
+-static inline void jpeg_enc_stream_int(void __iomem *regs, unsigned long size)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPG_ENC_STREAM_INTSE);
+-	reg &= ~S5P_ENC_STREAM_BOUND_MASK;
+-	reg |= S5P_ENC_STREAM_INT_EN;
+-	reg |= size & S5P_ENC_STREAM_BOUND_MASK;
+-	writel(reg, regs + S5P_JPG_ENC_STREAM_INTSE);
+-}
+-
+-static inline int jpeg_enc_stream_stat(void __iomem *regs)
+-{
+-	return (int)(readl(regs + S5P_JPG_ENC_STREAM_INTST) &
+-		     S5P_ENC_STREAM_INT_STAT_MASK);
+-}
+-
+-static inline void jpeg_clear_enc_stream_stat(void __iomem *regs)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPG_ENC_STREAM_INTSE);
+-	reg &= ~S5P_ENC_STREAM_INT_MASK;
+-	writel(reg, regs + S5P_JPG_ENC_STREAM_INTSE);
+-}
+-
+-static inline void jpeg_outform_raw(void __iomem *regs, unsigned long format)
+-{
+-	unsigned long reg, f;
+-
+-	f = S5P_DEC_OUT_FORMAT_422;
+-	if (format == S5P_JPEG_RAW_OUT_422)
+-		f = S5P_DEC_OUT_FORMAT_422;
+-	else if (format == S5P_JPEG_RAW_OUT_420)
+-		f = S5P_DEC_OUT_FORMAT_420;
+-	reg = readl(regs + S5P_JPG_OUTFORM);
+-	reg &= ~S5P_DEC_OUT_FORMAT_MASK;
+-	reg |= f;
+-	writel(reg, regs + S5P_JPG_OUTFORM);
+-}
+-
+-static inline void jpeg_jpgadr(void __iomem *regs, unsigned long addr)
+-{
+-	writel(addr, regs + S5P_JPG_JPGADR);
+-}
+-
+-static inline void jpeg_imgadr(void __iomem *regs, unsigned long addr)
+-{
+-	writel(addr, regs + S5P_JPG_IMGADR);
+-}
+-
+-static inline void jpeg_coef(void __iomem *regs, unsigned int i,
+-			     unsigned int j, unsigned int coef)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPG_COEF(i));
+-	reg &= ~S5P_COEFn_MASK(j);
+-	reg |= (coef << S5P_COEFn_SHIFT(j)) & S5P_COEFn_MASK(j);
+-	writel(reg, regs + S5P_JPG_COEF(i));
+-}
+-
+-static inline void jpeg_start(void __iomem *regs)
+-{
+-	writel(1, regs + S5P_JSTART);
+-}
+-
+-static inline int jpeg_result_stat_ok(void __iomem *regs)
+-{
+-	return (int)((readl(regs + S5P_JPGINTST) & S5P_RESULT_STAT_MASK)
+-		     >> S5P_RESULT_STAT_SHIFT);
+-}
+-
+-static inline int jpeg_stream_stat_ok(void __iomem *regs)
+-{
+-	return !(int)((readl(regs + S5P_JPGINTST) & S5P_STREAM_STAT_MASK)
+-		      >> S5P_STREAM_STAT_SHIFT);
+-}
+-
+-static inline void jpeg_clear_int(void __iomem *regs)
+-{
+-	unsigned long reg;
+-
+-	reg = readl(regs + S5P_JPGINTST);
+-	writel(S5P_INT_RELEASE, regs + S5P_JPGCOM);
+-	reg = readl(regs + S5P_JPGOPR);
+-}
+-
+-static inline unsigned int jpeg_compressed_size(void __iomem *regs)
+-{
+-	unsigned long jpeg_size = 0;
+-
+-	jpeg_size |= (readl(regs + S5P_JPGCNT_U) & 0xff) << 16;
+-	jpeg_size |= (readl(regs + S5P_JPGCNT_M) & 0xff) << 8;
+-	jpeg_size |= (readl(regs + S5P_JPGCNT_L) & 0xff);
+-
+-	return (unsigned int)jpeg_size;
+-}
+-
+-#endif /* JPEG_HW_H_ */
+diff --git a/drivers/media/platform/s5p-jpeg/jpeg-regs.h b/drivers/media/platform/s5p-jpeg/jpeg-regs.h
+index 38e5081..bd2224e 100644
+--- a/drivers/media/platform/s5p-jpeg/jpeg-regs.h
++++ b/drivers/media/platform/s5p-jpeg/jpeg-regs.h
+@@ -15,6 +15,8 @@
+ #ifndef JPEG_REGS_H_
+ #define JPEG_REGS_H_
+ 
++/* Register and bit definitions for S5PC210 */
++
+ /* JPEG mode register */
+ #define S5P_JPGMOD			0x00
+ #define S5P_PROC_MODE_MASK		(0x1 << 3)
+@@ -166,5 +168,185 @@
+ /* JPEG AC Huffman table register */
+ #define S5P_JPG_HACTBLG(n)		(0x8c0 + (n) * 0x400)
+ 
++
++/* Register and bit definitions for Exynos 4x12 */
++
++/* JPEG Codec Control Registers */
++#define S5P_JPEG_CNTL_REG		0x00
++#define S5P_JPEG_INT_EN_REG		0x04
++/*#define S5P_JPEG_QTBL_REG		0x08*Reserved*/
++#define S5P_JPEG_INT_STATUS_REG		0x0c
++#define S5P_JPEG_OUT_MEM_BASE_REG	0x10
++#define S5P_JPEG_IMG_SIZE_REG		0x14
++#define S5P_JPEG_IMG_BA_PLANE_1_REG	0x18
++#define S5P_JPEG_IMG_SO_PLANE_1_REG	0x1c
++#define S5P_JPEG_IMG_PO_PLANE_1_REG	0x20
++#define S5P_JPEG_IMG_BA_PLANE_2_REG	0x24
++#define S5P_JPEG_IMG_SO_PLANE_2_REG	0x28
++#define S5P_JPEG_IMG_PO_PLANE_2_REG	0x2c
++#define S5P_JPEG_IMG_BA_PLANE_3_REG	0x30
++#define S5P_JPEG_IMG_SO_PLANE_3_REG	0x34
++#define S5P_JPEG_IMG_PO_PLANE_3_REG	0x38
++
++#define S5P_JPEG_TBL_SEL_REG		0x3c
++
++#define S5P_JPEG_IMG_FMT_REG		0x40
++
++#define S5P_JPEG_BITSTREAM_SIZE_REG	0x44
++#define S5P_JPEG_PADDING_REG		0x48
++#define S5P_JPEG_HUFF_CNT_REG		0x4c
++#define S5P_JPEG_FIFO_STATUS_REG	0x50
++#define S5P_JPEG_DECODE_XY_SIZE_REG	0x54
++#define S5P_JPEG_DECODE_IMG_FMT_REG	0x58
++
++#define S5P_JPEG_QUAN_TBL_ENTRY_REG	0x100
++#define S5P_JPEG_HUFF_TBL_ENTRY_REG	0x200
++
++
++/****************************************************************/
++/* Bit definition part						*/
++/****************************************************************/
++
++/* JPEG CNTL Register bit */
++#define S5P_JPEG_ENC_DEC_MODE_MASK	(0xfffffffc << 0)
++#define S5P_JPEG_DEC_MODE		(1 << 0)
++#define S5P_JPEG_ENC_MODE		(1 << 1)
++#define S5P_JPEG_AUTO_RST_MARKER	(1 << 2)
++#define S5P_JPEG_RST_INTERVAL_SHIFT	3
++#define S5P_JPEG_RST_INTERVAL(x) (((x) & 0xffff) << S5P_JPEG_RST_INTERVAL_SHIFT)
++#define S5P_JPEG_HUF_TBL_EN		(1 << 19)
++#define S5P_JPEG_HOR_SCALING_SHIFT	20
++#define S5P_JPEG_HOR_SCALING_MASK	(3 << S5P_JPEG_HOR_SCALING_SHIFT)
++#define S5P_JPEG_HOR_SCALING(x)	(((x) & 0x3) << S5P_JPEG_HOR_SCALING_SHIFT)
++#define S5P_JPEG_VER_SCALING_SHIFT	22
++#define S5P_JPEG_VER_SCALING_MASK	(3 << S5P_JPEG_VER_SCALING_SHIFT)
++#define S5P_JPEG_VER_SCALING(x)	(((x) & 0x3) << S5P_JPEG_VER_SCALING_SHIFT)
++#define S5P_JPEG_PADDING		(1 << 27)
++#define S5P_JPEG_SYS_INT_EN		(1 << 28)
++#define S5P_JPEG_SOFT_RESET_HI		(1 << 29)
++
++/* JPEG INT Register bit */
++#define S5P_JPEG_INT_EN_MASK			(0x1f << 0)
++#define S5P_JPEG_PROT_ERR_INT_EN		(1 << 0)
++#define S5P_JPEG_IMG_COMPLETION_INT_EN		(1 << 1)
++#define S5P_JPEG_DEC_INVALID_FORMAT_EN		(1 << 2)
++#define S5P_JPEG_MULTI_SCAN_ERROR_EN		(1 << 3)
++#define S5P_JPEG_FRAME_ERR_EN			(1 << 4)
++#define S5P_JPEG_INT_EN_ALL			(0x1f << 0)
++
++#define S5P_JPEG_MOD_REG_PROC_ENC		(0 << 3)
++#define S5P_JPEG_MOD_REG_PROC_DEC		(1 << 3)
++
++#define S5P_JPEG_MOD_REG_SUBSAMPLE_444		(0 << 0)
++#define S5P_JPEG_MOD_REG_SUBSAMPLE_422		(1 << 0)
++#define S5P_JPEG_MOD_REG_SUBSAMPLE_420		(2 << 0)
++#define S5P_JPEG_MOD_REG_SUBSAMPLE_GRAY		(3 << 0)
++
++
++/* JPEG IMAGE SIZE Register bit */
++#define S5P_JPEG_X_SIZE_SHIFT	0
++#define S5P_JPEG_X_SIZE_MASK	(0xffff << S5P_JPEG_X_SIZE_SHIFT)
++#define S5P_JPEG_X_SIZE(x)	(((x) & 0xffff) << S5P_JPEG_X_SIZE_SHIFT)
++#define S5P_JPEG_Y_SIZE_SHIFT	16
++#define S5P_JPEG_Y_SIZE_MASK	(0xffff << S5P_JPEG_Y_SIZE_SHIFT)
++#define S5P_JPEG_Y_SIZE(x)	(((x) & 0xffff) << S5P_JPEG_Y_SIZE_SHIFT)
++
++/* JPEG IMAGE FORMAT Register bit */
++#define S5P_JPEG_ENC_IN_FMT_MASK	0xffff0000
++#define S5P_JPEG_ENC_GRAY_IMG		(0 << 0)
++#define S5P_JPEG_ENC_RGB_IMG		(1 << 0)
++#define S5P_JPEG_ENC_YUV_444_IMG	(2 << 0)
++#define S5P_JPEG_ENC_YUV_422_IMG	(3 << 0)
++#define S5P_JPEG_ENC_YUV_440_IMG	(4 << 0)
++
++#define S5P_JPEG_DEC_GRAY_IMG		(0 << 0)
++#define S5P_JPEG_DEC_RGB_IMG		(1 << 0)
++#define S5P_JPEG_DEC_YUV_444_IMG	(2 << 0)
++#define S5P_JPEG_DEC_YUV_422_IMG	(3 << 0)
++#define S5P_JPEG_DEC_YUV_420_IMG	(4 << 0)
++
++#define S5P_JPEG_GRAY_IMG_IP_SHIFT	3
++#define S5P_JPEG_GRAY_IMG_IP_MASK	(7 << S5P_JPEG_GRAY_IMG_IP_SHIFT)
++#define S5P_JPEG_GRAY_IMG_IP		(4 << S5P_JPEG_GRAY_IMG_IP_SHIFT)
++
++#define S5P_JPEG_RGB_IP_SHIFT			6
++#define S5P_JPEG_RGB_IP_MASK			(7 << S5P_JPEG_RGB_IP_SHIFT)
++#define S5P_JPEG_RGB_IP_RGB_16BIT_IMG		(4 << S5P_JPEG_RGB_IP_SHIFT)
++#define S5P_JPEG_RGB_IP_RGB_32BIT_IMG		(5 << S5P_JPEG_RGB_IP_SHIFT)
++
++#define S5P_JPEG_YUV_444_IP_SHIFT		9
++#define S5P_JPEG_YUV_444_IP_MASK		(7 << S5P_JPEG_YUV_444_IP_SHIFT)
++#define S5P_JPEG_YUV_444_IP_YUV_444_2P_IMG	(4 << S5P_JPEG_YUV_444_IP_SHIFT)
++#define S5P_JPEG_YUV_444_IP_YUV_444_3P_IMG	(5 << S5P_JPEG_YUV_444_IP_SHIFT)
++
++#define S5P_JPEG_YUV_422_IP_SHIFT		12
++#define S5P_JPEG_YUV_422_IP_MASK		(7 << S5P_JPEG_YUV_422_IP_SHIFT)
++#define S5P_JPEG_YUV_422_IP_YUV_422_1P_IMG	(4 << S5P_JPEG_YUV_422_IP_SHIFT)
++#define S5P_JPEG_YUV_422_IP_YUV_422_2P_IMG	(5 << S5P_JPEG_YUV_422_IP_SHIFT)
++#define S5P_JPEG_YUV_422_IP_YUV_422_3P_IMG	(6 << S5P_JPEG_YUV_422_IP_SHIFT)
++
++#define S5P_JPEG_YUV_420_IP_SHIFT		15
++#define S5P_JPEG_YUV_420_IP_MASK		(7 << S5P_JPEG_YUV_420_IP_SHIFT)
++#define S5P_JPEG_YUV_420_IP_YUV_420_2P_IMG	(4 << S5P_JPEG_YUV_420_IP_SHIFT)
++#define S5P_JPEG_YUV_420_IP_YUV_420_3P_IMG	(5 << S5P_JPEG_YUV_420_IP_SHIFT)
++
++#define S5P_JPEG_ENC_FMT_SHIFT			24
++#define S5P_JPEG_ENC_FMT_MASK			(3 << S5P_JPEG_ENC_FMT_SHIFT)
++#define S5P_JPEG_ENC_FMT_GRAY			(0 << S5P_JPEG_ENC_FMT_SHIFT)
++#define S5P_JPEG_ENC_FMT_YUV_444		(1 << S5P_JPEG_ENC_FMT_SHIFT)
++#define S5P_JPEG_ENC_FMT_YUV_422		(2 << S5P_JPEG_ENC_FMT_SHIFT)
++#define S5P_JPEG_ENC_FMT_YUV_420		(3 << S5P_JPEG_ENC_FMT_SHIFT)
++
++#define EXYNOS_JPEG_DECODED_IMG_FMT_MASK	0x03
++
++#define S5P_JPEG_SWAP_CHROMA_CrCb		(1 << 26)
++#define S5P_JPEG_SWAP_CHROMA_CbCr		(0 << 26)
++
++/* JPEG HUFF count Register bit */
++#define S5P_JPEG_HUFF_COUNT_MASK		0xffff
++
++/* JPEG Decoded_img_x_y_size Register bit */
++#define S5P_JPEG_DECODED_SIZE_MASK		0x0000ffff
++
++/* JPEG Decoded image format Register bit */
++#define S5P_JPEG_DECODED_IMG_FMT_MASK		0x3
++
++/* JPEG TBL SEL Register bit */
++#define S5P_JPEG_Q_TBL_COMP1_SHIFT	    0
++#define S5P_JPEG_Q_TBL_COMP1_0		    (0 << S5P_JPEG_Q_TBL_COMP1_SHIFT)
++#define S5P_JPEG_Q_TBL_COMP1_1		    (1 << S5P_JPEG_Q_TBL_COMP1_SHIFT)
++#define S5P_JPEG_Q_TBL_COMP1_2		    (2 << S5P_JPEG_Q_TBL_COMP1_SHIFT)
++#define S5P_JPEG_Q_TBL_COMP1_3		    (3 << S5P_JPEG_Q_TBL_COMP1_SHIFT)
++
++#define S5P_JPEG_Q_TBL_COMP2_SHIFT	    2
++#define S5P_JPEG_Q_TBL_COMP2_0		    (0 << S5P_JPEG_Q_TBL_COMP2_SHIFT)
++#define S5P_JPEG_Q_TBL_COMP2_1		    (1 << S5P_JPEG_Q_TBL_COMP2_SHIFT)
++#define S5P_JPEG_Q_TBL_COMP2_2		    (2 << S5P_JPEG_Q_TBL_COMP2_SHIFT)
++#define S5P_JPEG_Q_TBL_COMP2_3		    (3 << S5P_JPEG_Q_TBL_COMP2_SHIFT)
++
++#define S5P_JPEG_Q_TBL_COMP3_SHIFT          4
++#define S5P_JPEG_Q_TBL_COMP3_0		    (0 << S5P_JPEG_Q_TBL_COMP3_SHIFT)
++#define S5P_JPEG_Q_TBL_COMP3_1		    (1 << S5P_JPEG_Q_TBL_COMP2_SHIFT)
++#define S5P_JPEG_Q_TBL_COMP3_2		    (2 << S5P_JPEG_Q_TBL_COMP2_SHIFT)
++#define S5P_JPEG_Q_TBL_COMP3_3		    (3 << S5P_JPEG_Q_TBL_COMP2_SHIFT)
++
++#define S5P_JPEG_HUFF_TBL_COMP1_SHIFT	    6
++#define S5P_JPEG_HUFF_TBL_COMP1_AC_0_DC_0   (0 << S5P_JPEG_HUFF_TBL_COMP1_SHIFT)
++#define S5P_JPEG_HUFF_TBL_COMP1_AC_0_DC_1   (1 << S5P_JPEG_HUFF_TBL_COMP1_SHIFT)
++#define S5P_JPEG_HUFF_TBL_COMP1_AC_1_DC_0   (2 << S5P_JPEG_HUFF_TBL_COMP1_SHIFT)
++#define S5P_JPEG_HUFF_TBL_COMP1_AC_1_DC_1   (3 << S5P_JPEG_HUFF_TBL_COMP1_SHIFT)
++
++#define S5P_JPEG_HUFF_TBL_COMP2_SHIFT	    8
++#define S5P_JPEG_HUFF_TBL_COMP2_AC_0_DC_0   (0 << S5P_JPEG_HUFF_TBL_COMP2_SHIFT)
++#define S5P_JPEG_HUFF_TBL_COMP2_AC_0_DC_1   (1 << S5P_JPEG_HUFF_TBL_COMP2_SHIFT)
++#define S5P_JPEG_HUFF_TBL_COMP2_AC_1_DC_0   (2 << S5P_JPEG_HUFF_TBL_COMP2_SHIFT)
++#define S5P_JPEG_HUFF_TBL_COMP2_AC_1_DC_1   (3 << S5P_JPEG_HUFF_TBL_COMP2_SHIFT)
++
++#define S5P_JPEG_HUFF_TBL_COMP3_SHIFT	    10
++#define S5P_JPEG_HUFF_TBL_COMP3_AC_0_DC_0   (0 << S5P_JPEG_HUFF_TBL_COMP3_SHIFT)
++#define S5P_JPEG_HUFF_TBL_COMP3_AC_0_DC_1   (1 << S5P_JPEG_HUFF_TBL_COMP3_SHIFT)
++#define S5P_JPEG_HUFF_TBL_COMP3_AC_1_DC_0   (2 << S5P_JPEG_HUFF_TBL_COMP3_SHIFT)
++#define S5P_JPEG_HUFF_TBL_COMP3_AC_1_DC_1   (3 << S5P_JPEG_HUFF_TBL_COMP3_SHIFT)
++
+ #endif /* JPEG_REGS_H_ */
+ 
+-- 
+1.8.3.2
+

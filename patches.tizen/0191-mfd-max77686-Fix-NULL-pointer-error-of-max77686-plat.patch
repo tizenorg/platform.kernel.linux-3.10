@@ -1,0 +1,35 @@
+From 9f18b39593f9ed17e5ad75410de039bf416646ea Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 5 Apr 2013 15:55:47 +0900
+Subject: [PATCH 0191/1302] mfd: max77686: Fix NULL pointer error of max77686
+ platform data.
+
+If max77686 mfd driver gets the initial data from device tree,
+dev->plat_data might be NULL. So, when sub devices want to get
+parent platform data, it can get only NULL pointer even parent
+mfd driver probed completely. So we need to re-initialize
+dev->plat_data at end of parsing device tree.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mfd/max77686.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mfd/max77686.c b/drivers/mfd/max77686.c
+index 1cbb176..91c81cd 100644
+--- a/drivers/mfd/max77686.c
++++ b/drivers/mfd/max77686.c
+@@ -81,7 +81,8 @@ static int max77686_i2c_probe(struct i2c_client *i2c,
+ 	int ret = 0;
+ 
+ 	if (i2c->dev.of_node)
+-		pdata = max77686_i2c_parse_dt_pdata(&i2c->dev);
++		pdata = i2c->dev.platform_data =
++			max77686_i2c_parse_dt_pdata(&i2c->dev);
+ 
+ 	if (!pdata) {
+ 		ret = -EIO;
+-- 
+1.8.3.2
+

@@ -1,0 +1,53 @@
+From 0ef8e7b01cbbbca10b0b289935a2ebac3603e948 Mon Sep 17 00:00:00 2001
+From: Cho KyongHo <pullip.cho@samsung.com>
+Date: Fri, 26 Jul 2013 20:31:01 +0900
+Subject: [PATCH 0026/1302] iommu/exynos: return 0 if iommu_attach_device()
+ successes
+
+iommu_attach_device() against exynos-iommu positive integer on success
+if the caller calls iommu_attach_device() with the same iommu_domain
+multiple times without call to iommu_detach_device() to inform the
+caller how many calls to iommu_detach_device() to really detach iommu.
+
+However the convention of the return value of success of common API is
+zero, this patch makes iommu_attach_device() call against exynos-iommu
+always return zero if the given device is successfully attached to
+the given iommu_domain even though it is already attached to the same
+iommu_domain.
+
+Signed-off-by: Cho KyongHo <pullip.cho@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/iommu/exynos-iommu.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/iommu/exynos-iommu.c b/drivers/iommu/exynos-iommu.c
+index 51e5b35..6eed6d6 100644
+--- a/drivers/iommu/exynos-iommu.c
++++ b/drivers/iommu/exynos-iommu.c
+@@ -882,15 +882,16 @@ static int exynos_iommu_attach_device(struct iommu_domain *domain,
+ 
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ 
+-	if (ret < 0)
++	if (ret < 0) {
+ 		dev_err(dev, "%s: Failed to attach IOMMU with pgtable %#lx\n",
+ 				__func__, __pa(priv->pgtable));
+-	else
+-		dev_dbg(dev, "%s: Attached IOMMU with pgtable 0x%lx%s\n",
+-					__func__, __pa(priv->pgtable),
+-					(ret == 0) ? "" : ", again");
++		return ret;
++	}
+ 
+-	return ret;
++	dev_dbg(dev, "%s: Attached IOMMU with pgtable 0x%lx%s\n",
++		__func__, __pa(priv->pgtable), (ret == 0) ? "" : ", again");
++
++	return 0;
+ }
+ 
+ static void exynos_iommu_detach_device(struct iommu_domain *domain,
+-- 
+1.8.3.2
+

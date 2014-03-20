@@ -1,0 +1,31 @@
+From 4bcf3189adf1666c00592bc767e19e2708920716 Mon Sep 17 00:00:00 2001
+From: Seung-Woo Kim <sw0312.kim@samsung.com>
+Date: Fri, 19 Jul 2013 16:41:44 +0900
+Subject: [PATCH 0424/1302] clk: samsung: fix section mismatch from audio
+ subsystem clocks
+
+The init function should have __init flag to match reference
+sections.
+
+Signed-off-by: Seung-Woo Kim <sw0312.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/samsung/clk-exynos4-audss.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/clk/samsung/clk-exynos4-audss.c b/drivers/clk/samsung/clk-exynos4-audss.c
+index 978c5de..4522d00 100644
+--- a/drivers/clk/samsung/clk-exynos4-audss.c
++++ b/drivers/clk/samsung/clk-exynos4-audss.c
+@@ -77,7 +77,7 @@ static struct of_device_id audss_of_match[] __initdata = {
+ 
+ static DEFINE_SPINLOCK(audss_clk_lock);
+ 
+-static int samsung_audss_clk_init(void)
++static int __init samsung_audss_clk_init(void)
+ {
+ 	struct device_node *node;
+ 
+-- 
+1.8.3.2
+

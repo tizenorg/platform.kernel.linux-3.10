@@ -1,0 +1,187 @@
+From 2ab8fc781e2906270daf0cc6e848aae6f07849e6 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Wed, 9 Oct 2013 10:05:53 +0200
+Subject: [PATCH 1128/1302] usb: gadget: f_mass_storage: make sysfs interface
+ optional
+
+When configfs is in place, the luns will not be represented in sysfs,
+so there will be no struct device associated with a lun.
+In order to maintain compatibility and allow configfs adoption
+sysfs is made optional in this patch.
+
+As a consequence some debug macros need to be adjusted. Two new
+fields are added to struct fsg_lun: name and name_pfx.
+The "name" is for storing a string which is presented to the user
+instead of the dev_name. The "name_pfx", if non-NULL, is prepended
+to the "name" at printing time.
+
+The name_pfx is for a future lun.0, which will be a default group in
+mass_storage.<name>. By design at USB function configfs group's creation
+time its name is not known (but instead set a bit later in
+drivers/usb/gadget/configfs.c:function_make) and it is this name that
+serves the purpose of the said name prefix. So instead of copying
+a yet-unknown string a pointer to it is stored in struct fsg_lun.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 51 +++++++++++++++++++++++++++++--------
+ drivers/usb/gadget/f_mass_storage.h |  2 ++
+ drivers/usb/gadget/storage_common.h | 20 ++++++++++++---
+ 3 files changed, 59 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 59a12c1..7034d9c 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -299,6 +299,7 @@ struct fsg_common {
+ 	unsigned int		short_packet_received:1;
+ 	unsigned int		bad_lun_okay:1;
+ 	unsigned int		running:1;
++	unsigned int		sysfs:1;
+ 
+ 	int			thread_wakeup_needed;
+ 	struct completion	thread_notifier;
+@@ -2642,6 +2643,11 @@ static inline int fsg_num_buffers_validate(unsigned int fsg_num_buffers)
+ 	return -EINVAL;
+ }
+ 
++void fsg_common_set_sysfs(struct fsg_common *common, bool sysfs)
++{
++	common->sysfs = sysfs;
++}
++
+ static void _fsg_common_free_buffers(struct fsg_buffhd *buffhds, unsigned n)
+ {
+ 	if (buffhds) {
+@@ -2654,6 +2660,34 @@ static void _fsg_common_free_buffers(struct fsg_buffhd *buffhds, unsigned n)
+ 	}
+ }
+ 
++static inline void fsg_common_remove_sysfs(struct fsg_lun *lun)
++{
++	device_remove_file(&lun->dev, &dev_attr_nofua);
++	/*
++	 * device_remove_file() =>
++	 *
++	 * here the attr (e.g. dev_attr_ro) is only used to be passed to:
++	 *
++	 *	sysfs_remove_file() =>
++	 *
++	 *	here e.g. both dev_attr_ro_cdrom and dev_attr_ro are in
++	 *	the same namespace and
++	 *	from here only attr->name is passed to:
++	 *
++	 *		sysfs_hash_and_remove()
++	 *
++	 *		attr->name is the same for dev_attr_ro_cdrom and
++	 *		dev_attr_ro
++	 *		attr->name is the same for dev_attr_file and
++	 *		dev_attr_file_nonremovable
++	 *
++	 * so we don't differentiate between removing e.g. dev_attr_ro_cdrom
++	 * and dev_attr_ro
++	 */
++	device_remove_file(&lun->dev, &dev_attr_ro);
++	device_remove_file(&lun->dev, &dev_attr_file);
++}
++
+ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 				   struct usb_composite_dev *cdev,
+ 				   struct fsg_config *cfg)
+@@ -2687,6 +2721,8 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 		memset(common, 0, sizeof *common);
+ 		common->free_storage_on_release = 0;
+ 	}
++	fsg_common_set_sysfs(common, true);
++	common->state = FSG_STATE_IDLE;
+ 
+ 	common->fsg_num_buffers = cfg->fsg_num_buffers;
+ 	common->buffhds = kcalloc(common->fsg_num_buffers,
+@@ -2746,6 +2782,7 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 		/* curlun->dev.driver = &fsg_driver.driver; XXX */
+ 		dev_set_drvdata(&curlun->dev, &common->filesem);
+ 		dev_set_name(&curlun->dev, "lun%d", i);
++		curlun->name = dev_name(&curlun->dev);
+ 
+ 		rc = device_register(&curlun->dev);
+ 		if (rc) {
+@@ -2892,17 +2929,11 @@ static void fsg_common_release(struct kref *ref)
+ 			struct fsg_lun *lun = *lun_it;
+ 			if (!lun)
+ 				continue;
+-			device_remove_file(&lun->dev, &dev_attr_nofua);
+-			device_remove_file(&lun->dev,
+-					   lun->cdrom
+-					 ? &dev_attr_ro_cdrom
+-					 : &dev_attr_ro);
+-			device_remove_file(&lun->dev,
+-					   lun->removable
+-					 ? &dev_attr_file
+-					 : &dev_attr_file_nonremovable);
++			if (common->sysfs)
++				fsg_common_remove_sysfs(lun);
+ 			fsg_lun_close(lun);
+-			device_unregister(&lun->dev);
++			if (common->sysfs)
++				device_unregister(&lun->dev);
+ 			kfree(lun);
+ 		}
+ 
+diff --git a/drivers/usb/gadget/f_mass_storage.h b/drivers/usb/gadget/f_mass_storage.h
+index b64761d..1b88eae 100644
+--- a/drivers/usb/gadget/f_mass_storage.h
++++ b/drivers/usb/gadget/f_mass_storage.h
+@@ -102,6 +102,8 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 				   struct usb_composite_dev *cdev,
+ 				   struct fsg_config *cfg);
+ 
++void fsg_common_set_sysfs(struct fsg_common *common, bool sysfs);
++
+ void fsg_config_from_params(struct fsg_config *cfg,
+ 			    const struct fsg_module_parameters *params,
+ 			    unsigned int fsg_num_buffers);
+diff --git a/drivers/usb/gadget/storage_common.h b/drivers/usb/gadget/storage_common.h
+index 1fcda2b..d8cc090 100644
+--- a/drivers/usb/gadget/storage_common.h
++++ b/drivers/usb/gadget/storage_common.h
+@@ -17,10 +17,20 @@
+ #define VLDBG(lun, fmt, args...) do { } while (0)
+ #endif /* VERBOSE_DEBUG */
+ 
+-#define LDBG(lun, fmt, args...)   dev_dbg(&(lun)->dev, fmt, ## args)
+-#define LERROR(lun, fmt, args...) dev_err(&(lun)->dev, fmt, ## args)
+-#define LWARN(lun, fmt, args...)  dev_warn(&(lun)->dev, fmt, ## args)
+-#define LINFO(lun, fmt, args...)  dev_info(&(lun)->dev, fmt, ## args)
++#define _LMSG(func, lun, fmt, args...)					\
++	do {								\
++		if ((lun)->name_pfx && *(lun)->name_pfx)		\
++			func("%s/%s: " fmt, *(lun)->name_pfx,		\
++				 (lun)->name, ## args);			\
++		else							\
++			func("%s: " fmt, (lun)->name, ## args);		\
++	} while (0)
++
++#define LDBG(lun, fmt, args...)		_LMSG(pr_debug, lun, fmt, ## args)
++#define LERROR(lun, fmt, args...)	_LMSG(pr_err, lun, fmt, ## args)
++#define LWARN(lun, fmt, args...)	_LMSG(pr_warn, lun, fmt, ## args)
++#define LINFO(lun, fmt, args...)	_LMSG(pr_info, lun, fmt, ## args)
++
+ 
+ #ifdef DUMP_MSGS
+ 
+@@ -100,6 +110,8 @@ struct fsg_lun {
+ 						       of bound block device */
+ 	unsigned int	blksize; /* logical block size of bound block device */
+ 	struct device	dev;
++	const char	*name;		/* "lun.name" */
++	const char	**name_pfx;	/* "function.name" */
+ };
+ 
+ static inline bool fsg_lun_is_open(struct fsg_lun *curlun)
+-- 
+1.8.3.2
+

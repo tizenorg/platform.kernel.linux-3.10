@@ -1,0 +1,64 @@
+From d503c24a1ccb7722bcd177d32bb87e976a1312d5 Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Mon, 7 Oct 2013 15:59:40 +0200
+Subject: [PATCH 0857/1302] exynos_drm: replace enums by __u32 in structs used
+ in IOCTLs
+
+enum type has variable size depending on compiler options,
+so it should be avoided in structs passed to userland.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ include/uapi/drm/exynos_drm.h | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/include/uapi/drm/exynos_drm.h b/include/uapi/drm/exynos_drm.h
+index d584412..01879bf 100644
+--- a/include/uapi/drm/exynos_drm.h
++++ b/include/uapi/drm/exynos_drm.h
+@@ -238,9 +238,9 @@ struct drm_exynos_ipp_prop_list {
+  * @pos: property of image position(src-cropped,dst-scaler).
+  */
+ struct drm_exynos_ipp_config {
+-	enum drm_exynos_ops_id ops_id;
+-	enum drm_exynos_flip	flip;
+-	enum drm_exynos_degree	degree;
++	__u32	ops_id;
++	__u32	flip;
++	__u32	degree;
+ 	__u32	fmt;
+ 	struct drm_exynos_sz	sz;
+ 	struct drm_exynos_pos	pos;
+@@ -265,7 +265,7 @@ enum drm_exynos_ipp_cmd {
+  */
+ struct drm_exynos_ipp_property {
+ 	struct drm_exynos_ipp_config config[EXYNOS_DRM_OPS_MAX];
+-	enum drm_exynos_ipp_cmd	cmd;
++	__u32	cmd;
+ 	__u32	ipp_id;
+ 	__u32	prop_id;
+ 	__u32	refresh_rate;
+@@ -287,8 +287,8 @@ enum drm_exynos_ipp_buf_type {
+  * @user_data: user data.
+  */
+ struct drm_exynos_ipp_queue_buf {
+-	enum drm_exynos_ops_id	ops_id;
+-	enum drm_exynos_ipp_buf_type	buf_type;
++	__u32	ops_id;
++	__u32	buf_type;
+ 	__u32	prop_id;
+ 	__u32	buf_id;
+ 	__u32	handle[EXYNOS_DRM_PLANAR_MAX];
+@@ -312,7 +312,7 @@ enum drm_exynos_ipp_ctrl {
+  */
+ struct drm_exynos_ipp_cmd_ctrl {
+ 	__u32	prop_id;
+-	enum drm_exynos_ipp_ctrl	ctrl;
++	__u32	ctrl;
+ };
+ 
+ #define DRM_EXYNOS_GEM_CREATE		0x00
+-- 
+1.8.3.2
+

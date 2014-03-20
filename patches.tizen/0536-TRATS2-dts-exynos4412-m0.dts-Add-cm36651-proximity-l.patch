@@ -1,0 +1,76 @@
+From 611aca94d901b25476d065a8d402c9722b2709d0 Mon Sep 17 00:00:00 2001
+From: Beomho Seo <beomho.seo@samsung.com>
+Date: Wed, 14 Aug 2013 12:01:53 +0900
+Subject: [PATCH 0536/1302] TRATS2: dts: exynos4412-m0.dts: Add cm36651
+ proximity/light sensor node - Support cm36651 proximity/light sensor device
+ for TRATS2 board - Add also the binding documentation file
+
+Signed-off-by: Beomho Seo <beomho.seo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../devicetree/bindings/iio/light/cm36651.txt      | 24 ++++++++++++++++++++++
+ arch/arm/boot/dts/exynos4412-m0.dts                | 17 +++++++++++++++
+ 2 files changed, 41 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/iio/light/cm36651.txt
+
+diff --git a/Documentation/devicetree/bindings/iio/light/cm36651.txt b/Documentation/devicetree/bindings/iio/light/cm36651.txt
+new file mode 100644
+index 0000000..975296f
+--- /dev/null
++++ b/Documentation/devicetree/bindings/iio/light/cm36651.txt
+@@ -0,0 +1,24 @@
++* CAPELLA CM36651 I2C Proximity sensor with Color sensor
++
++Required properties:
++- compatible: must be "capella,cm36651" or "cm36651"
++- reg: the I2C address of light sensor
++- interrupts: interrupt to which the chip is connected
++- vled-suppled: regulator for the sensor device, refere to
++		Documentation/devicetree/bindings/regulator/regulator.txt
++
++Example:
++
++	i2c_cm36651: i2c-gpio-2 {
++		/* ... */
++
++		cm36651@18 {
++			compatible = "cm36651";
++			reg = <0x18>;
++			interrupt-parent = <&gpx0>;
++			interrupts = <2 0>;
++			vled-supply = <&ps_als_reg>;
++		};
++
++		/* ... */
++	};
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+index fbefee6..12c7078 100644
+--- a/arch/arm/boot/dts/exynos4412-m0.dts
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -90,6 +90,23 @@
+ 		};
+ 	};
+ 
++	i2c_cm36651: i2c-gpio-2 {
++		compatible = "i2c-gpio";
++		gpios = <&gpf0 0 0>, <&gpf0 1 0>;
++		i2c-gpio,delay-us = <2>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		status = "okay";
++
++		cm36651@18 {
++			compatible = "cm36651";
++			reg = <0x18>;
++			interrupt-parent = <&gpx0>;
++			interrupts = <2 0>;
++			vled-supply = <&ps_als_reg>;
++		};
++	};
++
+ 	camera {
+ 		status = "okay";
+ 
+-- 
+1.8.3.2
+

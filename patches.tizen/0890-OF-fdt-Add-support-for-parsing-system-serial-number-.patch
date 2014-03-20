@@ -1,0 +1,49 @@
+From b4008aec0ad41a0882088bde9111a95ca07ef4cc Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 26 Sep 2013 19:14:37 +0200
+Subject: [PATCH 0890/1302] OF: fdt: Add support for parsing system serial
+ number from device tree
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/of/fdt.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
+index a829c28..860dddf 100644
+--- a/drivers/of/fdt.c
++++ b/drivers/of/fdt.c
+@@ -19,6 +19,7 @@
+ #include <linux/slab.h>
+ 
+ #include <asm/setup.h>  /* for COMMAND_LINE_SIZE */
++#include <asm/system_info.h>
+ #ifdef CONFIG_PPC
+ #include <asm/machdep.h>
+ #endif /* CONFIG_PPC */
+@@ -741,6 +742,7 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
+ 				     int depth, void *data)
+ {
+ 	unsigned long l;
++	__be32 *serial;
+ 	char *p;
+ 
+ 	pr_debug("search \"chosen\", depth: %d, uname: %s\n", depth, uname);
+@@ -751,6 +753,13 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
+ 
+ 	early_init_dt_check_for_initrd(node);
+ 
++	/* Retrieve serial number */
++	serial = of_get_flat_dt_prop(node, "linux,serial-number", &l);
++	if (serial != NULL && l == 2 * sizeof(u32)) {
++		system_serial_high = be32_to_cpu(serial[0]);
++		system_serial_low = be32_to_cpu(serial[1]);
++	}
++
+ 	/* Retrieve command line */
+ 	p = of_get_flat_dt_prop(node, "bootargs", &l);
+ 	if (p != NULL && l > 0)
+-- 
+1.8.3.2
+

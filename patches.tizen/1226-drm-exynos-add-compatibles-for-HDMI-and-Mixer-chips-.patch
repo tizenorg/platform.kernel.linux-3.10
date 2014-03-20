@@ -1,0 +1,48 @@
+From fc65ef082636665f453848a82d8379d72f749e75 Mon Sep 17 00:00:00 2001
+From: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Date: Wed, 16 Oct 2013 13:41:14 +0200
+Subject: [PATCH 1226/1302] drm: exynos: add compatibles for HDMI and Mixer
+ chips and exynos4210 SoC
+
+This patch add proper compatibles for Mixer and HDMI chip
+available on exynos4210 SoCs.
+
+Signed-off-by: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Change-Id: I5ca49ea9f95b139834de9ed8bba79b37b685bf3a
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_hdmi.c  | 3 +++
+ drivers/gpu/drm/exynos/exynos_mixer.c | 3 +++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_hdmi.c b/drivers/gpu/drm/exynos/exynos_hdmi.c
+index b8eca91..87c3f42 100644
+--- a/drivers/gpu/drm/exynos/exynos_hdmi.c
++++ b/drivers/gpu/drm/exynos/exynos_hdmi.c
+@@ -1899,6 +1899,9 @@ static struct platform_device_id hdmi_driver_types[] = {
+ #ifdef CONFIG_OF
+ static struct of_device_id hdmi_match_types[] = {
+ 	{
++		.compatible = "samsung,exynos4210-hdmi",
++		.data	= (void	*)HDMI_TYPE13,
++	}, {
+ 		.compatible = "samsung,exynos5-hdmi",
+ 		.data	= (void	*)HDMI_TYPE14,
+ 	}, {
+diff --git a/drivers/gpu/drm/exynos/exynos_mixer.c b/drivers/gpu/drm/exynos/exynos_mixer.c
+index f853e584..77faced 100644
+--- a/drivers/gpu/drm/exynos/exynos_mixer.c
++++ b/drivers/gpu/drm/exynos/exynos_mixer.c
+@@ -1139,6 +1139,9 @@ static struct platform_device_id mixer_driver_types[] = {
+ 
+ static struct of_device_id mixer_match_types[] = {
+ 	{
++		.compatible = "samsung,exynos4-mixer",
++		.data	= &exynos4_mxr_drv_data,
++	}, {
+ 		.compatible = "samsung,exynos5-mixer",
+ 		.data	= &exynos5_mxr_drv_data,
+ 	}, {
+-- 
+1.8.3.2
+

@@ -1,0 +1,269 @@
+From 05c662b19d916876193bbd61181ca3b6de175ea3 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Fri, 24 May 2013 10:23:02 +0200
+Subject: [PATCH 0606/1302] usb: gadget: rndis: convert into module
+
+In order to convert to configfs the usb functions need to be converted
+to a new interface and compiled as modules. This patch creates an rndis
+module which will be used by the new functions. After all users of
+f_rndis are converted to the new interface, this module can be
+merged with f_rndis module.
+
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/Kconfig  |  6 ++++++
+ drivers/usb/gadget/Makefile |  2 ++
+ drivers/usb/gadget/ether.c  |  4 +++-
+ drivers/usb/gadget/g_ffs.c  |  2 +-
+ drivers/usb/gadget/multi.c  |  2 +-
+ drivers/usb/gadget/rndis.c  | 18 ++++++++++++++++++
+ drivers/usb/gadget/rndis.h  |  1 +
+ 7 files changed, 32 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index 751b472..3cde222 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -510,6 +510,9 @@ config USB_U_SERIAL
+ config USB_U_ETHER
+ 	tristate
+ 
++config USB_U_RNDIS
++	tristate
++
+ config USB_F_SERIAL
+ 	tristate
+ 
+@@ -607,6 +610,7 @@ config USB_ETH
+ 	depends on NET
+ 	select USB_LIBCOMPOSITE
+ 	select USB_U_ETHER
++	select USB_U_RNDIS
+ 	select CRC32
+ 	help
+ 	  This driver implements Ethernet style communication, in one of
+@@ -732,6 +736,7 @@ config USB_FUNCTIONFS_RNDIS
+ 	bool "Include configuration with RNDIS (Ethernet)"
+ 	depends on USB_FUNCTIONFS && NET
+ 	select USB_U_ETHER
++	select USB_U_RNDIS
+ 	help
+ 	  Include a configuration with RNDIS function (Ethernet) and the Filesystem.
+ 
+@@ -879,6 +884,7 @@ config USB_G_MULTI
+ 	select USB_LIBCOMPOSITE
+ 	select USB_U_SERIAL
+ 	select USB_U_ETHER
++	select USB_U_RNDIS
+ 	select USB_F_ACM
+ 	help
+ 	  The Multifunction Composite Gadget provides Ethernet (RNDIS
+diff --git a/drivers/usb/gadget/Makefile b/drivers/usb/gadget/Makefile
+index b6c2bf7..7a0463e 100644
+--- a/drivers/usb/gadget/Makefile
++++ b/drivers/usb/gadget/Makefile
+@@ -46,6 +46,8 @@ obj-$(CONFIG_USB_F_SERIAL)	+= usb_f_serial.o
+ usb_f_obex-y			:= f_obex.o
+ obj-$(CONFIG_USB_F_OBEX)	+= usb_f_obex.o
+ obj-$(CONFIG_USB_U_ETHER)	+= u_ether.o
++u_rndis-y			:= rndis.o
++obj-$(CONFIG_USB_U_RNDIS)	+= u_rndis.o
+ 
+ #
+ # USB gadget drivers
+diff --git a/drivers/usb/gadget/ether.c b/drivers/usb/gadget/ether.c
+index 75418c7..6bff24f 100644
+--- a/drivers/usb/gadget/ether.c
++++ b/drivers/usb/gadget/ether.c
+@@ -91,6 +91,8 @@ static inline bool has_rndis(void)
+ #endif
+ }
+ 
++#include <linux/module.h>
++
+ /*-------------------------------------------------------------------------*/
+ 
+ /*
+@@ -104,7 +106,7 @@ static inline bool has_rndis(void)
+ #include "f_subset.c"
+ #ifdef	USB_ETH_RNDIS
+ #include "f_rndis.c"
+-#include "rndis.c"
++#include "rndis.h"
+ #endif
+ #include "f_eem.c"
+ 
+diff --git a/drivers/usb/gadget/g_ffs.c b/drivers/usb/gadget/g_ffs.c
+index 45f26be..fbfdb53 100644
+--- a/drivers/usb/gadget/g_ffs.c
++++ b/drivers/usb/gadget/g_ffs.c
+@@ -32,7 +32,7 @@
+ #  include "f_subset.c"
+ #  ifdef USB_ETH_RNDIS
+ #    include "f_rndis.c"
+-#    include "rndis.c"
++#    include "rndis.h"
+ #  endif
+ #  include "u_ether.h"
+ 
+diff --git a/drivers/usb/gadget/multi.c b/drivers/usb/gadget/multi.c
+index cdb8dbf..ce21e9f 100644
+--- a/drivers/usb/gadget/multi.c
++++ b/drivers/usb/gadget/multi.c
+@@ -47,7 +47,7 @@ MODULE_LICENSE("GPL");
+ #include "f_subset.c"
+ #ifdef USB_ETH_RNDIS
+ #  include "f_rndis.c"
+-#  include "rndis.c"
++#  include "rndis.h"
+ #endif
+ #include "u_ether.h"
+ 
+diff --git a/drivers/usb/gadget/rndis.c b/drivers/usb/gadget/rndis.c
+index 1e4cfb0..8c5e957 100644
+--- a/drivers/usb/gadget/rndis.c
++++ b/drivers/usb/gadget/rndis.c
+@@ -761,6 +761,7 @@ int rndis_signal_connect(int configNr)
+ 	return rndis_indicate_status_msg(configNr,
+ 					  RNDIS_STATUS_MEDIA_CONNECT);
+ }
++EXPORT_SYMBOL(rndis_signal_connect);
+ 
+ int rndis_signal_disconnect(int configNr)
+ {
+@@ -769,6 +770,7 @@ int rndis_signal_disconnect(int configNr)
+ 	return rndis_indicate_status_msg(configNr,
+ 					  RNDIS_STATUS_MEDIA_DISCONNECT);
+ }
++EXPORT_SYMBOL(rndis_signal_disconnect);
+ 
+ void rndis_uninit(int configNr)
+ {
+@@ -783,11 +785,13 @@ void rndis_uninit(int configNr)
+ 	while ((buf = rndis_get_next_response(configNr, &length)))
+ 		rndis_free_response(configNr, buf);
+ }
++EXPORT_SYMBOL(rndis_uninit);
+ 
+ void rndis_set_host_mac(int configNr, const u8 *addr)
+ {
+ 	rndis_per_dev_params[configNr].host_mac = addr;
+ }
++EXPORT_SYMBOL(rndis_set_host_mac);
+ 
+ /*
+  * Message Parser
+@@ -870,6 +874,7 @@ int rndis_msg_parser(u8 configNr, u8 *buf)
+ 
+ 	return -ENOTSUPP;
+ }
++EXPORT_SYMBOL(rndis_msg_parser);
+ 
+ int rndis_register(void (*resp_avail)(void *v), void *v)
+ {
+@@ -891,6 +896,7 @@ int rndis_register(void (*resp_avail)(void *v), void *v)
+ 
+ 	return -ENODEV;
+ }
++EXPORT_SYMBOL(rndis_register);
+ 
+ void rndis_deregister(int configNr)
+ {
+@@ -899,6 +905,7 @@ void rndis_deregister(int configNr)
+ 	if (configNr >= RNDIS_MAX_CONFIGS) return;
+ 	rndis_per_dev_params[configNr].used = 0;
+ }
++EXPORT_SYMBOL(rndis_deregister);
+ 
+ int rndis_set_param_dev(u8 configNr, struct net_device *dev, u16 *cdc_filter)
+ {
+@@ -912,6 +919,7 @@ int rndis_set_param_dev(u8 configNr, struct net_device *dev, u16 *cdc_filter)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(rndis_set_param_dev);
+ 
+ int rndis_set_param_vendor(u8 configNr, u32 vendorID, const char *vendorDescr)
+ {
+@@ -924,6 +932,7 @@ int rndis_set_param_vendor(u8 configNr, u32 vendorID, const char *vendorDescr)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(rndis_set_param_vendor);
+ 
+ int rndis_set_param_medium(u8 configNr, u32 medium, u32 speed)
+ {
+@@ -935,6 +944,7 @@ int rndis_set_param_medium(u8 configNr, u32 medium, u32 speed)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(rndis_set_param_medium);
+ 
+ void rndis_add_hdr(struct sk_buff *skb)
+ {
+@@ -949,6 +959,7 @@ void rndis_add_hdr(struct sk_buff *skb)
+ 	header->DataOffset = cpu_to_le32(36);
+ 	header->DataLength = cpu_to_le32(skb->len - sizeof(*header));
+ }
++EXPORT_SYMBOL(rndis_add_hdr);
+ 
+ void rndis_free_response(int configNr, u8 *buf)
+ {
+@@ -965,6 +976,7 @@ void rndis_free_response(int configNr, u8 *buf)
+ 		}
+ 	}
+ }
++EXPORT_SYMBOL(rndis_free_response);
+ 
+ u8 *rndis_get_next_response(int configNr, u32 *length)
+ {
+@@ -986,6 +998,7 @@ u8 *rndis_get_next_response(int configNr, u32 *length)
+ 
+ 	return NULL;
+ }
++EXPORT_SYMBOL(rndis_get_next_response);
+ 
+ static rndis_resp_t *rndis_add_response(int configNr, u32 length)
+ {
+@@ -1029,6 +1042,7 @@ int rndis_rm_hdr(struct gether *port,
+ 	skb_queue_tail(list, skb);
+ 	return 0;
+ }
++EXPORT_SYMBOL(rndis_rm_hdr);
+ 
+ #ifdef CONFIG_USB_GADGET_DEBUG_FILES
+ 
+@@ -1160,6 +1174,7 @@ int rndis_init(void)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(rndis_init);
+ 
+ void rndis_exit(void)
+ {
+@@ -1173,3 +1188,6 @@ void rndis_exit(void)
+ 	}
+ #endif
+ }
++EXPORT_SYMBOL(rndis_exit);
++
++MODULE_LICENSE("GPL");
+diff --git a/drivers/usb/gadget/rndis.h b/drivers/usb/gadget/rndis.h
+index 0647f2f..6e79615 100644
+--- a/drivers/usb/gadget/rndis.h
++++ b/drivers/usb/gadget/rndis.h
+@@ -16,6 +16,7 @@
+ #define _LINUX_RNDIS_H
+ 
+ #include <linux/rndis.h>
++#include "u_ether.h"
+ #include "ndis.h"
+ 
+ #define RNDIS_MAXIMUM_FRAME_SIZE	1518
+-- 
+1.8.3.2
+

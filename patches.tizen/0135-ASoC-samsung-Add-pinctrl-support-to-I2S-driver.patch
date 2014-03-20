@@ -1,0 +1,38 @@
+From 3fc77d8e44e5dc89782dde282f8375fb7b39ba21 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 14 Feb 2013 18:33:26 +0100
+Subject: [PATCH 0135/1302] ASoC: samsung: Add pinctrl support to I2S driver
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ sound/soc/samsung/i2s.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/samsung/i2s.c b/sound/soc/samsung/i2s.c
+index 82ebb1a..78472d2 100644
+--- a/sound/soc/samsung/i2s.c
++++ b/sound/soc/samsung/i2s.c
+@@ -17,6 +17,7 @@
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_gpio.h>
++#include <linux/pinctrl/consumer.h>
+ #include <linux/pm_runtime.h>
+ 
+ #include <sound/soc.h>
+@@ -1236,7 +1237,10 @@ static int samsung_i2s_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	if (np) {
+-		if (samsung_i2s_parse_dt_gpio(pri_dai)) {
++		struct pinctrl *pctrl;
++		pctrl = devm_pinctrl_get_select_default(&pdev->dev);
++
++		if (IS_ERR(pctrl) && samsung_i2s_parse_dt_gpio(pri_dai)) {
+ 			dev_err(&pdev->dev, "Unable to configure gpio\n");
+ 			ret = -EINVAL;
+ 			goto err;
+-- 
+1.8.3.2
+

@@ -1,0 +1,54 @@
+From e58ed38cfcefbcadd3c90ec47d65ca9b095ac932 Mon Sep 17 00:00:00 2001
+From: Beomho Seo <beomho.seo@samsung.com>
+Date: Thu, 6 Mar 2014 11:44:40 +0900
+Subject: [PATCH 1291/1302] dts: exynos4412-trats2: Remove unused  device node
+ on trats2 board
+
+GP2AP002A00F ligth/proximity sensor is unused on trats2 board.
+
+Change-Id: I4ef414eea4aaf336200ec0b97485fcfde2645c2f
+Signed-off-by: Beomho Seo <beomho.seo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-trats2.dts | 18 ------------------
+ 1 file changed, 18 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-trats2.dts b/arch/arm/boot/dts/exynos4412-trats2.dts
+index f25a37f..77eaf18 100644
+--- a/arch/arm/boot/dts/exynos4412-trats2.dts
++++ b/arch/arm/boot/dts/exynos4412-trats2.dts
+@@ -188,7 +188,6 @@
+ 		i2c9 = &i2c_lps331ap;
+ 		i2c10 = &i2c_if_pmic;
+ 		i2c11 = &i2c_fuel;
+-		i2c12 = &i2c_gp2ap020a00f;
+ 		/* 15...16 reserved for i2c0_isp, i2c1_isp */
+ 		i2c16 = &i2c1_isp;
+ 		i2c20 = &i2c_touch_key;
+@@ -491,23 +490,6 @@
+ 		};
+ 	};
+ 
+-	i2c_gp2ap020a00f: i2c-gpio-2 {
+-		compatible = "i2c-gpio";
+-		gpios = <&gpk1 1 0>, <&gpk2 2 0>;
+-		i2c-gpio,delay-us = <2>;
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-		status = "okay";
+-
+-		gp2ap002a00f@39 {
+-			compatible = "gp2ap002a00f";
+-			reg = <0x39>;
+-			interrupt-parent = <&gpx0>;
+-			interrupts = <2 0>;
+-			vled-supply = <&ps_als_reg>;
+-		};
+-	};
+-
+ 	i2c_0: i2c@13860000 {
+ 		samsung,i2c-sda-delay = <100>;
+ 		samsung,i2c-slave-addr = <0x10>;
+-- 
+1.8.3.2
+

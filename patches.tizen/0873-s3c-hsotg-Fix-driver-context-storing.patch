@@ -1,0 +1,31 @@
+From 815f85f99a3948016b896e770d565e563fec2592 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 15 Oct 2013 15:16:05 +0200
+Subject: [PATCH 0873/1302] s3c-hsotg: Fix driver context storing
+
+Before applying this fix calling s3c_hsotg_udc_start, *stop and *start
+again resulted in a WARN_ON(hsotg->driver) being triggered in *start.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index dfa56e7..25008c0 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -3005,8 +3005,7 @@ static int s3c_hsotg_udc_stop(struct usb_gadget *gadget,
+ 
+ 	spin_lock_irqsave(&hsotg->lock, flags);
+ 
+-	if (!driver)
+-		hsotg->driver = NULL;
++	hsotg->driver = NULL;
+ 
+ 	hsotg->gadget.speed = USB_SPEED_UNKNOWN;
+ 
+-- 
+1.8.3.2
+

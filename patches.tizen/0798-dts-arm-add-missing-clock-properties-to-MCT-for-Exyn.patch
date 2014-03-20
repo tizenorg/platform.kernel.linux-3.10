@@ -1,0 +1,29 @@
+From 3de110bcee5201045b46f4719d9b59258017837e Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Wed, 18 Sep 2013 11:09:38 +0200
+Subject: [PATCH 0798/1302] dts: arm: add missing clock properties to MCT for
+ Exynos4212
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4212.dtsi | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4212.dtsi b/arch/arm/boot/dts/exynos4212.dtsi
+index c0f60f4..4f8ccbd 100644
+--- a/arch/arm/boot/dts/exynos4212.dtsi
++++ b/arch/arm/boot/dts/exynos4212.dtsi
+@@ -44,6 +44,9 @@
+ 		interrupts = <0 0>, <1 0>, <2 0>, <3 0>,
+ 			     <4 0>, <5 0>;
+ 
++		clocks = <&clock 3>, <&clock 344>;
++		clock-names = "fin_pll", "mct";
++
+ 		mct_map: mct-map {
+ 			#interrupt-cells = <2>;
+ 			#address-cells = <0>;
+-- 
+1.8.3.2
+

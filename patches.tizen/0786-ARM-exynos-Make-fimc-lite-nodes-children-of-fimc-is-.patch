@@ -1,0 +1,150 @@
+From 03f35448d6fc685150b2ddab8255e8188a6bd0aa Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 13 Sep 2013 12:57:16 +0200
+Subject: [PATCH 0786/1302] ARM: exynos: Make fimc-lite nodes children of
+ fimc-is node
+
+FIMC-LITE devices are part of the FIMC-IS subsystem a have dependencies
+on resources that are managed by FIMC-IS. Make fimc-lite nodes children
+of fimc-is node, as in case of other FIMC-IS peripheral IP blocks.
+This also removes now unnecessary 'samsung, power-domain' property from
+the fimc-lite nodes.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-m0.dts     | 16 ++++++------
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 16 ++++++------
+ arch/arm/boot/dts/exynos4x12.dtsi       | 43 ++++++++++++++++-----------------
+ 3 files changed, 37 insertions(+), 38 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+index 5c2c141..30e34b4 100644
+--- a/arch/arm/boot/dts/exynos4412-m0.dts
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -176,20 +176,20 @@
+ 			};
+ 		};
+ 
+-		fimc_lite_0: fimc-lite@12390000 {
+-			status = "okay";
+-		};
+-
+-		fimc_lite_1: fimc-lite@123A0000 {
+-			status = "okay";
+-		};
+-
+ 		fimc-is@12000000 {
+ 			linux,contiguous-region = <&fimc_mem>;
+ 			status = "okay";
+ 			pinctrl-0 = <&fimc_is_uart>;
+ 			pinctrl-names = "default";
+ 
++			fimc_lite_0: fimc-lite@12390000 {
++				status = "okay";
++			};
++
++			fimc_lite_1: fimc-lite@123A0000 {
++				status = "okay";
++			};
++
+ 			i2c1_isp: i2c-isp@12140000 {
+ 				pinctrl-0 = <&fimc_is_i2c1>;
+ 				pinctrl-names = "default";
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 6907e59..e041769 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -1149,20 +1149,20 @@
+ 			};
+ 		};
+ 
+-		fimc_lite_0: fimc-lite@12390000 {
+-			status = "okay";
+-		};
+-
+-		fimc_lite_1: fimc-lite@123A0000 {
+-			status = "okay";
+-		};
+-
+ 		fimc-is@12000000 {
+ 			status = "okay";
+ 			pinctrl-0 = <&fimc_is_uart>;
+ 			pinctrl-names = "default";
+ 			memory-region = <&fimc_mem>;
+ 
++			fimc_lite_0: fimc-lite@12390000 {
++				status = "okay";
++			};
++
++			fimc_lite_1: fimc-lite@123A0000 {
++				status = "okay";
++			};
++
+ 			i2c1_isp: i2c-isp@12140000 {
+ 				pinctrl-0 = <&fimc_is_i2c1>;
+ 				pinctrl-names = "default";
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index e37ced2..894a987 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -265,28 +265,6 @@
+ 			clock-names = "csis", "sclk_csis", "mux", "parent";
+ 		};
+ 
+-		fimc_lite_0: fimc-lite@12390000 {
+-			compatible = "samsung,exynos4212-fimc-lite";
+-			reg = <0x12390000 0x1000>;
+-			interrupts = <0 105 0>;
+-			samsung,power-domain = <&pd_isp>;
+-			clocks = <&clock 353>;
+-			clock-names = "flite";
+-			status = "disabled";
+-			iommu = <&sysmmu_fimc_lite0>;
+-		};
+-
+-		fimc_lite_1: fimc-lite@123A0000 {
+-			compatible = "samsung,exynos4212-fimc-lite";
+-			reg = <0x123A0000 0x1000>;
+-			interrupts = <0 106 0>;
+-			samsung,power-domain = <&pd_isp>;
+-			clocks = <&clock 354>;
+-			clock-names = "flite";
+-			status = "disabled";
+-			iommu = <&sysmmu_fimc_lite1>;
+-		};
+-
+ 		fimc_is: fimc-is@12000000 {
+ 			compatible = "samsung,exynos4212-fimc-is", "simple-bus";
+ 			reg = <0x12000000 0x260000>;
+@@ -312,6 +290,27 @@
+ 			#size-cells = <1>;
+ 			ranges;
+ 
++
++			fimc_lite_0: fimc-lite@12390000 {
++				compatible = "samsung,exynos4212-fimc-lite";
++				reg = <0x12390000 0x1000>;
++				interrupts = <0 105 0>;
++				clocks = <&clock 353>;
++				clock-names = "flite";
++				status = "disabled";
++				iommu = <&sysmmu_fimc_lite0>;
++			};
++
++			fimc_lite_1: fimc-lite@123A0000 {
++				compatible = "samsung,exynos4212-fimc-lite";
++				reg = <0x123A0000 0x1000>;
++				interrupts = <0 106 0>;
++				clocks = <&clock 354>;
++				clock-names = "flite";
++				status = "disabled";
++				iommu = <&sysmmu_fimc_lite1>;
++			};
++
+ 			pmu {
+ 				reg = <0x10020000 0x3000>;
+ 			};
+-- 
+1.8.3.2
+

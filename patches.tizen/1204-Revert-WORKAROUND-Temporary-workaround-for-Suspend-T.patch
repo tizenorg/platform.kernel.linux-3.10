@@ -1,0 +1,31 @@
+From 0c06fe0c19e1b4f259c0876f4ed54da0a5a5a54f Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Mon, 3 Feb 2014 17:29:25 +0900
+Subject: [PATCH 1204/1302] Revert "WORKAROUND: Temporary workaround for
+ Suspend-To-Ram."
+
+This reverts commit 682061cb597d5174de6fee211a2ad565c33680f7.
+
+Change-Id: I4ac3f3b86ecd6a8b15ea2d266ab84b16aeb69dda
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 0867ada..9f268f4 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -806,7 +806,7 @@
+ 					regulator-max-microvolt = <1500000>;
+ 					regulator-always-on;
+ 					regulator-boot-on;
+-					regulator-mem-on;
++					regulator-mem-off;
+ 				};
+ 
+ 				buck3_reg: buck@3 {
+-- 
+1.8.3.2
+

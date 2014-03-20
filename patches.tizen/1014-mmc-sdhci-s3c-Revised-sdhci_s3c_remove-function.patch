@@ -1,0 +1,41 @@
+From fb62dd3925bc704a5ec9562a8887e3a1e71fc19f Mon Sep 17 00:00:00 2001
+From: Beomho Seo <beomho.seo@samsung.com>
+Date: Tue, 5 Nov 2013 20:51:00 +0900
+Subject: [PATCH 1014/1302] mmc: sdhci-s3c: Revised sdhci_s3c_remove function.
+
+Remove "return ret;" from "err_req_cd:".
+Revised sdhci_s3c_remove function.
+
+Signed-off-by: Beomho Seo <beomho.seo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/sdhci-s3c.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/mmc/host/sdhci-s3c.c b/drivers/mmc/host/sdhci-s3c.c
+index c2a7383..acc0099 100644
+--- a/drivers/mmc/host/sdhci-s3c.c
++++ b/drivers/mmc/host/sdhci-s3c.c
+@@ -667,8 +667,6 @@ static int sdhci_s3c_probe(struct platform_device *pdev)
+  err_req_cd:
+ 	mmc_gpio_free_cd(host->mmc);
+ 
+-	return ret;
+-
+  err_req_regs:
+ #ifndef CONFIG_PM_RUNTIME
+ 	clk_disable_unprepare(sc->clk_bus[sc->cur_clk]);
+@@ -692,8 +690,8 @@ static int sdhci_s3c_remove(struct platform_device *pdev)
+ 	if (pdata->cd_type == S3C_SDHCI_CD_EXTERNAL && pdata->ext_cd_cleanup)
+ 		pdata->ext_cd_cleanup(&sdhci_s3c_notify_change);
+ 
+-	if (sc->ext_cd_irq)
+-		free_irq(sc->ext_cd_irq, sc);
++	if (pdata->ext_cd_gpio)
++		mmc_gpio_free_cd(host->mmc);
+ 
+ #ifdef CONFIG_PM_RUNTIME
+ 	if (pdata->cd_type != S3C_SDHCI_CD_INTERNAL)
+-- 
+1.8.3.2
+

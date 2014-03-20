@@ -1,0 +1,27 @@
+From d1934f1b374955632b5cc71c2628e048bfe38a5b Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Tue, 29 Jan 2013 14:44:19 +0100
+Subject: [PATCH 0055/1302] ARM: dts: Add MFC node for Exynos4 SoC series
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 5a3955b..e81937c 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -230,6 +230,8 @@
+ 		reg = <0x13400000 0x10000>;
+ 		interrupts = <0 94 0>;
+ 		samsung,power-domain = <&pd_mfc>;
++		clocks = <&clock 273>, <&clock 170>;
++		clock-names = "mfc", "sclk_mfc";
+ 		status = "disabled";
+ 		iommu = <&sysmmu_mfc_l>, <&sysmmu_mfc_r>;
+ 	};
+-- 
+1.8.3.2
+

@@ -1,0 +1,66 @@
+From e5dfa4d6c704b03e639d074eb4ce56c744e75310 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Mon, 13 Jan 2014 13:20:25 +0100
+Subject: [PATCH 1195/1302] usb: gadget: FunctionFS: staticize functions used
+ only in f_fs.c
+
+ffs_alloc_dev and ffs_free_dev are used only in f_fs.c,
+so make them static.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 6 ++++--
+ drivers/usb/gadget/u_fs.h | 2 --
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index 075250a..30fcc75 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -162,7 +162,9 @@ DEFINE_MUTEX(ffs_lock);
+ EXPORT_SYMBOL(ffs_lock);
+ 
+ static struct ffs_dev *ffs_find_dev(const char *name);
++static struct ffs_dev *ffs_alloc_dev(void);
+ static int _ffs_name_dev(struct ffs_dev *dev, const char *name);
++static void ffs_free_dev(struct ffs_dev *dev);
+ static void *ffs_acquire_dev(const char *dev_name);
+ static void ffs_release_dev(struct ffs_data *ffs_data);
+ static int ffs_ready(struct ffs_data *ffs);
+@@ -2473,7 +2475,7 @@ static struct usb_function *ffs_alloc(struct usb_function_instance *fi)
+ /*
+  * ffs_lock must be taken by the caller of this function
+  */
+-struct ffs_dev *ffs_alloc_dev(void)
++static struct ffs_dev *ffs_alloc_dev(void)
+ {
+ 	struct ffs_dev *dev;
+ 	int ret;
+@@ -2550,7 +2552,7 @@ EXPORT_SYMBOL(ffs_single_dev);
+ /*
+  * ffs_lock must be taken by the caller of this function
+  */
+-void ffs_free_dev(struct ffs_dev *dev)
++static void ffs_free_dev(struct ffs_dev *dev)
+ {
+ 	list_del(&dev->entry);
+ 	if (dev->name_allocated)
+diff --git a/drivers/usb/gadget/u_fs.h b/drivers/usb/gadget/u_fs.h
+index bc2d371..f418c25 100644
+--- a/drivers/usb/gadget/u_fs.h
++++ b/drivers/usb/gadget/u_fs.h
+@@ -65,10 +65,8 @@ static inline void ffs_dev_unlock(void)
+ 	mutex_unlock(&ffs_lock);
+ }
+ 
+-struct ffs_dev *ffs_alloc_dev(void);
+ int ffs_name_dev(struct ffs_dev *dev, const char *name);
+ int ffs_single_dev(struct ffs_dev *dev);
+-void ffs_free_dev(struct ffs_dev *dev);
+ 
+ struct ffs_epfile;
+ struct ffs_function;
+-- 
+1.8.3.2
+

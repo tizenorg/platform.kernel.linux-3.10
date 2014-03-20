@@ -1,0 +1,32 @@
+From 42988f3ff39f9a7250b7919783455cc8bae133de Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 14 Jan 2014 14:27:10 +0100
+Subject: [PATCH 1099/1302] Revert "usb/gadget: f_mass_storage: use
+ fsg_common_set_ops/_private_data in fsg_common_init"
+
+This reverts commit 51c5313aa631785326cf16c39e941edd50b2832f.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 8aa6c86..691fb51 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -3019,9 +3019,8 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 			kfree(common);
+ 		return ERR_PTR(rc);
+ 	}
+-
+-	fsg_common_set_ops(common, cfg->ops);
+-	fsg_common_set_private_data(common, cfg->private_data);
++	common->ops = cfg->ops;
++	common->private_data = cfg->private_data;
+ 
+ 	common->gadget = gadget;
+ 	common->ep0 = gadget->ep0;
+-- 
+1.8.3.2
+

@@ -1,0 +1,60 @@
+From 13719e5150f4b0c6a19768f7059989a53fb3694c Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Wed, 24 Jul 2013 12:47:46 +0200
+Subject: [PATCH 0650/1302] usb: gadget: ether: put_usb_function on unbind
+
+Fix bugs introduced in
+
+9c62ce83e4258bacc459faf57bf2ed83cce6be08
+usb: gadget: ether: convert to new interface of f_ecm
+
+94b5573e97729f0e1496d23b69cbe2c6b24ec0c3
+usb: gadget: ether: convert to new interface of f_eem
+
+8af5232d6f48896b151898ccb2e9e155481bb785
+usb: gadget: ether: convert to new interface of f_subset
+
+9bd4a10e1bf881af0b0a7c117c7092b558447047
+usb: gadget: ether: convert to new interface of f_rndis
+
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/ether.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/gadget/ether.c b/drivers/usb/gadget/ether.c
+index f48712f..c1c113e 100644
+--- a/drivers/usb/gadget/ether.c
++++ b/drivers/usb/gadget/ether.c
+@@ -449,14 +449,20 @@ fail:
+ 
+ static int __exit eth_unbind(struct usb_composite_dev *cdev)
+ {
+-	if (has_rndis())
++	if (has_rndis()) {
++		usb_put_function(f_rndis);
+ 		usb_put_function_instance(fi_rndis);
+-	if (use_eem)
++	}
++	if (use_eem) {
++		usb_put_function(f_eem);
+ 		usb_put_function_instance(fi_eem);
+-	else if (can_support_ecm(cdev->gadget))
++	} else if (can_support_ecm(cdev->gadget)) {
++		usb_put_function(f_ecm);
+ 		usb_put_function_instance(fi_ecm);
+-	else
++	} else {
++		usb_put_function(f_geth);
+ 		usb_put_function_instance(fi_geth);
++	}
+ 	return 0;
+ }
+ 
+-- 
+1.8.3.2
+

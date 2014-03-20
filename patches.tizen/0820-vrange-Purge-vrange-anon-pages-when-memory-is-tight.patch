@@ -1,0 +1,252 @@
+From a1b3b12cebd864a652b5d57f4a3060781b97f156 Mon Sep 17 00:00:00 2001
+From: Minchan Kim <minchan@kernel.org>
+Date: Thu, 25 Jul 2013 13:44:36 +0900
+Subject: [PATCH 0820/1302] vrange: Purge vrange-anon pages when memory is
+ tight
+
+This patch adds purging logic of volatile pages into direct
+reclaim path so that if vrange pages is selected as victim by VM,
+they could be discarded rather than swapping out.
+
+Direct purging doesn't consider volatile page's age because it
+would be better to free the page rather than swapping out
+another working set pages. This makes sense because userspace
+specifies "please remove free these pages when memory is tight"
+via the vrange syscall.
+
+This however is an in-kernel behavior and the purging logic
+could later change. Applications should not assume anything
+about the volatile page purging order, much as they shouldn't
+assume anything about the page swapout order.
+
+XXX: Might be a bug: Seems to purge if any process has anon page marked
+volatile, not if all processes have anon page marked volatile
+
+Signed-off-by: Minchan Kim <minchan@kernel.org>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ include/linux/rmap.h | 11 +++++++----
+ mm/ksm.c             |  2 +-
+ mm/rmap.c            | 28 ++++++++++++++++++++--------
+ mm/vmscan.c          | 17 +++++++++++++++--
+ 4 files changed, 43 insertions(+), 15 deletions(-)
+
+diff --git a/include/linux/rmap.h b/include/linux/rmap.h
+index 6dacb93..f38185d 100644
+--- a/include/linux/rmap.h
++++ b/include/linux/rmap.h
+@@ -181,10 +181,11 @@ static inline void page_dup_rmap(struct page *page)
+ /*
+  * Called from mm/vmscan.c to handle paging out
+  */
+-int page_referenced(struct page *, int is_locked,
+-			struct mem_cgroup *memcg, unsigned long *vm_flags);
++int page_referenced(struct page *, int is_locked, struct mem_cgroup *memcg,
++				unsigned long *vm_flags, int *is_vrange);
+ int page_referenced_one(struct page *, struct vm_area_struct *,
+-	unsigned long address, unsigned int *mapcount, unsigned long *vm_flags);
++			unsigned long address, unsigned int *mapcount,
++			unsigned long *vm_flags, int *is_vrange);
+ 
+ #define TTU_ACTION(x) ((x) & TTU_ACTION_MASK)
+ 
+@@ -249,9 +250,11 @@ int rmap_walk(struct page *page, int (*rmap_one)(struct page *,
+ 
+ static inline int page_referenced(struct page *page, int is_locked,
+ 				  struct mem_cgroup *memcg,
+-				  unsigned long *vm_flags)
++				  unsigned long *vm_flags,
++				  int *is_vrange)
+ {
+ 	*vm_flags = 0;
++	*is_vrange = 0;
+ 	return 0;
+ }
+ 
+diff --git a/mm/ksm.c b/mm/ksm.c
+index b6afe0c..debc20c 100644
+--- a/mm/ksm.c
++++ b/mm/ksm.c
+@@ -1932,7 +1932,7 @@ again:
+ 				continue;
+ 
+ 			referenced += page_referenced_one(page, vma,
+-				rmap_item->address, &mapcount, vm_flags);
++				rmap_item->address, &mapcount, vm_flags, NULL);
+ 			if (!search_new_forks || !mapcount)
+ 				break;
+ 		}
+diff --git a/mm/rmap.c b/mm/rmap.c
+index 6280da8..007fc3b 100644
+--- a/mm/rmap.c
++++ b/mm/rmap.c
+@@ -57,6 +57,7 @@
+ #include <linux/migrate.h>
+ #include <linux/hugetlb.h>
+ #include <linux/backing-dev.h>
++#include <linux/vrange.h>
+ 
+ #include <asm/tlbflush.h>
+ 
+@@ -662,7 +663,7 @@ int page_mapped_in_vma(struct page *page, struct vm_area_struct *vma)
+  */
+ int page_referenced_one(struct page *page, struct vm_area_struct *vma,
+ 			unsigned long address, unsigned int *mapcount,
+-			unsigned long *vm_flags)
++			unsigned long *vm_flags, int *is_vrange)
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	int referenced = 0;
+@@ -724,6 +725,11 @@ int page_referenced_one(struct page *page, struct vm_area_struct *vma,
+ 				referenced++;
+ 		}
+ 		pte_unmap_unlock(pte, ptl);
++		if (is_vrange && vrange_addr_volatile(vma, address)) {
++			*is_vrange = 1;
++			*mapcount = 0; /* break ealry from loop */
++			goto out;
++		}
+ 	}
+ 
+ 	(*mapcount)--;
+@@ -736,7 +742,7 @@ out:
+ 
+ static int page_referenced_anon(struct page *page,
+ 				struct mem_cgroup *memcg,
+-				unsigned long *vm_flags)
++				unsigned long *vm_flags, int *is_vrange)
+ {
+ 	unsigned int mapcount;
+ 	struct anon_vma *anon_vma;
+@@ -761,7 +767,8 @@ static int page_referenced_anon(struct page *page,
+ 		if (memcg && !mm_match_cgroup(vma->vm_mm, memcg))
+ 			continue;
+ 		referenced += page_referenced_one(page, vma, address,
+-						  &mapcount, vm_flags);
++						  &mapcount, vm_flags,
++						  is_vrange);
+ 		if (!mapcount)
+ 			break;
+ 	}
+@@ -785,7 +792,7 @@ static int page_referenced_anon(struct page *page,
+  */
+ static int page_referenced_file(struct page *page,
+ 				struct mem_cgroup *memcg,
+-				unsigned long *vm_flags)
++				unsigned long *vm_flags, int *is_vrange)
+ {
+ 	unsigned int mapcount;
+ 	struct address_space *mapping = page->mapping;
+@@ -826,7 +833,8 @@ static int page_referenced_file(struct page *page,
+ 		if (memcg && !mm_match_cgroup(vma->vm_mm, memcg))
+ 			continue;
+ 		referenced += page_referenced_one(page, vma, address,
+-						  &mapcount, vm_flags);
++						  &mapcount, vm_flags,
++						  is_vrange);
+ 		if (!mapcount)
+ 			break;
+ 	}
+@@ -841,6 +849,7 @@ static int page_referenced_file(struct page *page,
+  * @is_locked: caller holds lock on the page
+  * @memcg: target memory cgroup
+  * @vm_flags: collect encountered vma->vm_flags who actually referenced the page
++ * @is_vrange: Is @page in vrange?
+  *
+  * Quick test_and_clear_referenced for all mappings to a page,
+  * returns the number of ptes which referenced the page.
+@@ -848,7 +857,8 @@ static int page_referenced_file(struct page *page,
+ int page_referenced(struct page *page,
+ 		    int is_locked,
+ 		    struct mem_cgroup *memcg,
+-		    unsigned long *vm_flags)
++		    unsigned long *vm_flags,
++		    int *is_vrange)
+ {
+ 	int referenced = 0;
+ 	int we_locked = 0;
+@@ -867,10 +877,12 @@ int page_referenced(struct page *page,
+ 								vm_flags);
+ 		else if (PageAnon(page))
+ 			referenced += page_referenced_anon(page, memcg,
+-								vm_flags);
++								vm_flags,
++								is_vrange);
+ 		else if (page->mapping)
+ 			referenced += page_referenced_file(page, memcg,
+-								vm_flags);
++								vm_flags,
++								is_vrange);
+ 		if (we_locked)
+ 			unlock_page(page);
+ 
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index 7dbdb6a..d039e30 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -43,6 +43,7 @@
+ #include <linux/sysctl.h>
+ #include <linux/oom.h>
+ #include <linux/prefetch.h>
++#include <linux/vrange.h>
+ 
+ #include <asm/tlbflush.h>
+ #include <asm/div64.h>
+@@ -612,17 +613,19 @@ enum page_references {
+ 	PAGEREF_RECLAIM,
+ 	PAGEREF_RECLAIM_CLEAN,
+ 	PAGEREF_KEEP,
++	PAGEREF_DISCARD,
+ 	PAGEREF_ACTIVATE,
+ };
+ 
+ static enum page_references page_check_references(struct page *page,
+ 						  struct scan_control *sc)
+ {
++	int is_vrange = 0;
+ 	int referenced_ptes, referenced_page;
+ 	unsigned long vm_flags;
+ 
+ 	referenced_ptes = page_referenced(page, 1, sc->target_mem_cgroup,
+-					  &vm_flags);
++					  &vm_flags, &is_vrange);
+ 	referenced_page = TestClearPageReferenced(page);
+ 
+ 	/*
+@@ -632,6 +635,13 @@ static enum page_references page_check_references(struct page *page,
+ 	if (vm_flags & VM_LOCKED)
+ 		return PAGEREF_RECLAIM;
+ 
++	/*
++	 * If volatile page is reached on LRU's tail, we discard the
++	 * page without considering recycle the page.
++	 */
++	if (is_vrange)
++		return PAGEREF_DISCARD;
++
+ 	if (referenced_ptes) {
+ 		if (PageSwapBacked(page))
+ 			return PAGEREF_ACTIVATE;
+@@ -770,6 +780,9 @@ static unsigned long shrink_page_list(struct list_head *page_list,
+ 			goto activate_locked;
+ 		case PAGEREF_KEEP:
+ 			goto keep_locked;
++		case PAGEREF_DISCARD:
++			if (may_enter_fs && !discard_vpage(page))
++				goto free_it;
+ 		case PAGEREF_RECLAIM:
+ 		case PAGEREF_RECLAIM_CLEAN:
+ 			; /* try to reclaim the page below */
+@@ -1499,7 +1512,7 @@ static void shrink_active_list(unsigned long nr_to_scan,
+ 		}
+ 
+ 		if (page_referenced(page, 0, sc->target_mem_cgroup,
+-				    &vm_flags)) {
++				    &vm_flags, NULL)) {
+ 			nr_rotated += hpage_nr_pages(page);
+ 			/*
+ 			 * Identify referenced, file-backed active pages and
+-- 
+1.8.3.2
+

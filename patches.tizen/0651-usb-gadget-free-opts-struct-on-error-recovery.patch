@@ -1,0 +1,150 @@
+From 3477d859ac9daa0f93b8035917c0bc4935e77220 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Thu, 25 Jul 2013 09:13:18 +0200
+Subject: [PATCH 0651/1302] usb: gadget: free opts struct on error recovery
+
+Fix memory leaks introduced in commits:
+
+40d133d7f542616cf9538508a372306e626a16e9
+usb: gadget: f_ncm: convert to new function interface with backward compatibility
+
+fee562a6450b7806f1fbbe1469a67b5395b5c10a
+usb: gadget: f_ecm: convert to new function interface with backward compatibility
+
+fcbdf12ebef73a6069e2a1aada1e546fb578a4aa
+usb: gadget: f_phonet: convert to new function interface with backward compatibility
+
+b29002a157940752dfed2c488b2011f63f007d71
+usb: gadget: f_eem: convert to new function interface with backward compatibility
+
+8cedba7c73af1369599b1111639cfeb66fe13aaa
+usb: gadget: f_subset: convert to new function interface with backward compatibility
+
+f466c6353819326873fa48a02c6f2d7c903240d6
+usb: gadget: f_rndis: convert to new function interface with backward compatibility
+
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_ecm.c    | 7 +++++--
+ drivers/usb/gadget/f_eem.c    | 7 +++++--
+ drivers/usb/gadget/f_ncm.c    | 7 +++++--
+ drivers/usb/gadget/f_phonet.c | 7 +++++--
+ drivers/usb/gadget/f_rndis.c  | 7 +++++--
+ drivers/usb/gadget/f_subset.c | 7 +++++--
+ 6 files changed, 30 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_ecm.c b/drivers/usb/gadget/f_ecm.c
+index 5d3561e..edab45d 100644
+--- a/drivers/usb/gadget/f_ecm.c
++++ b/drivers/usb/gadget/f_ecm.c
+@@ -959,8 +959,11 @@ static struct usb_function_instance *ecm_alloc_inst(void)
+ 	mutex_init(&opts->lock);
+ 	opts->func_inst.free_func_inst = ecm_free_inst;
+ 	opts->net = gether_setup_default();
+-	if (IS_ERR(opts->net))
+-		return ERR_PTR(PTR_ERR(opts->net));
++	if (IS_ERR(opts->net)) {
++		struct net_device *net = opts->net;
++		kfree(opts);
++		return ERR_CAST(net);
++	}
+ 
+ 	config_group_init_type_name(&opts->func_inst.group, "", &ecm_func_type);
+ 
+diff --git a/drivers/usb/gadget/f_eem.c b/drivers/usb/gadget/f_eem.c
+index 90ee802..d00392d 100644
+--- a/drivers/usb/gadget/f_eem.c
++++ b/drivers/usb/gadget/f_eem.c
+@@ -593,8 +593,11 @@ static struct usb_function_instance *eem_alloc_inst(void)
+ 	mutex_init(&opts->lock);
+ 	opts->func_inst.free_func_inst = eem_free_inst;
+ 	opts->net = gether_setup_default();
+-	if (IS_ERR(opts->net))
+-		return ERR_CAST(opts->net);
++	if (IS_ERR(opts->net)) {
++		struct net_device *net = opts->net;
++		kfree(opts);
++		return ERR_CAST(net);
++	}
+ 
+ 	config_group_init_type_name(&opts->func_inst.group, "", &eem_func_type);
+ 
+diff --git a/drivers/usb/gadget/f_ncm.c b/drivers/usb/gadget/f_ncm.c
+index 952177f..1c28fe1 100644
+--- a/drivers/usb/gadget/f_ncm.c
++++ b/drivers/usb/gadget/f_ncm.c
+@@ -1350,8 +1350,11 @@ static struct usb_function_instance *ncm_alloc_inst(void)
+ 	mutex_init(&opts->lock);
+ 	opts->func_inst.free_func_inst = ncm_free_inst;
+ 	opts->net = gether_setup_default();
+-	if (IS_ERR(opts->net))
+-		return ERR_PTR(PTR_ERR(opts->net));
++	if (IS_ERR(opts->net)) {
++		struct net_device *net = opts->net;
++		kfree(opts);
++		return ERR_CAST(net);
++	}
+ 
+ 	config_group_init_type_name(&opts->func_inst.group, "", &ncm_func_type);
+ 
+diff --git a/drivers/usb/gadget/f_phonet.c b/drivers/usb/gadget/f_phonet.c
+index 7944fb0..1bf26e9 100644
+--- a/drivers/usb/gadget/f_phonet.c
++++ b/drivers/usb/gadget/f_phonet.c
+@@ -656,8 +656,11 @@ static struct usb_function_instance *phonet_alloc_inst(void)
+ 
+ 	opts->func_inst.free_func_inst = phonet_free_inst;
+ 	opts->net = gphonet_setup_default();
+-	if (IS_ERR(opts->net))
+-		return ERR_PTR(PTR_ERR(opts->net));
++	if (IS_ERR(opts->net)) {
++		struct net_device *net = opts->net;
++		kfree(opts);
++		return ERR_CAST(net);
++	}
+ 
+ 	config_group_init_type_name(&opts->func_inst.group, "",
+ 			&phonet_func_type);
+diff --git a/drivers/usb/gadget/f_rndis.c b/drivers/usb/gadget/f_rndis.c
+index 191df35..717ed7f 100644
+--- a/drivers/usb/gadget/f_rndis.c
++++ b/drivers/usb/gadget/f_rndis.c
+@@ -963,8 +963,11 @@ static struct usb_function_instance *rndis_alloc_inst(void)
+ 	mutex_init(&opts->lock);
+ 	opts->func_inst.free_func_inst = rndis_free_inst;
+ 	opts->net = gether_setup_default();
+-	if (IS_ERR(opts->net))
+-		return ERR_CAST(opts->net);
++	if (IS_ERR(opts->net)) {
++		struct net_device *net = opts->net;
++		kfree(opts);
++		return ERR_CAST(net);
++	}
+ 
+ 	config_group_init_type_name(&opts->func_inst.group, "",
+ 				    &rndis_func_type);
+diff --git a/drivers/usb/gadget/f_subset.c b/drivers/usb/gadget/f_subset.c
+index 5601e1d..7c8674f 100644
+--- a/drivers/usb/gadget/f_subset.c
++++ b/drivers/usb/gadget/f_subset.c
+@@ -505,8 +505,11 @@ static struct usb_function_instance *geth_alloc_inst(void)
+ 	mutex_init(&opts->lock);
+ 	opts->func_inst.free_func_inst = geth_free_inst;
+ 	opts->net = gether_setup_default();
+-	if (IS_ERR(opts->net))
+-		return ERR_CAST(opts->net);
++	if (IS_ERR(opts->net)) {
++		struct net_device *net = opts->net;
++		kfree(opts);
++		return ERR_CAST(net);
++	}
+ 
+ 	config_group_init_type_name(&opts->func_inst.group, "",
+ 				    &gether_func_type);
+-- 
+1.8.3.2
+

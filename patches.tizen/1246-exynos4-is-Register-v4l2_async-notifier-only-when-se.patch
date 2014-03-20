@@ -1,0 +1,55 @@
+From 69eac2ef99ee43c951bdac7ee9f85861f28e5975 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 24 Feb 2014 13:48:41 +0100
+Subject: [PATCH 1246/1302] exynos4-is: Register v4l2_async notifier only when
+ sensors are available
+
+This allows driver initialization again if no camera sensors are
+specified. It fixes regression introduced in commit 9cb4cf023f4d793ca
+"exynos4-is: Add support for asynchronous sensor subddevs registration"
+
+Change-Id: I02379781ff51142f02dc3a4c3f0bc7b0da999e1f
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/media-dev.c | 24 ++++++++++++++----------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/media/platform/exynos4-is/media-dev.c b/drivers/media/platform/exynos4-is/media-dev.c
+index 55a0900..4b40dbd 100644
+--- a/drivers/media/platform/exynos4-is/media-dev.c
++++ b/drivers/media/platform/exynos4-is/media-dev.c
+@@ -1661,16 +1661,20 @@ static int fimc_md_probe(struct platform_device *pdev)
+ 		goto err_attr;
+ 	}
+ 
+-	fmd->subdev_notifier.subdevs = fmd->async_subdevs;
+-	fmd->subdev_notifier.num_subdevs = fmd->num_sensors;
+-	fmd->subdev_notifier.bound = subdev_notifier_bound;
+-	fmd->subdev_notifier.complete = subdev_notifier_complete;
+-	fmd->num_sensors = 0;
+-
+-	ret = v4l2_async_notifier_register(&fmd->v4l2_dev,
+-					   &fmd->subdev_notifier);
+-	if (ret)
+-		goto err_clk_p;
++
++	if (fmd->num_sensors > 0) {
++		fmd->subdev_notifier.subdevs = fmd->async_subdevs;
++		fmd->subdev_notifier.num_subdevs = fmd->num_sensors;
++		fmd->subdev_notifier.bound = subdev_notifier_bound;
++		fmd->subdev_notifier.complete = subdev_notifier_complete;
++		fmd->num_sensors = 0;
++
++		ret = v4l2_async_notifier_register(&fmd->v4l2_dev,
++						   &fmd->subdev_notifier);
++
++		if (ret)
++			goto err_clk_p;
++	}
+ 
+ 	return 0;
+ 
+-- 
+1.8.3.2
+

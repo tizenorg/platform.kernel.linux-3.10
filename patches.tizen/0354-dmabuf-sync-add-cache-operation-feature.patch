@@ -1,0 +1,130 @@
+From 8608a8ae127e9e8d262aaf93290db3477bc330d2 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Wed, 17 Jul 2013 14:43:43 +0900
+Subject: [PATCH 0354/1302] dmabuf-sync: add cache operation feature
+
+With this patch, all cache operations will be done in kernel side
+instead of user side.
+
+P.S. basically, not only user shouldn't need to request cache operation
+to kernel but also kernel should't need such things. However, we would
+have performance overhead by unnecessary cache operations if we conform
+with mainline style: cache sync just before memory ownership moves from
+CPU to DMA, and just after memory ownership moves from DMA to CPU.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/base/dmabuf-sync.c | 75 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 75 insertions(+)
+
+diff --git a/drivers/base/dmabuf-sync.c b/drivers/base/dmabuf-sync.c
+index 0b83111..a4b8a50 100644
+--- a/drivers/base/dmabuf-sync.c
++++ b/drivers/base/dmabuf-sync.c
+@@ -22,6 +22,15 @@
+ 
+ int dmabuf_sync_enabled = 1;
+ 
++#define NEED_BEGIN_CPU_ACCESS(old, new_type)	\
++			((old->accessed_type & DMA_BUF_ACCESS_DMA_W) == \
++			  DMA_BUF_ACCESS_DMA_W && new_type == DMA_BUF_ACCESS_R)
++
++#define NEED_END_CPU_ACCESS(old, new_type)	\
++			(((old->accessed_type == DMA_BUF_ACCESS_W) || \
++			 (old->accessed_type == DMA_BUF_ACCESS_RW)) && \
++			 new_type & DMA_BUF_ACCESS_DMA)
++
+ MODULE_PARM_DESC(enabled, "Check if dmabuf sync is supported or not");
+ module_param_named(enabled, dmabuf_sync_enabled, int, 0444);
+ 
+@@ -83,6 +92,68 @@ static void dmabuf_sync_timeout_worker(struct work_struct *work)
+ 	dmabuf_sync_fini(sync);
+ }
+ 
++static void dmabuf_sync_cache_ops(struct dmabuf_sync *sync)
++{
++	struct dmabuf_sync_object *sobj;
++
++	mutex_lock(&sync->lock);
++
++	list_for_each_entry(sobj, &sync->syncs, head) {
++		struct dma_buf *dmabuf;
++
++		dmabuf = sobj->dmabuf;
++		if (WARN_ON(!dmabuf || !sobj->robj))
++			continue;
++
++		mutex_lock(&sobj->robj->lock);
++
++		/* first time access. */
++		if (!sobj->robj->accessed_type)
++			goto out;
++
++		if (NEED_END_CPU_ACCESS(sobj->robj, sobj->access_type))
++			/* cache clean */
++			dma_buf_end_cpu_access(dmabuf, 0, dmabuf->size,
++							DMA_TO_DEVICE);
++		else if (NEED_BEGIN_CPU_ACCESS(sobj->robj, sobj->access_type))
++			/* cache invalidate */
++			dma_buf_begin_cpu_access(dmabuf, 0, dmabuf->size,
++							DMA_FROM_DEVICE);
++
++out:
++		/* Update access type to new one. */
++		sobj->robj->accessed_type = sobj->access_type;
++		mutex_unlock(&sobj->robj->lock);
++	}
++
++	mutex_unlock(&sync->lock);
++}
++
++static void dmabuf_sync_single_cache_ops(struct dma_buf *dmabuf,
++						unsigned int access_type)
++{
++	struct dmabuf_sync_reservation *robj;
++
++	robj = dmabuf->sync;
++
++	/* first time access. */
++	if (!robj->accessed_type)
++		goto out;
++
++	if (NEED_END_CPU_ACCESS(robj, access_type))
++		/* cache clean */
++		dma_buf_end_cpu_access(dmabuf, 0, dmabuf->size,
++						DMA_TO_DEVICE);
++	else if (NEED_BEGIN_CPU_ACCESS(robj, access_type))
++		/* cache invalidate */
++		dma_buf_begin_cpu_access(dmabuf, 0, dmabuf->size,
++						DMA_FROM_DEVICE);
++
++out:
++		/* Update access type to new one. */
++		robj->accessed_type = access_type;
++}
++
+ static void dmabuf_sync_lock_timeout(unsigned long arg)
+ {
+ 	struct dmabuf_sync *sync = (struct dmabuf_sync *)arg;
+@@ -442,6 +513,8 @@ int dmabuf_sync_lock(struct dmabuf_sync *sync)
+ 
+ 	sync->status = DMABUF_SYNC_LOCKED;
+ 
++	dmabuf_sync_cache_ops(sync);
++
+ 	return ret;
+ }
+ EXPORT_SYMBOL(dmabuf_sync_lock);
+@@ -533,6 +606,8 @@ int dmabuf_sync_single_lock(struct dma_buf *dmabuf, unsigned int type,
+ 
+ 	mutex_lock(&robj->lock);
+ 	robj->locked = true;
++
++	dmabuf_sync_single_cache_ops(dmabuf, type);
+ 	mutex_unlock(&robj->lock);
+ 
+ 	return 0;
+-- 
+1.8.3.2
+

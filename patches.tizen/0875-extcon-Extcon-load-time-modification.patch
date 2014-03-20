@@ -1,0 +1,56 @@
+From a1df23d6d84b5e3f99f83ee941134a19d19651a1 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 15 Oct 2013 15:30:00 +0200
+Subject: [PATCH 0875/1302] extcon: Extcon load time modification
+
+This modification enables use of extcon by drivers loaded early during the
+boot (e.g. udc-core).
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/extcon/extcon-class.c    |  2 +-
+ drivers/extcon/extcon-max77693.c | 14 +++++++++++++-
+ 2 files changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/extcon/extcon-class.c b/drivers/extcon/extcon-class.c
+index 77fcac5..5fe0ff7 100644
+--- a/drivers/extcon/extcon-class.c
++++ b/drivers/extcon/extcon-class.c
+@@ -847,7 +847,7 @@ static int __init extcon_class_init(void)
+ {
+ 	return create_extcon_class();
+ }
+-module_init(extcon_class_init);
++subsys_initcall(extcon_class_init);
+ 
+ static void __exit extcon_class_exit(void)
+ {
+diff --git a/drivers/extcon/extcon-max77693.c b/drivers/extcon/extcon-max77693.c
+index 2f1e3f1..eda131c 100644
+--- a/drivers/extcon/extcon-max77693.c
++++ b/drivers/extcon/extcon-max77693.c
+@@ -1312,7 +1312,19 @@ static struct platform_driver max77693_muic_driver = {
+ 	.remove		= max77693_muic_remove,
+ };
+ 
+-module_platform_driver(max77693_muic_driver);
++static int __init max77693_muic_init(void)
++{
++	return platform_driver_register(&max77693_muic_driver);
++}
++
++subsys_initcall(max77693_muic_init);
++
++static void __exit max77693_muic_cleanup(void)
++{
++	platform_driver_unregister(&max77693_muic_driver);
++}
++
++module_exit(max77693_muic_cleanup);
+ 
+ MODULE_DESCRIPTION("Maxim MAX77693 Extcon driver");
+ MODULE_AUTHOR("Chanwoo Choi <cw00.choi@samsung.com>");
+-- 
+1.8.3.2
+

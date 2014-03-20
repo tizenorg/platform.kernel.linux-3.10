@@ -1,0 +1,35 @@
+From 51c5313aa631785326cf16c39e941edd50b2832f Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Fri, 21 Jun 2013 11:29:58 +0200
+Subject: [PATCH 0665/1302] usb/gadget: f_mass_storage: use
+ fsg_common_set_ops/_private_data in fsg_common_init
+
+fsg_common_init is a lengthy function. Now there are helper functions
+which cover all parts of it. Use them.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 691fb51..8aa6c86 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -3019,8 +3019,9 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 			kfree(common);
+ 		return ERR_PTR(rc);
+ 	}
+-	common->ops = cfg->ops;
+-	common->private_data = cfg->private_data;
++
++	fsg_common_set_ops(common, cfg->ops);
++	fsg_common_set_private_data(common, cfg->private_data);
+ 
+ 	common->gadget = gadget;
+ 	common->ep0 = gadget->ep0;
+-- 
+1.8.3.2
+

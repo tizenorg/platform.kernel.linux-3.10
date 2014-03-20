@@ -1,0 +1,40 @@
+From 968db14027e852bd2c27f1c1cc77f9b9680823db Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 13 Sep 2013 19:16:07 +0200
+Subject: [PATCH 0787/1302] exynos4-is: Disable ISP UART clock gating
+
+The ISP UART clock causes issues with power management and hangs
+on system supend to RAM. Leave it temporarily always on until the
+issue is properly resolved.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-is.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-is.c b/drivers/media/platform/exynos4-is/fimc-is.c
+index fc4fda3..790e71f 100644
+--- a/drivers/media/platform/exynos4-is/fimc-is.c
++++ b/drivers/media/platform/exynos4-is/fimc-is.c
+@@ -52,7 +52,7 @@ static char *fimc_is_clocks[ISS_CLKS_MAX] = {
+ 	[ISS_CLK_DRC]			= "drc",
+ 	[ISS_CLK_FD]			= "fd",
+ 	[ISS_CLK_MCUISP]		= "mcuisp",
+-	[ISS_CLK_UART]			= "uart",
++	/* [ISS_CLK_UART]		= "uart", */
+ 	[ISS_CLK_ISP_DIV0]		= "ispdiv0",
+ 	[ISS_CLK_ISP_DIV1]		= "ispdiv1",
+ 	[ISS_CLK_MCUISP_DIV0]		= "mcuispdiv0",
+@@ -83,6 +83,8 @@ static int fimc_is_get_clocks(struct fimc_is *is)
+ 		is->clocks[i] = ERR_PTR(-EINVAL);
+ 
+ 	for (i = 0; i < ISS_CLKS_MAX; i++) {
++		if (fimc_is_clocks[i] == NULL)
++			continue;
+ 		is->clocks[i] = clk_get(&is->pdev->dev, fimc_is_clocks[i]);
+ 		if (IS_ERR(is->clocks[i])) {
+ 			ret = PTR_ERR(is->clocks[i]);
+-- 
+1.8.3.2
+

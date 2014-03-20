@@ -1,0 +1,29 @@
+From 50cf3b10145b836ae94a9a7c1362b1695dbc5eb8 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 31 May 2013 20:39:25 +0900
+Subject: [PATCH 0250/1302] ARM: dts: enable g2d device for redwood
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index 63efffa..3712c14 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -599,6 +599,10 @@
+ 		};
+ 	};
+ 
++	g2d@10800000 {
++		status = "okay";
++	};
++
+ 	rotator: rotator@12810000 {
+ 		status = "okay";
+ 	};
+-- 
+1.8.3.2
+

@@ -1,0 +1,77 @@
+From 3f14c783e0683f0d8186383712d9675f471feed4 Mon Sep 17 00:00:00 2001
+From: Eduardo Valentin <eduardo.valentin@ti.com>
+Date: Tue, 16 Jul 2013 15:26:28 -0400
+Subject: [PATCH 0992/1302] thermal: thermal_core: allow binding with limits on
+ bind_params
+
+When registering a thermal zone device using platform information
+via bind_params, the thermal framework will always perform the
+cdev binding using the lowest and highest limits (THERMAL_NO_LIMIT).
+
+This patch changes the data structures so that it is possible
+to inform what are the desired limits for each trip point
+inside a bind_param. The way the binding is performed is also
+changed so that it uses the new data structure.
+
+Cc: Zhang Rui <rui.zhang@intel.com>
+Cc: linux-pm@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/thermal_core.c | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/thermal/thermal_core.c b/drivers/thermal/thermal_core.c
+index 7e62cc4..a167ab9 100644
+--- a/drivers/thermal/thermal_core.c
++++ b/drivers/thermal/thermal_core.c
+@@ -203,14 +203,23 @@ static void print_bind_err_msg(struct thermal_zone_device *tz,
+ }
+ 
+ static void __bind(struct thermal_zone_device *tz, int mask,
+-			struct thermal_cooling_device *cdev)
++			struct thermal_cooling_device *cdev,
++			unsigned long *limits)
+ {
+ 	int i, ret;
+ 
+ 	for (i = 0; i < tz->trips; i++) {
+ 		if (mask & (1 << i)) {
++			unsigned long upper, lower;
++
++			upper = THERMAL_NO_LIMIT;
++			lower = THERMAL_NO_LIMIT;
++			if (limits) {
++				lower = limits[i * 2];
++				upper = limits[i * 2 + 1];
++			}
+ 			ret = thermal_zone_bind_cooling_device(tz, i, cdev,
+-					THERMAL_NO_LIMIT, THERMAL_NO_LIMIT);
++							       upper, lower);
+ 			if (ret)
+ 				print_bind_err_msg(tz, cdev, ret);
+ 		}
+@@ -255,7 +264,8 @@ static void bind_cdev(struct thermal_cooling_device *cdev)
+ 			if (tzp->tbp[i].match(pos, cdev))
+ 				continue;
+ 			tzp->tbp[i].cdev = cdev;
+-			__bind(pos, tzp->tbp[i].trip_mask, cdev);
++			__bind(pos, tzp->tbp[i].trip_mask, cdev,
++			       tzp->tbp[i].binding_limits);
+ 		}
+ 	}
+ 
+@@ -293,7 +303,8 @@ static void bind_tz(struct thermal_zone_device *tz)
+ 			if (tzp->tbp[i].match(tz, pos))
+ 				continue;
+ 			tzp->tbp[i].cdev = pos;
+-			__bind(tz, tzp->tbp[i].trip_mask, pos);
++			__bind(tz, tzp->tbp[i].trip_mask, pos,
++			       tzp->tbp[i].binding_limits);
+ 		}
+ 	}
+ exit:
+-- 
+1.8.3.2
+

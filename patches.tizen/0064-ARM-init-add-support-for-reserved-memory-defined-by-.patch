@@ -1,0 +1,41 @@
+From bf351bd86848b4e105ab7a5ab17fea7f903eb85c Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Fri, 9 Aug 2013 13:01:08 +0200
+Subject: [PATCH 0064/1302] ARM: init: add support for reserved memory defined
+ by device tree
+
+Enable reserved memory initialization from device tree.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Acked-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Acked-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mm/init.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm/mm/init.c b/arch/arm/mm/init.c
+index 0ecc43f..2d2f919 100644
+--- a/arch/arm/mm/init.c
++++ b/arch/arm/mm/init.c
+@@ -17,6 +17,7 @@
+ #include <linux/nodemask.h>
+ #include <linux/initrd.h>
+ #include <linux/of_fdt.h>
++#include <linux/of_reserved_mem.h>
+ #include <linux/highmem.h>
+ #include <linux/gfp.h>
+ #include <linux/memblock.h>
+@@ -376,6 +377,8 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
+ 	if (mdesc->reserve)
+ 		mdesc->reserve();
+ 
++	early_init_dt_scan_reserved_mem();
++
+ 	/*
+ 	 * reserve memory for DMA contigouos allocations,
+ 	 * must come from DMA area inside low memory
+-- 
+1.8.3.2
+

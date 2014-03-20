@@ -1,0 +1,36 @@
+From c926c8e20805a214869167574ce13df3afb7c38b Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Mon, 26 Aug 2013 17:01:04 +0200
+Subject: [PATCH 0587/1302] ARM: dts: exynos4412-slp_pq: Allow using max77686
+ as clock provider
+
+This patch adds #clock-cells property and label to the node of max77686
+to enable using it as a clock provider.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 4ef6363..add9306 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -549,11 +549,12 @@
+ 		pinctrl-names = "default";
+ 		status = "okay";
+ 
+-		max77686_pmic@09 {
++		max77686: max77686_pmic@09 {
+ 			compatible = "maxim,max77686";
+ 			interrupt-parent = <&gpx0>;
+ 			interrupts = <7 0>;
+ 			reg = <0x09>;
++			#clock-cells = <1>;
+ 
+ 			voltage-regulators {
+ 				ldo1_reg: ldo@1 {
+-- 
+1.8.3.2
+

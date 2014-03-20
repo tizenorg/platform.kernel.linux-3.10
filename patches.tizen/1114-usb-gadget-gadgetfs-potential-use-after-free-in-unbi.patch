@@ -1,0 +1,33 @@
+From 9321f0d3e2813f0da32cf22d2e65402c42133252 Mon Sep 17 00:00:00 2001
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 23 Aug 2013 11:16:15 +0300
+Subject: [PATCH 1114/1302] usb: gadget: gadgetfs: potential use after free in
+ unbind()
+
+ffs_data_put() can sometimes free "ffs" so I have moved the call down
+a line below the dereference.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index b6e9d91..0658908 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -1409,8 +1409,8 @@ static void functionfs_unbind(struct ffs_data *ffs)
+ 		usb_ep_free_request(ffs->gadget->ep0, ffs->ep0req);
+ 		ffs->ep0req = NULL;
+ 		ffs->gadget = NULL;
+-		ffs_data_put(ffs);
+ 		clear_bit(FFS_FL_BOUND, &ffs->flags);
++		ffs_data_put(ffs);
+ 	}
+ }
+ 
+-- 
+1.8.3.2
+

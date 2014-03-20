@@ -1,0 +1,36 @@
+From 441dba5b258fa05e375d623f598a073ab40f253c Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Tue, 13 Aug 2013 13:47:57 +0900
+Subject: [PATCH 0533/1302] dma-buf: return POLLIN | POLLOUT instead of POLLERR
+
+It's not error if a dmabuf wasn't locked when select is called but
+rather that means there is no anyone accessing the dmabuf so return
+POLLIN | POLLOUT.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/base/dma-buf.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/base/dma-buf.c b/drivers/base/dma-buf.c
+index 53ade7b..e2e35ed 100644
+--- a/drivers/base/dma-buf.c
++++ b/drivers/base/dma-buf.c
+@@ -113,11 +113,11 @@ static unsigned int dma_buf_poll(struct file *filp,
+ 	}
+ 
+ 	/*
+-	 * There is no anyone accessing this buffer so just return POLLERR.
++	 * There is no anyone accessing this buffer so just return.
+ 	 */
+ 	if (!robj->locked) {
+ 		mutex_unlock(&robj->lock);
+-		return POLLERR;
++		return POLLIN | POLLOUT;
+ 	}
+ 
+ 	poll_wait(filp, &robj->poll_wait, poll);
+-- 
+1.8.3.2
+

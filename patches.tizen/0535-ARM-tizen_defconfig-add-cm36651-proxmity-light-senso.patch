@@ -1,0 +1,31 @@
+From 8660c77e087e90f612b42ef53e95d39cebbe447d Mon Sep 17 00:00:00 2001
+From: Beomho Seo <beomho.seo@samsung.com>
+Date: Wed, 14 Aug 2013 11:56:48 +0900
+Subject: [PATCH 0535/1302] ARM: tizen_defconfig: add cm36651 proxmity/light
+ sensor config - Add cm36651 proximity/light sensor configuration - Disable
+ gp2ap002a00f proximity/light sensor configuration
+
+Signed-off-by: Beomho Seo <beomho.seo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_defconfig | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index e36edb1..dbee6bd 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -2939,7 +2939,9 @@ CONFIG_IIO_ST_GYRO_SPI_3AXIS=y
+ # CONFIG_ADJD_S311 is not set
+ # CONFIG_SENSORS_TSL2563 is not set
+ # CONFIG_VCNL4000 is not set
+-CONFIG_GP2AP002A00F=y
++#CONFIG_GP2AP002A00F is not set
++CONFIG_CM36651=y
++
+ 
+ #
+ # Magnetometer sensors
+-- 
+1.8.3.2
+

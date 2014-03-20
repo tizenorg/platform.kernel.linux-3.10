@@ -1,0 +1,41 @@
+From 3af45eb4248355694ce11db1dc0e4748967b1d0d Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Wed, 7 Aug 2013 11:01:53 +0200
+Subject: [PATCH 0067/1302] media: s5p-mfc: add support for runtime pm for
+ memport client devices
+
+Client device for handling memory/dma operations for right and left memory
+port (memory bank) require runtime pm handling for correct operation. Add
+required calls to power_on/power_off functions.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/s5p-mfc/s5p_mfc_pm.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/media/platform/s5p-mfc/s5p_mfc_pm.c b/drivers/media/platform/s5p-mfc/s5p_mfc_pm.c
+index 11d5f1d..9e238528 100644
+--- a/drivers/media/platform/s5p-mfc/s5p_mfc_pm.c
++++ b/drivers/media/platform/s5p-mfc/s5p_mfc_pm.c
+@@ -97,6 +97,8 @@ void s5p_mfc_clock_off(void)
+ int s5p_mfc_power_on(void)
+ {
+ #ifdef CONFIG_PM_RUNTIME
++	pm_runtime_get_sync(p_dev->mem_dev_l);
++	pm_runtime_get_sync(p_dev->mem_dev_r);
+ 	return pm_runtime_get_sync(pm->device);
+ #else
+ 	atomic_set(&pm->power, 1);
+@@ -107,6 +109,8 @@ int s5p_mfc_power_on(void)
+ int s5p_mfc_power_off(void)
+ {
+ #ifdef CONFIG_PM_RUNTIME
++	pm_runtime_put_sync(p_dev->mem_dev_l);
++	pm_runtime_put_sync(p_dev->mem_dev_r);
+ 	return pm_runtime_put_sync(pm->device);
+ #else
+ 	atomic_set(&pm->power, 0);
+-- 
+1.8.3.2
+

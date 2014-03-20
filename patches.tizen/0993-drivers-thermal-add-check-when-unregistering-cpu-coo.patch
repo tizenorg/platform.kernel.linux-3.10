@@ -1,0 +1,39 @@
+From 170fd934745b29cf49418d2e54c19154904a3db0 Mon Sep 17 00:00:00 2001
+From: Eduardo Valentin <eduardo.valentin@ti.com>
+Date: Thu, 15 Aug 2013 10:54:46 -0400
+Subject: [PATCH 0993/1302] drivers: thermal: add check when unregistering cpu
+ cooling
+
+This patch avoids NULL pointer accesses while unregistering
+cpu cooling devices, in case a NULL pointer is received.
+
+Cc: Zhang Rui <rui.zhang@intel.com>
+Cc: linux-pm@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/cpu_cooling.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/thermal/cpu_cooling.c b/drivers/thermal/cpu_cooling.c
+index 5b3744e..d179028 100644
+--- a/drivers/thermal/cpu_cooling.c
++++ b/drivers/thermal/cpu_cooling.c
+@@ -498,8 +498,12 @@ EXPORT_SYMBOL_GPL(cpufreq_cooling_register);
+  */
+ void cpufreq_cooling_unregister(struct thermal_cooling_device *cdev)
+ {
+-	struct cpufreq_cooling_device *cpufreq_dev = cdev->devdata;
++	struct cpufreq_cooling_device *cpufreq_dev;
+ 
++	if (!cdev)
++		return;
++
++	cpufreq_dev = cdev->devdata;
+ 	mutex_lock(&cooling_cpufreq_lock);
+ 	cpufreq_dev_count--;
+ 
+-- 
+1.8.3.2
+

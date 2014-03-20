@@ -1,0 +1,31 @@
+From 67da975629ad9c36efdd1a1dc36b6bc469265dbf Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Mon, 10 Feb 2014 15:44:31 +0100
+Subject: [PATCH 1211/1302] cpufreq: boost: trats2: Define boost_freq attribute
+ for cpufreq node.
+
+The Trats2 board (Exynos 4412 rev.1) is now able to work with 1.5 GHz
+BOOST frequency.
+
+Change-Id: Ic7da854dda7b99c9381708c54ff2528bd45a0cd9
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-m0.dts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+index c6120bb..9aefa58 100644
+--- a/arch/arm/boot/dts/exynos4412-m0.dts
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -220,6 +220,7 @@
+ 		freq_table = <1400000 1300000 1200000 1100000 1000000
+ 			     900000 800000 700000 600000 500000 400000 300000
+ 			     200000>;
++		boost_freq = <1500000>;
+ 	};
+ 
+ 	thermistor-ap@0 {
+-- 
+1.8.3.2
+

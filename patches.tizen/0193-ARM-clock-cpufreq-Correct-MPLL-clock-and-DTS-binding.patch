@@ -1,0 +1,48 @@
+From 2e63163dc07e1f60cbd6c0f9f8f7880ceb96629a Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Fri, 5 Apr 2013 18:31:42 +0200
+Subject: [PATCH 0193/1302] ARM:clock:cpufreq: Correct MPLL clock and DTS
+ binding
+
+According to specification the mout_mpll_user_c clock shall be used instead
+of sclk.
+
+Moreover correct clock number (18) was assigned to mout_mpll_user_c.
+It coply with ./Documentation/devicetree/bindings/clock/exynos4-clock.txt
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi    | 2 +-
+ drivers/cpufreq/exynos4x12-cpufreq.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 1e016a9..149c0dd 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -333,7 +333,7 @@
+ 
+ 	cpufreq {
+ 		compatible = "samsung,exynos-cpufreq";
+-		clocks = <&clock 12>, <&clock 19>, <&clock 9>, <&clock 20>;
++		clocks = <&clock 12>, <&clock 19>, <&clock 18>, <&clock 20>;
+ 		clock-names = "arm_clk", "mout_core", "mout_mpll_user_c",
+ 								"mout_apll";
+ 		status = "disabled";
+diff --git a/drivers/cpufreq/exynos4x12-cpufreq.c b/drivers/cpufreq/exynos4x12-cpufreq.c
+index 02d5353..1359fd9 100644
+--- a/drivers/cpufreq/exynos4x12-cpufreq.c
++++ b/drivers/cpufreq/exynos4x12-cpufreq.c
+@@ -213,7 +213,7 @@ int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
+ 	if (IS_ERR(mout_core))
+ 		goto err_moutcore;
+ 
+-	sclk_mpll = clk_get(info->dev, "sclk_mpll_user_c");
++	sclk_mpll = clk_get(info->dev, "mout_mpll_user_c");
+ 	if (IS_ERR(sclk_mpll))
+ 		goto err_sclk_mpll;
+ 
+-- 
+1.8.3.2
+

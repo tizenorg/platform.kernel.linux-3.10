@@ -1,0 +1,33 @@
+From a02f80423b95e4d136af6fc9e88fa911f815a092 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 8 Nov 2013 17:40:25 +0900
+Subject: [PATCH 1018/1302] cpufreq: lab: Enable overclocking in LAB
+
+Overclocking is always on for LAB governor's working.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/cpufreq_lab.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/cpufreq/cpufreq_lab.c b/drivers/cpufreq/cpufreq_lab.c
+index 3fe876b..c09e352 100644
+--- a/drivers/cpufreq/cpufreq_lab.c
++++ b/drivers/cpufreq/cpufreq_lab.c
+@@ -163,7 +163,11 @@ static void lb_dbs_timer(struct work_struct *work)
+ 
+ 	mutex_lock(&core_dbs_info->cdbs.timer_mutex);
+ 
+-	dbs_check_cpu(dbs_data, cpu);
++	/* Enable overclocking always for LAB governor */
++	if (cpufreq_boost_supported() && unlikely(!cpufreq_boost_enabled()))
++		cpufreq_boost_trigger_state(1);
++	else
++		dbs_check_cpu(dbs_data, cpu);
+ 
+ 	delay = delay_for_sampling_rate(lb_tuners->sampling_rate
+ 						* core_dbs_info->rate_mult);
+-- 
+1.8.3.2
+

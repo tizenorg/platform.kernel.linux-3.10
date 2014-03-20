@@ -1,0 +1,141 @@
+From 5efcb7ace067db78ca3bd3fc6304aff53d6aab00 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Fri, 15 Mar 2013 16:28:49 +0100
+Subject: [PATCH 0390/1302] perf tools: Move arch check into config/Makefile
+
+Moving arch check into config/Makefile.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-3-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        | 43 ++++++++++++++-----------------------------
+ tools/perf/config/Makefile | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 48 insertions(+), 29 deletions(-)
+ create mode 100644 tools/perf/config/Makefile
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index c8fb0fd..a4abdaf 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -55,37 +55,23 @@ include config/utilities.mak
+ $(OUTPUT)PERF-VERSION-FILE: .FORCE-PERF-VERSION-FILE
+ 	@$(SHELL_PATH) util/PERF-VERSION-GEN $(OUTPUT)
+ 
+-uname_M := $(shell uname -m 2>/dev/null || echo not)
+-
+-ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
+-				  -e s/arm.*/arm/ -e s/sa110/arm/ \
+-				  -e s/s390x/s390/ -e s/parisc64/parisc/ \
+-				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ \
+-				  -e s/sh[234].*/sh/ -e s/aarch64.*/arm64/ )
+-NO_PERF_REGS := 1
+-
+ CC = $(CROSS_COMPILE)gcc
+ AR = $(CROSS_COMPILE)ar
+ 
+-# Additional ARCH settings for x86
+-ifeq ($(ARCH),i386)
+-	override ARCH := x86
+-	NO_PERF_REGS := 0
+-	LIBUNWIND_LIBS = -lunwind -lunwind-x86
++# include config/Makefile by default and rule out
++# non-config cases
++config := 1
++
++NON_CONFIG_TARGETS := clean TAGS tags cscope help
++
++ifdef MAKECMDGOALS
++ifeq ($(filter-out $(NON_CONFIG_TARGETS),$(MAKECMDGOALS)),)
++  config := 0
+ endif
+-ifeq ($(ARCH),x86_64)
+-	override ARCH := x86
+-	IS_X86_64 := 0
+-	ifeq (, $(findstring m32,$(EXTRA_CFLAGS)))
+-		IS_X86_64 := $(shell echo __x86_64__ | ${CC} -E -x c - | tail -n 1)
+-	endif
+-	ifeq (${IS_X86_64}, 1)
+-		RAW_ARCH := x86_64
+-		ARCH_CFLAGS := -DARCH_X86_64
+-		ARCH_INCLUDE = ../../arch/x86/lib/memcpy_64.S ../../arch/x86/lib/memset_64.S
+-	endif
+-	NO_PERF_REGS := 0
+-	LIBUNWIND_LIBS = -lunwind -lunwind-x86_64
++endif
++
++ifeq ($(config),1)
++include config/Makefile
+ endif
+ 
+ # Treat warnings as errors unless directed not to
+@@ -208,7 +194,7 @@ ifneq ($(OUTPUT),)
+ #$(info Determined 'OUTPUT' to be $(OUTPUT))
+ endif
+ 
+-BASIC_CFLAGS = \
++BASIC_CFLAGS += \
+ 	-Iutil/include \
+ 	-Iarch/$(ARCH)/include \
+ 	$(if $(objtree),-I$(objtree)/arch/$(ARCH)/include/generated/uapi) \
+@@ -857,7 +843,6 @@ ifeq ($(NO_PERF_REGS),0)
+ 	ifeq ($(ARCH),x86)
+ 		LIB_H += arch/x86/include/perf_regs.h
+ 	endif
+-	BASIC_CFLAGS += -DHAVE_PERF_REGS
+ endif
+ 
+ ifndef NO_STRLCPY
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+new file mode 100644
+index 0000000..fe317c2
+--- /dev/null
++++ b/tools/perf/config/Makefile
+@@ -0,0 +1,34 @@
++uname_M := $(shell uname -m 2>/dev/null || echo not)
++
++ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
++				  -e s/arm.*/arm/ -e s/sa110/arm/ \
++				  -e s/s390x/s390/ -e s/parisc64/parisc/ \
++				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ \
++				  -e s/sh[234].*/sh/ -e s/aarch64.*/arm64/ )
++NO_PERF_REGS := 1
++
++# Additional ARCH settings for x86
++ifeq ($(ARCH),i386)
++	override ARCH := x86
++	NO_PERF_REGS := 0
++	LIBUNWIND_LIBS = -lunwind -lunwind-x86
++endif
++
++ifeq ($(ARCH),x86_64)
++	override ARCH := x86
++	IS_X86_64 := 0
++	ifeq (, $(findstring m32,$(EXTRA_CFLAGS)))
++		IS_X86_64 := $(shell echo __x86_64__ | ${CC} -E -x c - | tail -n 1)
++	endif
++	ifeq (${IS_X86_64}, 1)
++		RAW_ARCH := x86_64
++		ARCH_CFLAGS := -DARCH_X86_64
++		ARCH_INCLUDE = ../../arch/x86/lib/memcpy_64.S ../../arch/x86/lib/memset_64.S
++	endif
++	NO_PERF_REGS := 0
++	LIBUNWIND_LIBS = -lunwind -lunwind-x86_64
++endif
++
++ifeq ($(NO_PERF_REGS),0)
++        BASIC_CFLAGS += -DHAVE_PERF_REGS
++endif
+-- 
+1.8.3.2
+

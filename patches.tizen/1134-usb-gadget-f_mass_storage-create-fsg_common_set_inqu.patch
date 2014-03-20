@@ -1,0 +1,87 @@
+From 523fb5e38a9b5bff68b4b3ad414ade8eee29dbc7 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Wed, 9 Oct 2013 10:05:59 +0200
+Subject: [PATCH 1134/1302] usb: gadget: f_mass_storage: create
+ fsg_common_set_inquiry_string for use in fsg_common_init
+
+fsg_common_init is a lengthy function. Factor a portion of it out.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 29 +++++++++++++++++++----------
+ drivers/usb/gadget/f_mass_storage.h |  3 +++
+ 2 files changed, 22 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 6a67e2e..93a26b3 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -2980,11 +2980,27 @@ fail:
+ 	return rc;
+ }
+ 
++void fsg_common_set_inquiry_string(struct fsg_common *common, const char *vn,
++				   const char *pn)
++{
++	int i;
++
++	/* Prepare inquiryString */
++	i = get_default_bcdDevice();
++	snprintf(common->inquiry_string, sizeof(common->inquiry_string),
++		 "%-8s%-16s%04x", vn ?: "Linux",
++		 /* Assume product name dependent on the first LUN */
++		 pn ?: ((*common->luns)->cdrom
++		     ? "File-CD Gadget"
++		     : "File-Stor Gadget"),
++		 i);
++}
++
+ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 				   struct usb_composite_dev *cdev,
+ 				   struct fsg_config *cfg)
+ {
+-	int i, rc;
++	int rc;
+ 
+ 	common = fsg_common_setup(common);
+ 	if (IS_ERR(common))
+@@ -3013,16 +3029,9 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 	if (rc)
+ 		goto error_release;
+ 
+-	/* Prepare inquiryString */
+-	i = get_default_bcdDevice();
+-	snprintf(common->inquiry_string, sizeof common->inquiry_string,
+-		 "%-8s%-16s%04x", cfg->vendor_name ?: "Linux",
+-		 /* Assume product name dependent on the first LUN */
+-		 cfg->product_name ?: ((*common->luns)->cdrom
+-				     ? "File-CD Gadget"
+-				     : "File-Stor Gadget"),
+-		 i);
+ 
++	fsg_common_set_inquiry_string(common, cfg->vendor_name,
++				      cfg->product_name);
+ 	/* Tell the thread to start working */
+ 	common->thread_task =
+ 		kthread_create(fsg_main_thread, common, "file-storage");
+diff --git a/drivers/usb/gadget/f_mass_storage.h b/drivers/usb/gadget/f_mass_storage.h
+index 2a51e7b..34a15d6 100644
+--- a/drivers/usb/gadget/f_mass_storage.h
++++ b/drivers/usb/gadget/f_mass_storage.h
+@@ -123,6 +123,9 @@ int fsg_common_create_lun(struct fsg_common *common, struct fsg_lun_config *cfg,
+ 
+ int fsg_common_create_luns(struct fsg_common *common, struct fsg_config *cfg);
+ 
++void fsg_common_set_inquiry_string(struct fsg_common *common, const char *vn,
++				   const char *pn);
++
+ void fsg_config_from_params(struct fsg_config *cfg,
+ 			    const struct fsg_module_parameters *params,
+ 			    unsigned int fsg_num_buffers);
+-- 
+1.8.3.2
+

@@ -1,0 +1,50 @@
+From 098b3e8bc85fec541e37b00e2d7e69245b09beb3 Mon Sep 17 00:00:00 2001
+From: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Date: Fri, 19 Jul 2013 09:01:50 +0200
+Subject: [PATCH 0869/1302] dts: Add extcon phandle to hsotg node
+
+This patch adds extconi device(max77693) phandle for s3c_hsotg node.
+
+Signed-off-by: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index e8d0bbc..85fb0cb 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -908,7 +908,9 @@
+ 					regulator-boot-on;
+ 				};
+ 			};
+-			muic_regs {
++
++			max_muic: max77693-muic {
++				compatible = "maxim,max77693-muic";
+ 				intmask@1 {
+ 					addr = <0x7>;
+ 					data = <0x9>;
+@@ -917,8 +919,9 @@
+ 					addr = <0x8>;
+ 					data = <0x1>;
+ 				};
++
+ 			};
+-		};	
++		};
+ 	};
+ 
+ 	i2c_fuel: i2c@1 {
+@@ -1067,6 +1070,7 @@
+ 		status = "okay";
+ 		vusb_d-supply = <&ldo15_reg>;
+ 		vusb_a-supply = <&ldo12_reg>;
++		extcon = <&max_muic>;
+ 		phys = <&exynos_usbphy 0>;
+ 		phy-names = "device";
+ 	};
+-- 
+1.8.3.2
+

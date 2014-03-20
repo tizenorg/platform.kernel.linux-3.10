@@ -1,0 +1,39 @@
+From 9dc0dce150909bb582752191b3a36cebb6ee03c6 Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Fri, 28 Feb 2014 15:38:00 +0900
+Subject: [PATCH 1251/1302] ARM: odroidx2: enable P3V3 fixed regulator to
+ always on
+
+This fixed regulator is used at usb module mainly, not mmc. Just use to
+always on it.
+
+Change-Id: Ib43ea87aa85cd21aca9f44937c7c7a70c0e916f4
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-odroidx2.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-odroidx2.dts b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+index 9ce1768..c4c01bb 100644
+--- a/arch/arm/boot/dts/exynos4412-odroidx2.dts
++++ b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+@@ -98,6 +98,7 @@
+ 		regulator-max-microvolt = <3300000>;
+ 		gpio = <&gpa1 1 1>;
+ 		enable-active-high;
++		regulator-always-on;
+ 		regulator-boot-on;
+ 	};
+ 
+@@ -105,7 +106,6 @@
+ 		bus-width = <4>;
+ 		pinctrl-0 = <&sd2_clk &sd2_cmd &sd2_cd &sd2_bus4>;
+ 		pinctrl-names = "default";
+-		vmmc-supply = <&regulator_p3v3>;
+ 		status = "okay";
+ 	};
+ 
+-- 
+1.8.3.2
+

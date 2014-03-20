@@ -1,0 +1,43 @@
+From 84c7ed9fedac60f7a10fd7601bea775f9e1c5c15 Mon Sep 17 00:00:00 2001
+From: Mark Brown <broonie@linaro.org>
+Date: Wed, 7 Aug 2013 20:28:24 +0100
+Subject: [PATCH 1261/1302] usb: misc: Fix swapped properties in usb3503 DT
+ parsing
+
+The intn and connect GPIO properties are swapped in the code which will
+cause failures at runtime if these are connected, fix the code.
+
+There are currently no in-tree users of this device to check or update.
+
+Signed-off-by: Mark Brown <broonie@linaro.org>
+Acked-by: Olof Johansson <olof@lixom.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+[mszyprow: mainline commit 42416cc81f4990ad8d425b41a0fc8cd985eb5fa5]
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: I42416cc81f4990ad8d425b41a0fc8cd985eb5fa5
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/misc/usb3503.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/misc/usb3503.c b/drivers/usb/misc/usb3503.c
+index cbb6b78..4e3a2d2 100644
+--- a/drivers/usb/misc/usb3503.c
++++ b/drivers/usb/misc/usb3503.c
+@@ -215,10 +215,10 @@ static int usb3503_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
+ 			}
+ 		}
+ 
+-		hub->gpio_intn	= of_get_named_gpio(np, "connect-gpios", 0);
++		hub->gpio_intn	= of_get_named_gpio(np, "intn-gpios", 0);
+ 		if (hub->gpio_intn == -EPROBE_DEFER)
+ 			return -EPROBE_DEFER;
+-		hub->gpio_connect = of_get_named_gpio(np, "intn-gpios", 0);
++		hub->gpio_connect = of_get_named_gpio(np, "connect-gpios", 0);
+ 		if (hub->gpio_connect == -EPROBE_DEFER)
+ 			return -EPROBE_DEFER;
+ 		hub->gpio_reset = of_get_named_gpio(np, "reset-gpios", 0);
+-- 
+1.8.3.2
+

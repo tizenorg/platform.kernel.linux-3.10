@@ -1,0 +1,90 @@
+From 4bbc9f177fe4620a446f11bf3833810828819582 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Thu, 18 Jul 2013 15:33:28 +0200
+Subject: [PATCH 0910/1302] cpufreq:boost:Kconfig: Enable software managed
+ BOOST support at Kconfig
+
+For safety reasons new flag - CONFIG_CPU_FREQ_BOOST_SW has been added.
+Only after selecting "CPU Frequency Overclocking - Software" Kconfig
+option the software managed boost is enabled. It also requires thermal
+subsystem to be compiled in. Thermal is necessary for disabling boost
+and cooling down the device when overheating detected.
+
+Boost _MUST_NOT_ be enabled without thermal subsystem with properly
+defined temperatures which indicate overheating.
+
+This option doesn't affect x86's ACPI hardware managed boost support
+(i.e. Intel, AMD). In this situation boost management is embedded at
+hardware.
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: Myungjoo Ham <myungjoo.ham@samsung.com>
+
+Changes for v6:
+- Remove platform dependency (EXYNOS_THERMAL) in selecting software
+  managed boost. Now boost only depends on THERMAL.
+- Remove CPUFREQ dependency
+- Software boost Kconfig name has been edited
+
+Changes for v5:
+- New patch
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/Kconfig          | 14 ++++++++++++++
+ drivers/cpufreq/exynos-cpufreq.c |  4 ++++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/drivers/cpufreq/Kconfig b/drivers/cpufreq/Kconfig
+index 534fcb8..79ebd97 100644
+--- a/drivers/cpufreq/Kconfig
++++ b/drivers/cpufreq/Kconfig
+@@ -23,6 +23,20 @@ config CPU_FREQ_TABLE
+ config CPU_FREQ_GOV_COMMON
+ 	bool
+ 
++config CPU_FREQ_BOOST_SW
++	bool "CPU Frequency Overclocking - Software"
++	depends on THERMAL
++	default n
++	help
++	  This driver supports software managed overclocking (BOOST).
++	  It allows usage of special frequencies for a particular processor
++	  if thermal conditions are appropriate.
++
++	  It reguires, for safe operation, thermal framework with properly
++	  defined trip points.
++
++	  If in doubt, say N.
++
+ config CPU_FREQ_STAT
+ 	tristate "CPU frequency translation statistics"
+ 	select CPU_FREQ_TABLE
+diff --git a/drivers/cpufreq/exynos-cpufreq.c b/drivers/cpufreq/exynos-cpufreq.c
+index 3704b51..51a126c 100644
+--- a/drivers/cpufreq/exynos-cpufreq.c
++++ b/drivers/cpufreq/exynos-cpufreq.c
+@@ -405,7 +405,9 @@ static struct of_device_id exynos_cpufreq_of_match[] = {
+ 
+ static int exynos_cpufreq_probe(struct platform_device *pdev)
+ {
++#ifdef CONFIG_CPU_FREQ_BOOST_SW
+ 	struct device_node *node = pdev->dev.of_node;
++#endif
+ 	int ret = -EINVAL;
+ 
+ 	exynos_info = kzalloc(sizeof(struct exynos_dvfs_info), GFP_KERNEL);
+@@ -438,8 +440,10 @@ static int exynos_cpufreq_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	locking_frequency = exynos_getspeed(0);
++#ifdef CONFIG_CPU_FREQ_BOOST_SW
+ 	if (of_property_read_bool(node, "boost_mode"))
+ 		exynos_driver.boost_supported = true;
++#endif
+ 
+ 	register_pm_notifier(&exynos_cpufreq_nb);
+ 
+-- 
+1.8.3.2
+

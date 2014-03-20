@@ -1,0 +1,51 @@
+From c4beac330f9a31939259f8a9c290d45514e5e299 Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Thu, 10 Oct 2013 10:06:24 +0200
+Subject: [PATCH 0855/1302] media: s5p-jpeg: fix clock management in
+ suspend/resume path
+
+Standard suspend/resume path is called after runtime resume of the given
+device, so suspend/resume callbacks must do all clock management done also
+by runtime pm to allow proper power domain shutdown.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/s5p-jpeg/jpeg-core.c | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/platform/s5p-jpeg/jpeg-core.c b/drivers/media/platform/s5p-jpeg/jpeg-core.c
+index 58cf5cf..9b88e4c 100644
+--- a/drivers/media/platform/s5p-jpeg/jpeg-core.c
++++ b/drivers/media/platform/s5p-jpeg/jpeg-core.c
+@@ -1849,9 +1849,25 @@ static int s5p_jpeg_runtime_resume(struct device *dev)
+ 	return 0;
+ }
+ 
++static int s5p_jpeg_suspend(struct device *dev)
++{
++	struct s5p_jpeg *jpeg = dev_get_drvdata(dev);
++	clk_disable_unprepare(jpeg->clk);
++	s5p_jpeg_runtime_suspend(dev);
++	return 0;
++}
++
++static int s5p_jpeg_resume(struct device *dev)
++{
++	struct s5p_jpeg *jpeg = dev_get_drvdata(dev);
++	clk_prepare_enable(jpeg->clk);
++	s5p_jpeg_runtime_resume(dev);
++	return 0;
++}
++
+ static const struct dev_pm_ops s5p_jpeg_pm_ops = {
+-	.runtime_suspend = s5p_jpeg_runtime_suspend,
+-	.runtime_resume	 = s5p_jpeg_runtime_resume,
++	SET_SYSTEM_SLEEP_PM_OPS(s5p_jpeg_suspend, s5p_jpeg_resume)
++	SET_RUNTIME_PM_OPS(s5p_jpeg_runtime_suspend, s5p_jpeg_runtime_resume, NULL)
+ };
+ 
+ #ifdef CONFIG_OF
+-- 
+1.8.3.2
+

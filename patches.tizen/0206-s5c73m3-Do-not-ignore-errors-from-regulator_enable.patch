@@ -1,0 +1,45 @@
+From e709dfed98a95a19621910b4e8a5202a2a83116b Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Sat, 1 Jun 2013 00:43:35 +0200
+Subject: [PATCH 0206/1302] s5c73m3: Do not ignore errors from
+ regulator_enable()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This fixes following compilation warning:
+
+drivers/media/i2c/s5c73m3/s5c73m3-core.c: In function ‘__s5c73m3_power_off’:
+drivers/media/i2c/s5c73m3/s5c73m3-core.c:1389:19: warning: ignoring return value
+of ‘regulator_enable’, declared with attribute warn_unused_result
+
+Cc: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/s5c73m3/s5c73m3-core.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/i2c/s5c73m3/s5c73m3-core.c b/drivers/media/i2c/s5c73m3/s5c73m3-core.c
+index 77f59fa..b79e100 100644
+--- a/drivers/media/i2c/s5c73m3/s5c73m3-core.c
++++ b/drivers/media/i2c/s5c73m3/s5c73m3-core.c
+@@ -1386,9 +1386,12 @@ static int __s5c73m3_power_off(struct s5c73m3 *state)
+ 	}
+ 	return 0;
+ err:
+-	for (++i; i < S5C73M3_MAX_SUPPLIES; i++)
+-		regulator_enable(state->supplies[i].consumer);
+-
++	for (++i; i < S5C73M3_MAX_SUPPLIES; i++) {
++		int r = regulator_enable(state->supplies[i].consumer);
++		if (r < 0)
++			v4l2_err(&state->oif_sd, "Failed to reenable %s: %d\n",
++				 state->supplies[i].supply, r);
++	}
+ 	return ret;
+ }
+ 
+-- 
+1.8.3.2
+

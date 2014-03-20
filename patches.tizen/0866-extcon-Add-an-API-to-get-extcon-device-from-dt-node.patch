@@ -1,0 +1,176 @@
+From 7a1e5d177aa332820d97805cd0dc2cbda6dd6ed2 Mon Sep 17 00:00:00 2001
+From: Kishon Vijay Abraham I <kishon@ti.com>
+Date: Tue, 11 Jun 2013 20:48:02 +0900
+Subject: [PATCH 0866/1302] extcon: Add an API to get extcon device from dt
+ node
+
+Added an API of_extcon_get_extcon_dev() to be used by drivers to get
+extcon device in the case of dt boot (this can be used instead of
+extcon_get_extcon_dev()).
+
+Signed-off-by: Kishon Vijay Abraham I <kishon@ti.com>
+Signed-off-by: Chanwoo Choi <cw00.choi@samsung.com>
+Signed-off-by: Myungjoo Ham <myungjoo.ham@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/extcon/Kconfig           |  4 +++
+ drivers/extcon/Makefile          |  2 ++
+ drivers/extcon/extcon-class.c    |  3 +-
+ drivers/extcon/of_extcon.c       | 64 ++++++++++++++++++++++++++++++++++++++++
+ include/linux/extcon/of_extcon.h | 31 +++++++++++++++++++
+ 5 files changed, 103 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/extcon/of_extcon.c
+ create mode 100644 include/linux/extcon/of_extcon.h
+
+diff --git a/drivers/extcon/Kconfig b/drivers/extcon/Kconfig
+index 90b3ad0..aaebc6d 100644
+--- a/drivers/extcon/Kconfig
++++ b/drivers/extcon/Kconfig
+@@ -14,6 +14,10 @@ if EXTCON
+ 
+ comment "Extcon Device Drivers"
+ 
++config OF_EXTCON
++	def_tristate y
++	depends on OF
++
+ config EXTCON_GPIO
+ 	tristate "GPIO extcon support"
+ 	depends on GPIOLIB
+diff --git a/drivers/extcon/Makefile b/drivers/extcon/Makefile
+index 034bb95..b04c038 100644
+--- a/drivers/extcon/Makefile
++++ b/drivers/extcon/Makefile
+@@ -2,6 +2,8 @@
+ # Makefile for external connector class (extcon) devices
+ #
+ 
++obj-$(CONFIG_OF_EXTCON)		+= of_extcon.o
++
+ obj-$(CONFIG_EXTCON)		+= extcon-class.o
+ obj-$(CONFIG_EXTCON_GPIO)	+= extcon-gpio.o
+ obj-$(CONFIG_EXTCON_ADC_JACK)	+= extcon-adc-jack.o
+diff --git a/drivers/extcon/extcon-class.c b/drivers/extcon/extcon-class.c
+index e7b851b..972b157 100644
+--- a/drivers/extcon/extcon-class.c
++++ b/drivers/extcon/extcon-class.c
+@@ -626,7 +626,8 @@ int extcon_dev_register(struct extcon_dev *edev, struct device *dev)
+ 	edev->dev->class = extcon_class;
+ 	edev->dev->release = extcon_dev_release;
+ 
+-	dev_set_name(edev->dev, edev->name ? edev->name : dev_name(dev));
++	edev->name = edev->name ? edev->name : dev_name(dev);
++	dev_set_name(edev->dev, edev->name);
+ 
+ 	if (edev->max_supported) {
+ 		char buf[10];
+diff --git a/drivers/extcon/of_extcon.c b/drivers/extcon/of_extcon.c
+new file mode 100644
+index 0000000..72173ec
+--- /dev/null
++++ b/drivers/extcon/of_extcon.c
+@@ -0,0 +1,64 @@
++/*
++ * OF helpers for External connector (extcon) framework
++ *
++ * Copyright (C) 2013 Texas Instruments, Inc.
++ * Kishon Vijay Abraham I <kishon@ti.com>
++ *
++ * Copyright (C) 2013 Samsung Electronics
++ * Chanwoo Choi <cw00.choi@samsung.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/err.h>
++#include <linux/extcon.h>
++#include <linux/of.h>
++#include <linux/of_platform.h>
++#include <linux/extcon/of_extcon.h>
++
++/*
++ * of_extcon_get_extcon_dev - Get the name of extcon device from devicetree
++ * @dev - instance to the given device
++ * @index - index into list of extcon_dev
++ *
++ * return the instance of extcon device
++ */
++struct extcon_dev *of_extcon_get_extcon_dev(struct device *dev, int index)
++{
++	struct device_node *node;
++	struct extcon_dev *edev;
++	struct platform_device *extcon_parent_dev;
++
++	if (!dev->of_node) {
++		dev_dbg(dev, "device does not have a device node entry\n");
++		return ERR_PTR(-EINVAL);
++	}
++
++	node = of_parse_phandle(dev->of_node, "extcon", index);
++	if (!node) {
++		dev_dbg(dev, "failed to get phandle in %s node\n",
++			dev->of_node->full_name);
++		return ERR_PTR(-ENODEV);
++	}
++
++	extcon_parent_dev = of_find_device_by_node(node);
++	if (!extcon_parent_dev) {
++		dev_dbg(dev, "unable to find device by node\n");
++		return ERR_PTR(-EPROBE_DEFER);
++	}
++
++	edev = extcon_get_extcon_dev(dev_name(&extcon_parent_dev->dev));
++	if (!edev) {
++		dev_dbg(dev, "unable to get extcon device : %s\n",
++				dev_name(&extcon_parent_dev->dev));
++		return ERR_PTR(-ENODEV);
++	}
++
++	return edev;
++}
++EXPORT_SYMBOL_GPL(of_extcon_get_extcon_dev);
+diff --git a/include/linux/extcon/of_extcon.h b/include/linux/extcon/of_extcon.h
+new file mode 100644
+index 0000000..0ebfeff
+--- /dev/null
++++ b/include/linux/extcon/of_extcon.h
+@@ -0,0 +1,31 @@
++/*
++ * OF helpers for External connector (extcon) framework
++ *
++ * Copyright (C) 2013 Texas Instruments, Inc.
++ * Kishon Vijay Abraham I <kishon@ti.com>
++ *
++ * Copyright (C) 2013 Samsung Electronics
++ * Chanwoo Choi <cw00.choi@samsung.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __LINUX_OF_EXTCON_H
++#define __LINUX_OF_EXTCON_H
++
++#include <linux/err.h>
++
++#if IS_ENABLED(CONFIG_OF_EXTCON)
++extern struct extcon_dev
++	*of_extcon_get_extcon_dev(struct device *dev, int index);
++#else
++static inline struct extcon_dev
++	*of_extcon_get_extcon_dev(struct device *dev, int index)
++{
++	return ERR_PTR(-ENOSYS);
++}
++#endif /* CONFIG_OF_EXTCON */
++#endif /* __LINUX_OF_EXTCON_H */
+-- 
+1.8.3.2
+

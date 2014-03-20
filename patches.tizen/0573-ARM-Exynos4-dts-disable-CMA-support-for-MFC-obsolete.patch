@@ -1,0 +1,33 @@
+From 344cab44ad2a138f7bbdbdfe00e59203f223eeea Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Wed, 21 Aug 2013 13:24:50 +0200
+Subject: [PATCH 0573/1302] ARM: Exynos4: dts: disable CMA support for MFC
+ (obsoleted by IOMMU support)
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 20a5c86..4ef6363 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -215,11 +215,13 @@
+ 			mfc_l_mem: mfc_l_region@43000000 {
+ 				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
+ 				reg = <0x43000000 0x1000000>;
++				status = "disabled";
+ 			};
+ 
+ 			mfc_r_mem: mfc_r_region@51000000 {
+ 				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
+ 				reg = <0x51000000 0x1000000>;
++				status = "disabled";
+ 			};
+ 		};
+ 	};
+-- 
+1.8.3.2
+

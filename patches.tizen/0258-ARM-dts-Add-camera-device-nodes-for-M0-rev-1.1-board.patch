@@ -1,0 +1,139 @@
+From 4cf948a01172bc55e6ed863192bfd4df87cc7287 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 14 Jun 2013 18:43:38 +0200
+Subject: [PATCH 0258/1302] ARM: dts: Add camera device nodes for M0 rev 1.1
+ board
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-m0.dts | 115 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 115 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+index 300ce10..8e75628 100644
+--- a/arch/arm/boot/dts/exynos4412-m0.dts
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -19,4 +19,119 @@
+ 	compatible = "samsung,m0", "samsung,exynos4412";
+ 
+ 	/* Nothing to override here yet. */
++
++	pinctrl@11400000 {
++		vt_cam_id: vt-cam-id {
++			samsung,pins = "gpf1-2";
++			samsung,pin-function = <2>;
++			samsung,pin-pud = <1>;
++			samsung,pin-drv = <3>;
++		};
++	};
++
++	camera {
++		status = "okay";
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&cam_port_a_clk_active &cam_port_b_clk_active>;
++
++		fimc_0: fimc@11800000 {
++			clock-frequency = <160000000>;
++			status = "okay";
++		};
++
++		fimc_1: fimc@11810000 {
++			clock-frequency = <160000000>;
++			status = "okay";
++		};
++
++		fimc_2: fimc@11820000 {
++			clock-frequency = <160000000>;
++			status = "okay";
++		};
++
++		fimc_3: fimc@11830000 {
++			clock-frequency = <160000000>;
++			status = "okay";
++		};
++
++		csis_0: csis@11880000 {
++			status = "okay";
++			vddcore-supply = <&ldo8_reg>;
++			vddio-supply = <&ldo10_reg>;
++			clock-frequency = <160000000>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			/* Camera C (3) MIPI CSI-2 (CSIS0) */
++			port@3 {
++				reg = <3>;
++				csis0_ep: endpoint {
++					remote-endpoint = <&s5c73m3_ep>;
++					data-lanes = <1 2 3 4>;
++					samsung,csis-hs-settle = <12>;
++					samsung,csis-wclk;
++				};
++			};
++		};
++
++		csis_1: csis@11890000 {
++			status = "okay";
++			vddcore-supply = <&ldo8_reg>;
++			vddio-supply = <&ldo10_reg>;
++			clock-frequency = <160000000>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			/* Camera D (4) MIPI CSI-2 (CSIS1) */
++			port@4 {
++				reg = <4>;
++				csis1_ep: endpoint {
++					remote-endpoint = <&is_s5k6a3_ep>;
++					data-lanes = <1>;
++					samsung,csis-hs-settle = <18>;
++					samsung,csis-wclk;
++				};
++			};
++		};
++
++		fimc_lite_0: fimc-lite@12390000 {
++			status = "okay";
++		};
++
++		fimc_lite_1: fimc-lite@123A0000 {
++			status = "okay";
++		};
++
++		fimc-is@12000000 {
++			linux,contiguous-region = <&fimc_mem>;
++			status = "okay";
++			pinctrl-0 = <&fimc_is_uart>;
++			pinctrl-names = "default";
++
++			i2c1_isp: i2c-isp@12140000 {
++				pinctrl-0 = <&fimc_is_i2c1>;
++				pinctrl-names = "default";
++
++				s5k6a3@10 {
++					compatible = "samsung,s5k6a3";
++					reg = <0x10>;
++					svdda-supply = <&cam_io_reg>;
++					svddio-supply = <&ldo19_reg>;
++					clock-frequency = <24000000>;
++					samsung,camclk-out = <1>;
++					gpios = <&gpm1 6 0>;
++					pinctrl-names = "default";
++					pinctrl-0 = <&vt_cam_id>;
++
++					port {
++						is_s5k6a3_ep: endpoint {
++							remote-endpoint = <&csis1_ep>;
++							data-lanes = <1>;
++						};
++					};
++				};
++			};
++		};
++	};
+ };
+-- 
+1.8.3.2
+

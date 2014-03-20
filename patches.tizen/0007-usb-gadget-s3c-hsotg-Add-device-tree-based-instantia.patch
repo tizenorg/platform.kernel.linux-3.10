@@ -1,0 +1,44 @@
+From d2cff49885392b7551d7866fa9708c25b81bf215 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Tue, 11 Sep 2012 13:36:51 +0200
+Subject: [PATCH 0007/1302] usb: gadget: s3c-hsotg: Add device tree-based
+ instantiation
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index af22f24..8fd9681 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -29,6 +29,7 @@
+ #include <linux/slab.h>
+ #include <linux/clk.h>
+ #include <linux/regulator/consumer.h>
++#include <linux/of_platform.h>
+ 
+ #include <linux/usb/ch9.h>
+ #include <linux/usb/gadget.h>
+@@ -3648,10 +3649,17 @@ static int s3c_hsotg_remove(struct platform_device *pdev)
+ #define s3c_hsotg_resume NULL
+ #endif
+ 
++static const struct of_device_id s3c_hsotg_of_ids[] = {
++	{ .compatible = "samsung,s3c-hsotg", },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, s3c_hsotg_of_ids);
++
+ static struct platform_driver s3c_hsotg_driver = {
+ 	.driver		= {
+ 		.name	= "s3c-hsotg",
+ 		.owner	= THIS_MODULE,
++		.of_match_table = s3c_hsotg_of_ids,
+ 	},
+ 	.probe		= s3c_hsotg_probe,
+ 	.remove		= s3c_hsotg_remove,
+-- 
+1.8.3.2
+

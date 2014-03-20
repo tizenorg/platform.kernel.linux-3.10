@@ -1,0 +1,44 @@
+From 25867130bc090ad014a6ee94574f30e8f8d8e5d1 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Mon, 13 May 2013 17:54:36 +0200
+Subject: [PATCH 0112/1302] clk: samsung: exynos4: Allow rate setting
+ propagation through sclk_vpll
+
+This patch adds CLK_SET_RATE_PARENT flag to sclk_vpll to allow rate
+configuration of VPLL on Exynos4210 and Exynos4x12.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/samsung/clk-exynos4.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/clk/samsung/clk-exynos4.c b/drivers/clk/samsung/clk-exynos4.c
+index da1ced2..67685bf 100644
+--- a/drivers/clk/samsung/clk-exynos4.c
++++ b/drivers/clk/samsung/clk-exynos4.c
+@@ -391,8 +391,8 @@ struct samsung_mux_clock exynos4210_mux_clks[] __initdata = {
+ 	MUX_A(sclk_mpll, "sclk_mpll", mout_mpll_p, SRC_CPU, 8, 1, "sclk_mpll"),
+ 	MUX_A(mout_core, "mout_core", mout_core_p4210,
+ 			SRC_CPU, 16, 1, "mout_core"),
+-	MUX_A(sclk_vpll, "sclk_vpll", sclk_vpll_p4210,
+-			SRC_TOP0, 8, 1, "sclk_vpll"),
++	__MUX(sclk_vpll, NULL, "sclk_vpll", sclk_vpll_p4210,
++			SRC_TOP0, 8, 1, CLK_SET_RATE_PARENT, 0, "sclk_vpll"),
+ 	MUX(mout_fimc0, "mout_fimc0", group1_p4210, SRC_CAM, 0, 4),
+ 	MUX(mout_fimc1, "mout_fimc1", group1_p4210, SRC_CAM, 4, 4),
+ 	MUX(mout_fimc2, "mout_fimc2", group1_p4210, SRC_CAM, 8, 4),
+@@ -450,8 +450,8 @@ struct samsung_mux_clock exynos4x12_mux_clks[] __initdata = {
+ 	MUX(none, "mout_jpeg", mout_jpeg_p, E4X12_SRC_CAM1, 8, 1),
+ 	MUX_A(sclk_mpll, "sclk_mpll", mout_mpll_p,
+ 			SRC_DMC, 12, 1, "sclk_mpll"),
+-	MUX_A(sclk_vpll, "sclk_vpll", mout_vpll_p,
+-			SRC_TOP0, 8, 1, "sclk_vpll"),
++	__MUX(sclk_vpll, NULL, "sclk_vpll", mout_vpll_p,
++			SRC_TOP0, 8, 1, CLK_SET_RATE_PARENT, 0, "sclk_vpll"),
+ 	MUX(mout_core, "mout_core", mout_core_p4x12, SRC_CPU, 16, 1),
+ 	MUX(mout_fimc0, "mout_fimc0", group1_p4x12, SRC_CAM, 0, 4),
+ 	MUX(mout_fimc1, "mout_fimc1", group1_p4x12, SRC_CAM, 4, 4),
+-- 
+1.8.3.2
+

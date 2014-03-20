@@ -1,0 +1,39 @@
+From a81af38ead3c4e9606be6980448d14d63ddcfda3 Mon Sep 17 00:00:00 2001
+From: Rashika Kheria <rashika.kheria@gmail.com>
+Date: Thu, 19 Dec 2013 15:37:37 +0530
+Subject: [PATCH 1190/1302] usb: gadget: configfs: include appropriate header
+ file in configfs.c
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Include appropriate header file drivers/usb/gadget/configfs.h in
+gadget/configfs.c because function unregister_gadget_item() has its
+prototype declaration in gadget/configfs.h.
+
+This eliminates the following warning in gadget/configfs.c:
+drivers/usb/gadget/configfs.c:994:6: warning: no previous prototype for ‘unregister_gadget_item’ [-Wmissing-prototypes]
+
+Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+Reviewed-by: Josh Triplett <josh@joshtriplett.org>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/configfs.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/usb/gadget/configfs.c b/drivers/usb/gadget/configfs.c
+index d6c8ab4..7d1cc01 100644
+--- a/drivers/usb/gadget/configfs.c
++++ b/drivers/usb/gadget/configfs.c
+@@ -4,6 +4,7 @@
+ #include <linux/device.h>
+ #include <linux/usb/composite.h>
+ #include <linux/usb/gadget_configfs.h>
++#include "configfs.h"
+ 
+ int check_user_usb_string(const char *name,
+ 		struct usb_gadget_strings *stringtab_dev)
+-- 
+1.8.3.2
+

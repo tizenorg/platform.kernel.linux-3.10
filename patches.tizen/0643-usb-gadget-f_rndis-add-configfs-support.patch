@@ -1,0 +1,192 @@
+From 333155071bb6fe39b104a8e54acd7a53bd5e0d8b Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 28 May 2013 09:16:01 +0200
+Subject: [PATCH 0643/1302] usb: gadget: f_rndis: add configfs support
+
+f_rndis learns about configfs so we can, eventually,
+remove in-kernel gadget drivers.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../ABI/testing/configfs-usb-gadget-rndis          | 14 +++++++
+ drivers/usb/gadget/Kconfig                         | 16 +++++++
+ drivers/usb/gadget/f_rndis.c                       | 49 +++++++++++++++++++++-
+ drivers/usb/gadget/u_rndis.h                       |  9 ++++
+ 4 files changed, 87 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/ABI/testing/configfs-usb-gadget-rndis
+
+diff --git a/Documentation/ABI/testing/configfs-usb-gadget-rndis b/Documentation/ABI/testing/configfs-usb-gadget-rndis
+new file mode 100644
+index 0000000..ff127dd
+--- /dev/null
++++ b/Documentation/ABI/testing/configfs-usb-gadget-rndis
+@@ -0,0 +1,14 @@
++What:		/config/usb-gadget/gadget/functions/rndis.name
++Date:		May 2013
++KenelVersion:	3.11
++Description:
++		The attributes:
++
++		ifname		- network device interface name associated with
++				this function instance
++		qmult		- queue length multiplier for high and
++				super speed
++		host_addr	- MAC address of host's end of this
++				Ethernet over USB link
++		dev_addr	- MAC address of device's end of this
++				Ethernet over USB link
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index b5941bf..03bcfa1 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -568,6 +568,22 @@ config USB_CONFIGFS_ECM_SUBSET
+ 	  On hardware that can't implement the full protocol,
+ 	  a simple CDC subset is used, placing fewer demands on USB.
+ 
++config USB_CONFIGFS_RNDIS
++	bool "RNDIS"
++	depends on USB_CONFIGFS
++	depends on NET
++	select USB_U_ETHER
++	select USB_F_RNDIS
++	help
++	   Microsoft Windows XP bundles the "Remote NDIS" (RNDIS) protocol,
++	   and Microsoft provides redistributable binary RNDIS drivers for
++	   older versions of Windows.
++
++	   To make MS-Windows work with this, use Documentation/usb/linux.inf
++	   as the "driver info file".  For versions of MS-Windows older than
++	   XP, you'll need to download drivers from Microsoft's website; a URL
++	   is given in comments found in that info file.
++
+ config USB_CONFIGFS_EEM
+ 	bool "Ethernet Emulation Model (EEM)"
+ 	depends on USB_CONFIGFS
+diff --git a/drivers/usb/gadget/f_rndis.c b/drivers/usb/gadget/f_rndis.c
+index 4045ca2..191df35 100644
+--- a/drivers/usb/gadget/f_rndis.c
++++ b/drivers/usb/gadget/f_rndis.c
+@@ -24,6 +24,7 @@
+ #include <linux/atomic.h>
+ 
+ #include "u_ether.h"
++#include "u_ether_configfs.h"
+ #include "u_rndis.h"
+ #include "rndis.h"
+ 
+@@ -903,6 +904,41 @@ void rndis_borrow_net(struct usb_function_instance *f, struct net_device *net)
+ }
+ EXPORT_SYMBOL(rndis_borrow_net);
+ 
++static inline struct f_rndis_opts *to_f_rndis_opts(struct config_item *item)
++{
++	return container_of(to_config_group(item), struct f_rndis_opts,
++			    func_inst.group);
++}
++
++/* f_rndis_item_ops */
++USB_ETHERNET_CONFIGFS_ITEM(rndis);
++
++/* f_rndis_opts_dev_addr */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_DEV_ADDR(rndis);
++
++/* f_rndis_opts_host_addr */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_HOST_ADDR(rndis);
++
++/* f_rndis_opts_qmult */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(rndis);
++
++/* f_rndis_opts_ifname */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(rndis);
++
++static struct configfs_attribute *rndis_attrs[] = {
++	&f_rndis_opts_dev_addr.attr,
++	&f_rndis_opts_host_addr.attr,
++	&f_rndis_opts_qmult.attr,
++	&f_rndis_opts_ifname.attr,
++	NULL,
++};
++
++static struct config_item_type rndis_func_type = {
++	.ct_item_ops	= &rndis_item_ops,
++	.ct_attrs	= rndis_attrs,
++	.ct_owner	= THIS_MODULE,
++};
++
+ static void rndis_free_inst(struct usb_function_instance *f)
+ {
+ 	struct f_rndis_opts *opts;
+@@ -924,22 +960,30 @@ static struct usb_function_instance *rndis_alloc_inst(void)
+ 	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
+ 	if (!opts)
+ 		return ERR_PTR(-ENOMEM);
+-
++	mutex_init(&opts->lock);
+ 	opts->func_inst.free_func_inst = rndis_free_inst;
+ 	opts->net = gether_setup_default();
+ 	if (IS_ERR(opts->net))
+ 		return ERR_CAST(opts->net);
+ 
++	config_group_init_type_name(&opts->func_inst.group, "",
++				    &rndis_func_type);
++
+ 	return &opts->func_inst;
+ }
+ 
+ static void rndis_free(struct usb_function *f)
+ {
+ 	struct f_rndis *rndis;
++	struct f_rndis_opts *opts;
+ 
+ 	rndis = func_to_rndis(f);
+ 	rndis_deregister(rndis->config);
++	opts = container_of(f->fi, struct f_rndis_opts, func_inst);
+ 	kfree(rndis);
++	mutex_lock(&opts->lock);
++	opts->refcnt--;
++	mutex_unlock(&opts->lock);
+ }
+ 
+ static void rndis_unbind(struct usb_configuration *c, struct usb_function *f)
+@@ -964,12 +1008,15 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	opts = container_of(fi, struct f_rndis_opts, func_inst);
++	mutex_lock(&opts->lock);
++	opts->refcnt++;
+ 
+ 	gether_get_host_addr_u8(opts->net, rndis->ethaddr);
+ 	rndis->vendorID = opts->vendor_id;
+ 	rndis->manufacturer = opts->manufacturer;
+ 
+ 	rndis->port.ioport = netdev_priv(opts->net);
++	mutex_unlock(&opts->lock);
+ 	/* RNDIS activates when the host changes this filter */
+ 	rndis->port.cdc_filter = 0;
+ 
+diff --git a/drivers/usb/gadget/u_rndis.h b/drivers/usb/gadget/u_rndis.h
+index d274df5..c62ba82 100644
+--- a/drivers/usb/gadget/u_rndis.h
++++ b/drivers/usb/gadget/u_rndis.h
+@@ -25,6 +25,15 @@ struct f_rndis_opts {
+ 	struct net_device		*net;
+ 	bool				bound;
+ 	bool				borrowed_net;
++
++	/*
++	 * Read/write access to configfs attributes is handled by configfs.
++	 *
++	 * This is to protect the data from concurrent access by read/write
++	 * and create symlink/remove symlink.
++	 */
++	struct mutex			lock;
++	int				refcnt;
+ };
+ 
+ void rndis_borrow_net(struct usb_function_instance *f, struct net_device *net);
+-- 
+1.8.3.2
+

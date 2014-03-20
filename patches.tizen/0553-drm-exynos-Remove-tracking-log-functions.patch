@@ -1,0 +1,2118 @@
+From fac9f70da1fc2b62545aa91a245eac53791fa910 Mon Sep 17 00:00:00 2001
+From: YoungJun Cho <yj44.cho@samsung.com>
+Date: Tue, 20 Aug 2013 17:18:40 +0900
+Subject: [PATCH 0553/1302] drm/exynos: Remove tracking log functions
+
+This patch removes tracking log functions which were used to debug
+in the early development stage and are not so important as were.
+So remove them for code clean up.
+
+Signed-off-by: YoungJun Cho <yj44.cho@samsung.com>
+Signed-off-by: Seung-Woo Kim <sw0312.kim@samsung.com>
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_buf.c       |  7 ----
+ drivers/gpu/drm/exynos/exynos_drm_connector.c | 13 -------
+ drivers/gpu/drm/exynos/exynos_drm_core.c      | 12 -------
+ drivers/gpu/drm/exynos/exynos_drm_crtc.c      | 28 ---------------
+ drivers/gpu/drm/exynos/exynos_drm_dmabuf.c    |  6 ----
+ drivers/gpu/drm/exynos/exynos_drm_drv.c       | 20 -----------
+ drivers/gpu/drm/exynos/exynos_drm_encoder.c   | 28 +--------------
+ drivers/gpu/drm/exynos/exynos_drm_fb.c        | 10 ------
+ drivers/gpu/drm/exynos/exynos_drm_fbdev.c     |  8 -----
+ drivers/gpu/drm/exynos/exynos_drm_fimc.c      | 16 ---------
+ drivers/gpu/drm/exynos/exynos_drm_fimd.c      | 46 +-----------------------
+ drivers/gpu/drm/exynos/exynos_drm_gem.c       | 23 ------------
+ drivers/gpu/drm/exynos/exynos_drm_gsc.c       | 12 +------
+ drivers/gpu/drm/exynos/exynos_drm_hdmi.c      | 42 ----------------------
+ drivers/gpu/drm/exynos/exynos_drm_ipp.c       | 52 ---------------------------
+ drivers/gpu/drm/exynos/exynos_drm_plane.c     | 16 ---------
+ drivers/gpu/drm/exynos/exynos_drm_rotator.c   | 12 -------
+ drivers/gpu/drm/exynos/exynos_drm_vidi.c      | 40 +--------------------
+ drivers/gpu/drm/exynos/exynos_hdmi.c          | 30 ----------------
+ drivers/gpu/drm/exynos/exynos_mixer.c         | 20 -----------
+ 20 files changed, 4 insertions(+), 437 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_buf.c b/drivers/gpu/drm/exynos/exynos_drm_buf.c
+index cd3c49c..ed5c694 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_buf.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_buf.c
+@@ -24,8 +24,6 @@ static int lowlevel_buffer_allocate(struct drm_device *dev,
+ 	enum dma_attr attr;
+ 	unsigned int nr_pages;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (buf->dma_addr) {
+ 		DRM_DEBUG_KMS("already allocated.\n");
+ 		return 0;
+@@ -119,8 +117,6 @@ err_free_attrs:
+ static void lowlevel_buffer_deallocate(struct drm_device *dev,
+ 		unsigned int flags, struct exynos_drm_gem_buf *buf)
+ {
+-	DRM_DEBUG_KMS("%s.\n", __FILE__);
+-
+ 	if (!buf->dma_addr) {
+ 		DRM_DEBUG_KMS("dma_addr is invalid.\n");
+ 		return;
+@@ -151,7 +147,6 @@ struct exynos_drm_gem_buf *exynos_drm_init_buf(struct drm_device *dev,
+ {
+ 	struct exynos_drm_gem_buf *buffer;
+ 
+-	DRM_DEBUG_KMS("%s.\n", __FILE__);
+ 	DRM_DEBUG_KMS("desired size = 0x%x\n", size);
+ 
+ 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
+@@ -165,8 +160,6 @@ struct exynos_drm_gem_buf *exynos_drm_init_buf(struct drm_device *dev,
+ void exynos_drm_fini_buf(struct drm_device *dev,
+ 				struct exynos_drm_gem_buf *buffer)
+ {
+-	DRM_DEBUG_KMS("%s.\n", __FILE__);
+-
+ 	if (!buffer) {
+ 		DRM_DEBUG_KMS("buffer is null.\n");
+ 		return;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_connector.c b/drivers/gpu/drm/exynos/exynos_drm_connector.c
+index ce52d85..964d553 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_connector.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_connector.c
+@@ -35,7 +35,6 @@ convert_to_display_mode(struct drm_display_mode *mode,
+ 			struct exynos_drm_panel_info *panel)
+ {
+ 	struct fb_videomode *timing = &panel->timing;
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+ 
+ 	mode->clock = timing->pixclock / 1000;
+ 	mode->vrefresh = timing->refresh;
+@@ -69,8 +68,6 @@ static int exynos_drm_connector_get_modes(struct drm_connector *connector)
+ 	unsigned int count = 0;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (!display_ops) {
+ 		DRM_DEBUG_KMS("display_ops is null.\n");
+ 		return 0;
+@@ -157,8 +154,6 @@ struct drm_encoder *exynos_drm_best_encoder(struct drm_connector *connector)
+ 	struct drm_mode_object *obj;
+ 	struct drm_encoder *encoder;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	obj = drm_mode_object_find(dev, exynos_connector->encoder_id,
+ 				   DRM_MODE_OBJECT_ENCODER);
+ 	if (!obj) {
+@@ -201,8 +196,6 @@ void exynos_drm_display_power(struct drm_connector *connector, int mode)
+ static void exynos_drm_connector_dpms(struct drm_connector *connector,
+ 					int mode)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/*
+ 	 * in case that drm_crtc_helper_set_mode() is called,
+ 	 * encoder/crtc->funcs->dpms() will be just returned
+@@ -249,8 +242,6 @@ exynos_drm_connector_detect(struct drm_connector *connector, bool force)
+ 					manager->display_ops;
+ 	enum drm_connector_status status = connector_status_disconnected;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (display_ops && display_ops->is_connected) {
+ 		if (display_ops->is_connected(manager->dev))
+ 			status = connector_status_connected;
+@@ -266,8 +257,6 @@ static void exynos_drm_connector_destroy(struct drm_connector *connector)
+ 	struct exynos_drm_connector *exynos_connector =
+ 		to_exynos_connector(connector);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	drm_sysfs_connector_remove(connector);
+ 	drm_connector_cleanup(connector);
+ 	kfree(exynos_connector);
+@@ -289,8 +278,6 @@ struct drm_connector *exynos_drm_connector_create(struct drm_device *dev,
+ 	int type;
+ 	int err;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_connector = kzalloc(sizeof(*exynos_connector), GFP_KERNEL);
+ 	if (!exynos_connector)
+ 		return NULL;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_core.c b/drivers/gpu/drm/exynos/exynos_drm_core.c
+index 4667c9f..1bef6dc 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_core.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_core.c
+@@ -27,8 +27,6 @@ static int exynos_drm_create_enc_conn(struct drm_device *dev,
+ 	struct drm_connector *connector;
+ 	int ret;
+ 
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	subdrv->manager->dev = subdrv->dev;
+ 
+ 	/* create and initialize a encoder for this sub driver. */
+@@ -102,8 +100,6 @@ static int exynos_drm_subdrv_probe(struct drm_device *dev,
+ static void exynos_drm_subdrv_remove(struct drm_device *dev,
+ 				      struct exynos_drm_subdrv *subdrv)
+ {
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	if (subdrv->remove)
+ 		subdrv->remove(dev, subdrv->dev);
+ }
+@@ -114,8 +110,6 @@ int exynos_drm_device_register(struct drm_device *dev)
+ 	unsigned int fine_cnt = 0;
+ 	int err;
+ 
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	if (!dev)
+ 		return -EINVAL;
+ 
+@@ -158,8 +152,6 @@ int exynos_drm_device_unregister(struct drm_device *dev)
+ {
+ 	struct exynos_drm_subdrv *subdrv;
+ 
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	if (!dev) {
+ 		WARN(1, "Unexpected drm device unregister!\n");
+ 		return -EINVAL;
+@@ -176,8 +168,6 @@ EXPORT_SYMBOL_GPL(exynos_drm_device_unregister);
+ 
+ int exynos_drm_subdrv_register(struct exynos_drm_subdrv *subdrv)
+ {
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	if (!subdrv)
+ 		return -EINVAL;
+ 
+@@ -189,8 +179,6 @@ EXPORT_SYMBOL_GPL(exynos_drm_subdrv_register);
+ 
+ int exynos_drm_subdrv_unregister(struct exynos_drm_subdrv *subdrv)
+ {
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	if (!subdrv)
+ 		return -EINVAL;
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_crtc.c b/drivers/gpu/drm/exynos/exynos_drm_crtc.c
+index 3c0c338a..311a36e 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_crtc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_crtc.c
+@@ -77,8 +77,6 @@ static void exynos_drm_crtc_dpms(struct drm_crtc *crtc, int mode)
+ 
+ static void exynos_drm_crtc_prepare(struct drm_crtc *crtc)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* drm framework doesn't check NULL. */
+ }
+ 
+@@ -86,8 +84,6 @@ static void exynos_drm_crtc_commit(struct drm_crtc *crtc)
+ {
+ 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_drm_crtc_dpms(crtc, DRM_MODE_DPMS_ON);
+ 	exynos_plane_commit(exynos_crtc->plane);
+ 	exynos_plane_dpms(exynos_crtc->plane, DRM_MODE_DPMS_ON);
+@@ -98,8 +94,6 @@ exynos_drm_crtc_mode_fixup(struct drm_crtc *crtc,
+ 			    const struct drm_display_mode *mode,
+ 			    struct drm_display_mode *adjusted_mode)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* drm framework doesn't check NULL */
+ 	return true;
+ }
+@@ -116,8 +110,6 @@ exynos_drm_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mode,
+ 	int pipe = exynos_crtc->pipe;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/*
+ 	 * copy the mode data adjusted by mode_fixup() into crtc->mode
+ 	 * so that hardware can be seet to proper mode.
+@@ -149,8 +141,6 @@ static int exynos_drm_crtc_mode_set_commit(struct drm_crtc *crtc, int x, int y,
+ 	unsigned int crtc_h;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* when framebuffer changing is requested, crtc's dpms should be on */
+ 	if (exynos_crtc->dpms > DRM_MODE_DPMS_ON) {
+ 		DRM_ERROR("failed framebuffer changing request.\n");
+@@ -186,8 +176,6 @@ static void exynos_drm_crtc_disable(struct drm_crtc *crtc)
+ {
+ 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_plane_dpms(exynos_crtc->plane, DRM_MODE_DPMS_OFF);
+ 	exynos_drm_crtc_dpms(crtc, DRM_MODE_DPMS_OFF);
+ }
+@@ -213,8 +201,6 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
+ 	struct drm_framebuffer *old_fb = crtc->fb;
+ 	int ret = -EINVAL;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* when the page flip is requested, crtc's dpms should be on */
+ 	if (exynos_crtc->dpms > DRM_MODE_DPMS_ON) {
+ 		DRM_ERROR("failed page flip request.\n");
+@@ -267,8 +253,6 @@ static void exynos_drm_crtc_destroy(struct drm_crtc *crtc)
+ 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
+ 	struct exynos_drm_private *private = crtc->dev->dev_private;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	private->crtc[exynos_crtc->pipe] = NULL;
+ 
+ 	drm_crtc_cleanup(crtc);
+@@ -283,8 +267,6 @@ static int exynos_drm_crtc_set_property(struct drm_crtc *crtc,
+ 	struct exynos_drm_private *dev_priv = dev->dev_private;
+ 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (property == dev_priv->crtc_mode_property) {
+ 		enum exynos_crtc_mode mode = val;
+ 
+@@ -329,8 +311,6 @@ static void exynos_drm_crtc_attach_mode_property(struct drm_crtc *crtc)
+ 	struct exynos_drm_private *dev_priv = dev->dev_private;
+ 	struct drm_property *prop;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	prop = dev_priv->crtc_mode_property;
+ 	if (!prop) {
+ 		prop = drm_property_create_enum(dev, 0, "mode", mode_names,
+@@ -350,8 +330,6 @@ int exynos_drm_crtc_create(struct drm_device *dev, unsigned int nr)
+ 	struct exynos_drm_private *private = dev->dev_private;
+ 	struct drm_crtc *crtc;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_crtc = kzalloc(sizeof(*exynos_crtc), GFP_KERNEL);
+ 	if (!exynos_crtc)
+ 		return -ENOMEM;
+@@ -384,8 +362,6 @@ int exynos_drm_crtc_enable_vblank(struct drm_device *dev, int crtc)
+ 	struct exynos_drm_crtc *exynos_crtc =
+ 		to_exynos_crtc(private->crtc[crtc]);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (exynos_crtc->dpms != DRM_MODE_DPMS_ON)
+ 		return -EPERM;
+ 
+@@ -401,8 +377,6 @@ void exynos_drm_crtc_disable_vblank(struct drm_device *dev, int crtc)
+ 	struct exynos_drm_crtc *exynos_crtc =
+ 		to_exynos_crtc(private->crtc[crtc]);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (exynos_crtc->dpms != DRM_MODE_DPMS_ON)
+ 		return;
+ 
+@@ -418,8 +392,6 @@ void exynos_drm_crtc_finish_pageflip(struct drm_device *dev, int crtc)
+ 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(drm_crtc);
+ 	unsigned long flags;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	spin_lock_irqsave(&dev->event_lock, flags);
+ 
+ 	list_for_each_entry_safe(e, t, &dev_priv->pageflip_event_list,
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c b/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
+index 4b750ce..4e2ab46 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
+@@ -72,8 +72,6 @@ static struct sg_table *
+ 	unsigned int i;
+ 	int nents, ret;
+ 
+-	DRM_DEBUG_PRIME("%s\n", __FILE__);
+-
+ 	/* just return current sgt if already requested. */
+ 	if (exynos_attach->dir == dir && exynos_attach->is_mapped)
+ 		return &exynos_attach->sgt;
+@@ -166,8 +164,6 @@ static void exynos_dmabuf_release(struct dma_buf *dmabuf)
+ {
+ 	struct exynos_drm_gem_obj *exynos_gem_obj = dmabuf->priv;
+ 
+-	DRM_DEBUG_PRIME("%s\n", __FILE__);
+-
+ 	/*
+ 	 * exynos_dmabuf_release() call means that file object's
+ 	 * f_count is 0 and it calls drm_gem_object_handle_unreference()
+@@ -256,8 +252,6 @@ struct drm_gem_object *exynos_dmabuf_prime_import(struct drm_device *drm_dev,
+ 	struct exynos_drm_gem_buf *buffer;
+ 	int ret;
+ 
+-	DRM_DEBUG_PRIME("%s\n", __FILE__);
+-
+ 	/* is this one of own objects? */
+ 	if (dma_buf->ops == &exynos_dmabuf_ops) {
+ 		struct drm_gem_object *obj;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_drv.c b/drivers/gpu/drm/exynos/exynos_drm_drv.c
+index 1a07ff6..d5da1ea 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_drv.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_drv.c
+@@ -46,8 +46,6 @@ static int exynos_drm_load(struct drm_device *dev, unsigned long flags)
+ 	int ret;
+ 	int nr;
+ 
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	private = kzalloc(sizeof(struct exynos_drm_private), GFP_KERNEL);
+ 	if (!private)
+ 		return -ENOMEM;
+@@ -138,8 +136,6 @@ err_crtc:
+ 
+ static int exynos_drm_unload(struct drm_device *dev)
+ {
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	exynos_drm_fbdev_fini(dev);
+ 	exynos_drm_device_unregister(dev);
+ 	drm_vblank_cleanup(dev);
+@@ -158,8 +154,6 @@ static int exynos_drm_open(struct drm_device *dev, struct drm_file *file)
+ {
+ 	struct drm_exynos_file_private *file_priv;
+ 
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	file_priv = kzalloc(sizeof(*file_priv), GFP_KERNEL);
+ 	if (!file_priv)
+ 		return -ENOMEM;
+@@ -176,8 +170,6 @@ static void exynos_drm_preclose(struct drm_device *dev,
+ 	struct drm_pending_vblank_event *e, *t;
+ 	unsigned long flags;
+ 
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	/* release events of current file */
+ 	spin_lock_irqsave(&dev->event_lock, flags);
+ 	list_for_each_entry_safe(e, t, &private->pageflip_event_list,
+@@ -194,8 +186,6 @@ static void exynos_drm_preclose(struct drm_device *dev,
+ 
+ static void exynos_drm_postclose(struct drm_device *dev, struct drm_file *file)
+ {
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	if (!file->driver_priv)
+ 		return;
+ 
+@@ -205,8 +195,6 @@ static void exynos_drm_postclose(struct drm_device *dev, struct drm_file *file)
+ 
+ static void exynos_drm_lastclose(struct drm_device *dev)
+ {
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	exynos_drm_fbdev_restore_mode(dev);
+ }
+ 
+@@ -290,8 +278,6 @@ static struct drm_driver exynos_drm_driver = {
+ 
+ static int exynos_drm_platform_probe(struct platform_device *pdev)
+ {
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+ 	exynos_drm_driver.num_ioctls = DRM_ARRAY_SIZE(exynos_ioctls);
+ 
+@@ -300,8 +286,6 @@ static int exynos_drm_platform_probe(struct platform_device *pdev)
+ 
+ static int exynos_drm_platform_remove(struct platform_device *pdev)
+ {
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	drm_platform_exit(&exynos_drm_driver, pdev);
+ 
+ 	return 0;
+@@ -320,8 +304,6 @@ static int __init exynos_drm_init(void)
+ {
+ 	int ret;
+ 
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ #ifdef CONFIG_DRM_EXYNOS_FIMD
+ 	ret = platform_driver_register(&fimd_driver);
+ 	if (ret < 0)
+@@ -453,8 +435,6 @@ out_fimd:
+ 
+ static void __exit exynos_drm_exit(void)
+ {
+-	DRM_DEBUG_DRIVER("%s\n", __FILE__);
+-
+ 	platform_device_unregister(exynos_drm_pdev);
+ 
+ 	platform_driver_unregister(&exynos_drm_platform_driver);
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_encoder.c b/drivers/gpu/drm/exynos/exynos_drm_encoder.c
+index 4296d8f..06f1b2a 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_encoder.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_encoder.c
+@@ -61,7 +61,7 @@ static void exynos_drm_encoder_dpms(struct drm_encoder *encoder, int mode)
+ 	struct exynos_drm_manager_ops *manager_ops = manager->ops;
+ 	struct exynos_drm_encoder *exynos_encoder = to_exynos_encoder(encoder);
+ 
+-	DRM_DEBUG_KMS("%s, encoder dpms: %d\n", __FILE__, mode);
++	DRM_DEBUG_KMS("encoder dpms: %d\n", mode);
+ 
+ 	if (exynos_encoder->dpms == mode) {
+ 		DRM_DEBUG_KMS("desired dpms mode is same as previous one.\n");
+@@ -104,8 +104,6 @@ exynos_drm_encoder_mode_fixup(struct drm_encoder *encoder,
+ 	struct exynos_drm_manager *manager = exynos_drm_get_manager(encoder);
+ 	struct exynos_drm_manager_ops *manager_ops = manager->ops;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+ 		if (connector->encoder == encoder)
+ 			if (manager_ops && manager_ops->mode_fixup)
+@@ -155,8 +153,6 @@ static void exynos_drm_encoder_mode_set(struct drm_encoder *encoder,
+ 	struct exynos_drm_manager *manager;
+ 	struct exynos_drm_manager_ops *manager_ops;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+ 		if (connector->encoder == encoder) {
+ 			struct exynos_drm_encoder *exynos_encoder;
+@@ -189,8 +185,6 @@ static void exynos_drm_encoder_mode_set(struct drm_encoder *encoder,
+ 
+ static void exynos_drm_encoder_prepare(struct drm_encoder *encoder)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* drm framework doesn't check NULL. */
+ }
+ 
+@@ -200,8 +194,6 @@ static void exynos_drm_encoder_commit(struct drm_encoder *encoder)
+ 	struct exynos_drm_manager *manager = exynos_encoder->manager;
+ 	struct exynos_drm_manager_ops *manager_ops = manager->ops;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (manager_ops && manager_ops->commit)
+ 		manager_ops->commit(manager->dev);
+ 
+@@ -274,8 +266,6 @@ static void exynos_drm_encoder_destroy(struct drm_encoder *encoder)
+ 	struct exynos_drm_encoder *exynos_encoder =
+ 		to_exynos_encoder(encoder);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_encoder->manager->pipe = -1;
+ 
+ 	drm_encoder_cleanup(encoder);
+@@ -315,8 +305,6 @@ void exynos_drm_encoder_setup(struct drm_device *dev)
+ {
+ 	struct drm_encoder *encoder;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head)
+ 		encoder->possible_clones = exynos_drm_encoder_clones(encoder);
+ }
+@@ -329,8 +317,6 @@ exynos_drm_encoder_create(struct drm_device *dev,
+ 	struct drm_encoder *encoder;
+ 	struct exynos_drm_encoder *exynos_encoder;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (!manager || !possible_crtcs)
+ 		return NULL;
+ 
+@@ -425,8 +411,6 @@ void exynos_drm_encoder_crtc_dpms(struct drm_encoder *encoder, void *data)
+ 	struct exynos_drm_manager_ops *manager_ops = manager->ops;
+ 	int mode = *(int *)data;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (manager_ops && manager_ops->dpms)
+ 		manager_ops->dpms(manager->dev, mode);
+ 
+@@ -447,8 +431,6 @@ void exynos_drm_encoder_crtc_pipe(struct drm_encoder *encoder, void *data)
+ 		to_exynos_encoder(encoder)->manager;
+ 	int pipe = *(int *)data;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/*
+ 	 * when crtc is detached from encoder, this pipe is used
+ 	 * to select manager operation
+@@ -463,8 +445,6 @@ void exynos_drm_encoder_plane_mode_set(struct drm_encoder *encoder, void *data)
+ 	struct exynos_drm_overlay_ops *overlay_ops = manager->overlay_ops;
+ 	struct exynos_drm_overlay *overlay = data;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (overlay_ops && overlay_ops->mode_set)
+ 		overlay_ops->mode_set(manager->dev, overlay);
+ }
+@@ -476,8 +456,6 @@ void exynos_drm_encoder_plane_commit(struct drm_encoder *encoder, void *data)
+ 	struct exynos_drm_overlay_ops *overlay_ops = manager->overlay_ops;
+ 	int zpos = DEFAULT_ZPOS;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (data)
+ 		zpos = *(int *)data;
+ 
+@@ -492,8 +470,6 @@ void exynos_drm_encoder_plane_enable(struct drm_encoder *encoder, void *data)
+ 	struct exynos_drm_overlay_ops *overlay_ops = manager->overlay_ops;
+ 	int zpos = DEFAULT_ZPOS;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (data)
+ 		zpos = *(int *)data;
+ 
+@@ -508,8 +484,6 @@ void exynos_drm_encoder_plane_disable(struct drm_encoder *encoder, void *data)
+ 	struct exynos_drm_overlay_ops *overlay_ops = manager->overlay_ops;
+ 	int zpos = DEFAULT_ZPOS;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (data)
+ 		zpos = *(int *)data;
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fb.c b/drivers/gpu/drm/exynos/exynos_drm_fb.c
+index e2a1a1f..ea39e0e 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fb.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fb.c
+@@ -70,8 +70,6 @@ static void exynos_drm_fb_destroy(struct drm_framebuffer *fb)
+ 	struct exynos_drm_fb *exynos_fb = to_exynos_fb(fb);
+ 	unsigned int i;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* make sure that overlay data are updated before relesing fb. */
+ 	exynos_drm_encoder_complete_scanout(fb);
+ 
+@@ -97,8 +95,6 @@ static int exynos_drm_fb_create_handle(struct drm_framebuffer *fb,
+ {
+ 	struct exynos_drm_fb *exynos_fb = to_exynos_fb(fb);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* This fb should have only one gem object. */
+ 	if (WARN_ON(exynos_fb->buf_cnt != 1))
+ 		return -EINVAL;
+@@ -112,8 +108,6 @@ static int exynos_drm_fb_dirty(struct drm_framebuffer *fb,
+ 				unsigned color, struct drm_clip_rect *clips,
+ 				unsigned num_clips)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* TODO */
+ 
+ 	return 0;
+@@ -223,8 +217,6 @@ exynos_user_fb_create(struct drm_device *dev, struct drm_file *file_priv,
+ 	struct exynos_drm_fb *exynos_fb;
+ 	int i, ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_fb = kzalloc(sizeof(*exynos_fb), GFP_KERNEL);
+ 	if (!exynos_fb)
+ 		return ERR_PTR(-ENOMEM);
+@@ -289,8 +281,6 @@ struct exynos_drm_gem_buf *exynos_drm_fb_buffer(struct drm_framebuffer *fb,
+ 	struct exynos_drm_fb *exynos_fb = to_exynos_fb(fb);
+ 	struct exynos_drm_gem_buf *buffer;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (index >= MAX_FB_BUFFER)
+ 		return NULL;
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fbdev.c b/drivers/gpu/drm/exynos/exynos_drm_fbdev.c
+index d677aee..b5f9a71 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fbdev.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fbdev.c
+@@ -44,8 +44,6 @@ static int exynos_drm_fb_mmap(struct fb_info *info,
+ 	unsigned long vm_size;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	vma->vm_flags |= VM_IO | VM_DONTEXPAND | VM_DONTDUMP;
+ 
+ 	vm_size = vma->vm_end - vma->vm_start;
+@@ -85,8 +83,6 @@ static int exynos_drm_fbdev_update(struct drm_fb_helper *helper,
+ 	unsigned int size = fb->width * fb->height * (fb->bits_per_pixel >> 3);
+ 	unsigned long offset;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	drm_fb_helper_fill_fix(fbi, fb->pitches[0], fb->depth);
+ 	drm_fb_helper_fill_var(fbi, helper, fb->width, fb->height);
+ 
+@@ -149,8 +145,6 @@ static int exynos_drm_fbdev_create(struct drm_fb_helper *helper,
+ 	unsigned long size;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	DRM_DEBUG_KMS("surface width(%d), height(%d) and bpp(%d\n",
+ 			sizes->surface_width, sizes->surface_height,
+ 			sizes->surface_bpp);
+@@ -239,8 +233,6 @@ int exynos_drm_fbdev_init(struct drm_device *dev)
+ 	unsigned int num_crtc;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (!dev->mode_config.num_crtc || !dev->mode_config.num_connector)
+ 		return 0;
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimc.c b/drivers/gpu/drm/exynos/exynos_drm_fimc.c
+index 4efe9a7..99d35b8 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimc.c
+@@ -176,8 +176,6 @@ static void fimc_sw_reset(struct fimc_context *ctx)
+ {
+ 	u32 cfg;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	/* stop dma operation */
+ 	cfg = fimc_read(EXYNOS_CISTATUS);
+ 	if (EXYNOS_CISTATUS_GET_ENVID_STATUS(cfg)) {
+@@ -211,8 +209,6 @@ static void fimc_sw_reset(struct fimc_context *ctx)
+ 
+ static int fimc_set_camblk_fimd0_wb(struct fimc_context *ctx)
+ {
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	return regmap_update_bits(ctx->sysreg, SYSREG_CAMERA_BLK,
+ 				  SYSREG_FIMD0WB_DEST_MASK,
+ 				  ctx->id << SYSREG_FIMD0WB_DEST_SHIFT);
+@@ -320,8 +316,6 @@ static void fimc_clear_irq(struct fimc_context *ctx)
+ {
+ 	u32 cfg;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	cfg = fimc_read(EXYNOS_CIGCTRL);
+ 	cfg |= EXYNOS_CIGCTRL_IRQ_CLR;
+ 	fimc_write(cfg, EXYNOS_CIGCTRL);
+@@ -381,8 +375,6 @@ static int fimc_get_buf_id(struct fimc_context *ctx)
+ 	u32 cfg;
+ 	int frame_cnt, buf_id;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	cfg = fimc_read(EXYNOS_CISTATUS2);
+ 	frame_cnt = EXYNOS_CISTATUS2_GET_FRAMECOUNT_BEFORE(cfg);
+ 
+@@ -1358,8 +1350,6 @@ static int fimc_init_prop_list(struct exynos_drm_ippdrv *ippdrv)
+ {
+ 	struct drm_exynos_ipp_prop_list *prop_list;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	prop_list = devm_kzalloc(ippdrv->dev, sizeof(*prop_list), GFP_KERNEL);
+ 	if (!prop_list)
+ 		return -ENOMEM;
+@@ -1418,8 +1408,6 @@ static int fimc_ippdrv_check_property(struct device *dev,
+ 	bool swap;
+ 	int i;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	for_each_ipp_ops(i) {
+ 		if ((i == EXYNOS_DRM_OPS_SRC) &&
+ 			(property->cmd == IPP_CMD_WB))
+@@ -1525,8 +1513,6 @@ static void fimc_clear_addr(struct fimc_context *ctx)
+ {
+ 	int i;
+ 
+-	DRM_DEBUG_KMS("%s:\n", __func__);
+-
+ 	for (i = 0; i < FIMC_MAX_SRC; i++) {
+ 		fimc_write(0, EXYNOS_CIIYSA(i));
+ 		fimc_write(0, EXYNOS_CIICBSA(i));
+@@ -1544,8 +1530,6 @@ static int fimc_ippdrv_reset(struct device *dev)
+ {
+ 	struct fimc_context *ctx = get_fimc_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	/* reset h/w block */
+ 	fimc_sw_reset(ctx);
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimd.c b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+index 80f5ec5..a0b88a2 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimd.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+@@ -150,8 +150,6 @@ static inline struct fimd_driver_data *drm_fimd_get_driver_data(
+ 
+ static bool fimd_display_is_connected(struct device *dev)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* TODO. */
+ 
+ 	return true;
+@@ -161,15 +159,11 @@ static void *fimd_get_panel(struct device *dev)
+ {
+ 	struct fimd_context *ctx = get_fimd_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	return ctx->panel;
+ }
+ 
+ static int fimd_check_mode(struct device *dev, struct drm_display_mode *mode)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* TODO. */
+ 
+ 	return 0;
+@@ -177,8 +171,6 @@ static int fimd_check_mode(struct device *dev, struct drm_display_mode *mode)
+ 
+ static int fimd_display_power_on(struct device *dev, int mode)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* TODO */
+ 
+ 	return 0;
+@@ -196,7 +188,7 @@ static void fimd_dpms(struct device *subdrv_dev, int mode)
+ {
+ 	struct fimd_context *ctx = get_fimd_context(subdrv_dev);
+ 
+-	DRM_DEBUG_KMS("%s, %d\n", __FILE__, mode);
++	DRM_DEBUG_KMS("%d\n", mode);
+ 
+ 	mutex_lock(&ctx->lock);
+ 
+@@ -234,8 +226,6 @@ static void fimd_apply(struct device *subdrv_dev)
+ 	struct fimd_win_data *win_data;
+ 	int i;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	for (i = 0; i < WINDOWS_NR; i++) {
+ 		win_data = &ctx->win_data[i];
+ 		if (win_data->enabled && (ovl_ops && ovl_ops->commit))
+@@ -258,8 +248,6 @@ static void fimd_commit(struct device *dev)
+ 	if (ctx->suspended)
+ 		return;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* setup polarity values from machine code. */
+ 	writel(ctx->vidcon1, ctx->regs + driver_data->timing_base + VIDCON1);
+ 
+@@ -309,8 +297,6 @@ static int fimd_enable_vblank(struct device *dev)
+ 	struct fimd_context *ctx = get_fimd_context(dev);
+ 	u32 val;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (ctx->suspended)
+ 		return -EPERM;
+ 
+@@ -336,8 +322,6 @@ static void fimd_disable_vblank(struct device *dev)
+ 	struct fimd_context *ctx = get_fimd_context(dev);
+ 	u32 val;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (ctx->suspended)
+ 		return;
+ 
+@@ -387,8 +371,6 @@ static void fimd_win_mode_set(struct device *dev,
+ 	int win;
+ 	unsigned long offset;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (!overlay) {
+ 		dev_err(dev, "overlay is NULL\n");
+ 		return;
+@@ -436,8 +418,6 @@ static void fimd_win_set_pixfmt(struct device *dev, unsigned int win)
+ 	struct fimd_win_data *win_data = &ctx->win_data[win];
+ 	unsigned long val;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	val = WINCONx_ENWIN;
+ 
+ 	switch (win_data->pixel_format) {
+@@ -486,8 +466,6 @@ static void fimd_win_set_colkey(struct device *dev, unsigned int win)
+ 	struct fimd_context *ctx = get_fimd_context(dev);
+ 	unsigned int keycon0 = 0, keycon1 = 0;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	keycon0 = ~(WxKEYCON0_KEYBL_EN | WxKEYCON0_KEYEN_F |
+ 			WxKEYCON0_DIRCON) | WxKEYCON0_COMPKEY(0);
+ 
+@@ -533,8 +511,6 @@ static void fimd_win_commit(struct device *dev, int zpos)
+ 	unsigned int last_x;
+ 	unsigned int last_y;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (ctx->suspended)
+ 		return;
+ 
+@@ -653,8 +629,6 @@ static void fimd_win_disable(struct device *dev, int zpos)
+ 	int win = zpos;
+ 	u32 val;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (win == DEFAULT_ZPOS)
+ 		win = ctx->default_win;
+ 
+@@ -756,8 +730,6 @@ static void fimd_clear_channel(struct device *dev)
+ 
+ static int fimd_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/*
+ 	 * enable drm irq mode.
+ 	 * - with irq_enabled = 1, we can use the vblank feature.
+@@ -789,8 +761,6 @@ static int fimd_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
+ 
+ static void fimd_subdrv_remove(struct drm_device *drm_dev, struct device *dev)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* detach this sub driver from iommu mapping if supported. */
+ 	if (is_drm_iommu_supported(drm_dev))
+ 		drm_iommu_detach_device(drm_dev, dev);
+@@ -805,8 +775,6 @@ static int fimd_calc_clkdiv(struct fimd_context *ctx,
+ 	u32 best_framerate = 0;
+ 	u32 framerate;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	retrace = timing->left_margin + timing->hsync_len +
+ 				timing->right_margin + timing->xres;
+ 	retrace *= timing->upper_margin + timing->vsync_len +
+@@ -841,8 +809,6 @@ static int fimd_calc_clkdiv(struct fimd_context *ctx,
+ 
+ static void fimd_clear_win(struct fimd_context *ctx, int win)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	writel(0, ctx->regs + WINCON(win));
+ 	writel(0, ctx->regs + VIDOSD_A(win));
+ 	writel(0, ctx->regs + VIDOSD_B(win));
+@@ -856,8 +822,6 @@ static void fimd_clear_win(struct fimd_context *ctx, int win)
+ 
+ static int fimd_clock(struct fimd_context *ctx, bool enable)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (enable) {
+ 		int ret;
+ 
+@@ -943,8 +907,6 @@ static int fimd_probe(struct platform_device *pdev)
+ 	int win;
+ 	int ret = -EINVAL;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (dev->of_node) {
+ 		struct device_node *display_np;
+ 
+@@ -1061,8 +1023,6 @@ static int fimd_remove(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	struct fimd_context *ctx = platform_get_drvdata(pdev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_drm_subdrv_unregister(&ctx->subdrv);
+ 
+ 	if (ctx->suspended)
+@@ -1127,8 +1087,6 @@ static int fimd_runtime_suspend(struct device *dev)
+ {
+ 	struct fimd_context *ctx = get_fimd_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	return fimd_activate(ctx, false);
+ }
+ 
+@@ -1136,8 +1094,6 @@ static int fimd_runtime_resume(struct device *dev)
+ {
+ 	struct fimd_context *ctx = get_fimd_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	return fimd_activate(ctx, true);
+ }
+ #endif
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_gem.c b/drivers/gpu/drm/exynos/exynos_drm_gem.c
+index 8633ba4..5b6f6e2 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_gem.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_gem.c
+@@ -132,8 +132,6 @@ void exynos_drm_gem_destroy(struct exynos_drm_gem_obj *exynos_gem_obj)
+ 	struct drm_gem_object *obj;
+ 	struct exynos_drm_gem_buf *buf;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	obj = &exynos_gem_obj->base;
+ 	buf = exynos_gem_obj->buffer;
+ 
+@@ -225,7 +223,6 @@ struct exynos_drm_gem_obj *exynos_drm_gem_create(struct drm_device *dev,
+ 	}
+ 
+ 	size = roundup_gem_size(size, flags);
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+ 
+ 	ret = check_gem_flags(flags);
+ 	if (ret)
+@@ -266,8 +263,6 @@ int exynos_drm_gem_create_ioctl(struct drm_device *dev, void *data,
+ 	struct exynos_drm_gem_obj *exynos_gem_obj;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_gem_obj = exynos_drm_gem_create(dev, args->flags, args->size);
+ 	if (IS_ERR(exynos_gem_obj))
+ 		return PTR_ERR(exynos_gem_obj);
+@@ -329,8 +324,6 @@ int exynos_drm_gem_map_offset_ioctl(struct drm_device *dev, void *data,
+ {
+ 	struct drm_exynos_gem_map_off *args = data;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	DRM_DEBUG_KMS("handle = 0x%x, offset = 0x%lx\n",
+ 			args->handle, (unsigned long)args->offset);
+ 
+@@ -369,8 +362,6 @@ static int exynos_drm_gem_mmap_buffer(struct file *filp,
+ 	unsigned long vm_size;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	vma->vm_flags |= VM_IO | VM_DONTEXPAND | VM_DONTDUMP;
+ 	vma->vm_private_data = obj;
+ 	vma->vm_ops = drm_dev->driver->gem_vm_ops;
+@@ -429,8 +420,6 @@ int exynos_drm_gem_mmap_ioctl(struct drm_device *dev, void *data,
+ 	struct drm_gem_object *obj;
+ 	unsigned int addr;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (!(dev->driver->driver_features & DRIVER_GEM)) {
+ 		DRM_ERROR("does not support GEM.\n");
+ 		return -ENODEV;
+@@ -641,8 +630,6 @@ void exynos_gem_unmap_sgt_from_dma(struct drm_device *drm_dev,
+ 
+ int exynos_drm_gem_init_object(struct drm_gem_object *obj)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	return 0;
+ }
+ 
+@@ -651,8 +638,6 @@ void exynos_drm_gem_free_object(struct drm_gem_object *obj)
+ 	struct exynos_drm_gem_obj *exynos_gem_obj;
+ 	struct exynos_drm_gem_buf *buf;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_gem_obj = to_exynos_gem_obj(obj);
+ 	buf = exynos_gem_obj->buffer;
+ 
+@@ -669,8 +654,6 @@ int exynos_drm_gem_dumb_create(struct drm_file *file_priv,
+ 	struct exynos_drm_gem_obj *exynos_gem_obj;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/*
+ 	 * alocate memory to be used for framebuffer.
+ 	 * - this callback would be called by user application
+@@ -702,8 +685,6 @@ int exynos_drm_gem_dumb_map_offset(struct drm_file *file_priv,
+ 	struct drm_gem_object *obj;
+ 	int ret = 0;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	mutex_lock(&dev->struct_mutex);
+ 
+ 	/*
+@@ -741,8 +722,6 @@ int exynos_drm_gem_dumb_destroy(struct drm_file *file_priv,
+ {
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/*
+ 	 * obj->refcount and obj->handle_count are decreased and
+ 	 * if both them are 0 then exynos_drm_gem_free_object()
+@@ -786,8 +765,6 @@ int exynos_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
+ 	struct drm_gem_object *obj;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* set vm_area_struct. */
+ 	ret = drm_gem_mmap(filp, vma);
+ 	if (ret < 0) {
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_gsc.c b/drivers/gpu/drm/exynos/exynos_drm_gsc.c
+index b9ec6d7..c9bc0a5 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_gsc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_gsc.c
+@@ -400,8 +400,6 @@ static int gsc_sw_reset(struct gsc_context *ctx)
+ 	u32 cfg;
+ 	int count = GSC_RESET_TIMEOUT;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	/* s/w reset */
+ 	cfg = (GSC_SW_RESET_SRESET);
+ 	gsc_write(cfg, GSC_SW_RESET);
+@@ -441,8 +439,6 @@ static void gsc_set_gscblk_fimd_wb(struct gsc_context *ctx, bool enable)
+ {
+ 	u32 gscblk_cfg;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	gscblk_cfg = readl(SYSREG_GSCBLK_CFG1);
+ 
+ 	if (enable)
+@@ -1350,8 +1346,6 @@ static int gsc_init_prop_list(struct exynos_drm_ippdrv *ippdrv)
+ {
+ 	struct drm_exynos_ipp_prop_list *prop_list;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	prop_list = devm_kzalloc(ippdrv->dev, sizeof(*prop_list), GFP_KERNEL);
+ 	if (!prop_list)
+ 		return -ENOMEM;
+@@ -1409,8 +1403,6 @@ static int gsc_ippdrv_check_property(struct device *dev,
+ 	bool swap;
+ 	int i;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	for_each_ipp_ops(i) {
+ 		if ((i == EXYNOS_DRM_OPS_SRC) &&
+ 			(property->cmd == IPP_CMD_WB))
+@@ -1519,8 +1511,6 @@ static int gsc_ippdrv_reset(struct device *dev)
+ 	struct gsc_scaler *sc = &ctx->sc;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	/* reset h/w block */
+ 	ret = gsc_sw_reset(ctx);
+ 	if (ret < 0) {
+@@ -1805,7 +1795,7 @@ static int gsc_runtime_resume(struct device *dev)
+ {
+ 	struct gsc_context *ctx = get_gsc_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s:id[%d]\n", __FILE__, ctx->id);
++	DRM_DEBUG_KMS("id[%d]\n", ctx->id);
+ 
+ 	return  gsc_clk_ctrl(ctx, true);
+ }
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_hdmi.c b/drivers/gpu/drm/exynos/exynos_drm_hdmi.c
+index 1be4f64..d7c23e2 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_hdmi.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_hdmi.c
+@@ -87,16 +87,12 @@ void exynos_mixer_drv_attach(struct exynos_drm_hdmi_context *ctx)
+ 
+ void exynos_hdmi_ops_register(struct exynos_hdmi_ops *ops)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (ops)
+ 		hdmi_ops = ops;
+ }
+ 
+ void exynos_mixer_ops_register(struct exynos_mixer_ops *ops)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (ops)
+ 		mixer_ops = ops;
+ }
+@@ -105,8 +101,6 @@ static bool drm_hdmi_is_connected(struct device *dev)
+ {
+ 	struct drm_hdmi_context *ctx = to_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (hdmi_ops && hdmi_ops->is_connected)
+ 		return hdmi_ops->is_connected(ctx->hdmi_ctx->ctx);
+ 
+@@ -118,8 +112,6 @@ static struct edid *drm_hdmi_get_edid(struct device *dev,
+ {
+ 	struct drm_hdmi_context *ctx = to_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (hdmi_ops && hdmi_ops->get_edid)
+ 		return hdmi_ops->get_edid(ctx->hdmi_ctx->ctx, connector);
+ 
+@@ -132,8 +124,6 @@ static int drm_hdmi_check_mode(struct device *dev,
+ 	struct drm_hdmi_context *ctx = to_context(dev);
+ 	int ret = 0;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/*
+ 	* Both, mixer and hdmi should be able to handle the requested mode.
+ 	* If any of the two fails, return mode as BAD.
+@@ -155,8 +145,6 @@ static int drm_hdmi_power_on(struct device *dev, int mode)
+ {
+ 	struct drm_hdmi_context *ctx = to_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (hdmi_ops && hdmi_ops->power_on)
+ 		return hdmi_ops->power_on(ctx->hdmi_ctx->ctx, mode);
+ 
+@@ -177,8 +165,6 @@ static int drm_hdmi_enable_vblank(struct device *subdrv_dev)
+ 	struct exynos_drm_subdrv *subdrv = &ctx->subdrv;
+ 	struct exynos_drm_manager *manager = subdrv->manager;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (mixer_ops && mixer_ops->enable_vblank)
+ 		return mixer_ops->enable_vblank(ctx->mixer_ctx->ctx,
+ 						manager->pipe);
+@@ -190,8 +176,6 @@ static void drm_hdmi_disable_vblank(struct device *subdrv_dev)
+ {
+ 	struct drm_hdmi_context *ctx = to_context(subdrv_dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (mixer_ops && mixer_ops->disable_vblank)
+ 		return mixer_ops->disable_vblank(ctx->mixer_ctx->ctx);
+ }
+@@ -200,8 +184,6 @@ static void drm_hdmi_wait_for_vblank(struct device *subdrv_dev)
+ {
+ 	struct drm_hdmi_context *ctx = to_context(subdrv_dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (mixer_ops && mixer_ops->wait_for_vblank)
+ 		mixer_ops->wait_for_vblank(ctx->mixer_ctx->ctx);
+ }
+@@ -214,8 +196,6 @@ static void drm_hdmi_mode_fixup(struct device *subdrv_dev,
+ 	struct drm_display_mode *m;
+ 	int mode_ok;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	drm_mode_set_crtcinfo(adjusted_mode, 0);
+ 
+ 	mode_ok = drm_hdmi_check_mode(subdrv_dev, adjusted_mode);
+@@ -256,8 +236,6 @@ static void drm_hdmi_mode_set(struct device *subdrv_dev, void *mode)
+ {
+ 	struct drm_hdmi_context *ctx = to_context(subdrv_dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (hdmi_ops && hdmi_ops->mode_set)
+ 		hdmi_ops->mode_set(ctx->hdmi_ctx->ctx, mode);
+ }
+@@ -267,8 +245,6 @@ static void drm_hdmi_get_max_resol(struct device *subdrv_dev,
+ {
+ 	struct drm_hdmi_context *ctx = to_context(subdrv_dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (hdmi_ops && hdmi_ops->get_max_resol)
+ 		hdmi_ops->get_max_resol(ctx->hdmi_ctx->ctx, width, height);
+ }
+@@ -277,8 +253,6 @@ static void drm_hdmi_commit(struct device *subdrv_dev)
+ {
+ 	struct drm_hdmi_context *ctx = to_context(subdrv_dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (hdmi_ops && hdmi_ops->commit)
+ 		hdmi_ops->commit(ctx->hdmi_ctx->ctx);
+ }
+@@ -287,8 +261,6 @@ static void drm_hdmi_dpms(struct device *subdrv_dev, int mode)
+ {
+ 	struct drm_hdmi_context *ctx = to_context(subdrv_dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (mixer_ops && mixer_ops->dpms)
+ 		mixer_ops->dpms(ctx->mixer_ctx->ctx, mode);
+ 
+@@ -301,8 +273,6 @@ static void drm_hdmi_apply(struct device *subdrv_dev)
+ 	struct drm_hdmi_context *ctx = to_context(subdrv_dev);
+ 	int i;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	for (i = 0; i < MIXER_WIN_NR; i++) {
+ 		if (!ctx->enabled[i])
+ 			continue;
+@@ -331,8 +301,6 @@ static void drm_mixer_mode_set(struct device *subdrv_dev,
+ {
+ 	struct drm_hdmi_context *ctx = to_context(subdrv_dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (mixer_ops && mixer_ops->win_mode_set)
+ 		mixer_ops->win_mode_set(ctx->mixer_ctx->ctx, overlay);
+ }
+@@ -342,8 +310,6 @@ static void drm_mixer_commit(struct device *subdrv_dev, int zpos)
+ 	struct drm_hdmi_context *ctx = to_context(subdrv_dev);
+ 	int win = (zpos == DEFAULT_ZPOS) ? MIXER_DEFAULT_WIN : zpos;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (win < 0 || win > MIXER_WIN_NR) {
+ 		DRM_ERROR("mixer window[%d] is wrong\n", win);
+ 		return;
+@@ -360,8 +326,6 @@ static void drm_mixer_disable(struct device *subdrv_dev, int zpos)
+ 	struct drm_hdmi_context *ctx = to_context(subdrv_dev);
+ 	int win = (zpos == DEFAULT_ZPOS) ? MIXER_DEFAULT_WIN : zpos;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (win < 0 || win > MIXER_WIN_NR) {
+ 		DRM_ERROR("mixer window[%d] is wrong\n", win);
+ 		return;
+@@ -392,8 +356,6 @@ static int hdmi_subdrv_probe(struct drm_device *drm_dev,
+ 	struct exynos_drm_subdrv *subdrv = to_subdrv(dev);
+ 	struct drm_hdmi_context *ctx;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (!hdmi_ctx) {
+ 		DRM_ERROR("hdmi context not initialized.\n");
+ 		return -EFAULT;
+@@ -440,8 +402,6 @@ static int exynos_drm_hdmi_probe(struct platform_device *pdev)
+ 	struct exynos_drm_subdrv *subdrv;
+ 	struct drm_hdmi_context *ctx;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+ 	if (!ctx)
+ 		return -ENOMEM;
+@@ -464,8 +424,6 @@ static int exynos_drm_hdmi_remove(struct platform_device *pdev)
+ {
+ 	struct drm_hdmi_context *ctx = platform_get_drvdata(pdev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_drm_subdrv_unregister(&ctx->subdrv);
+ 
+ 	return 0;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_ipp.c b/drivers/gpu/drm/exynos/exynos_drm_ipp.c
+index 1b3b59c..4cd2b40 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_ipp.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_ipp.c
+@@ -130,8 +130,6 @@ void exynos_platform_device_ipp_unregister(void)
+ 
+ int exynos_drm_ippdrv_register(struct exynos_drm_ippdrv *ippdrv)
+ {
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (!ippdrv)
+ 		return -EINVAL;
+ 
+@@ -144,8 +142,6 @@ int exynos_drm_ippdrv_register(struct exynos_drm_ippdrv *ippdrv)
+ 
+ int exynos_drm_ippdrv_unregister(struct exynos_drm_ippdrv *ippdrv)
+ {
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (!ippdrv)
+ 		return -EINVAL;
+ 
+@@ -161,8 +157,6 @@ static int ipp_create_id(struct idr *id_idr, struct mutex *lock, void *obj,
+ {
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	/* do the allocation under our mutexlock */
+ 	mutex_lock(lock);
+ 	ret = idr_alloc(id_idr, obj, 1, 0, GFP_KERNEL);
+@@ -319,8 +313,6 @@ int exynos_drm_ipp_get_property(struct drm_device *drm_dev, void *data,
+ 	struct exynos_drm_ippdrv *ippdrv;
+ 	int count = 0;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (!ctx) {
+ 		DRM_ERROR("invalid context.\n");
+ 		return -EINVAL;
+@@ -417,8 +409,6 @@ static struct drm_exynos_ipp_cmd_work *ipp_create_cmd_work(void)
+ {
+ 	struct drm_exynos_ipp_cmd_work *cmd_work;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	cmd_work = kzalloc(sizeof(*cmd_work), GFP_KERNEL);
+ 	if (!cmd_work)
+ 		return ERR_PTR(-ENOMEM);
+@@ -432,8 +422,6 @@ static struct drm_exynos_ipp_event_work *ipp_create_event_work(void)
+ {
+ 	struct drm_exynos_ipp_event_work *event_work;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	event_work = kzalloc(sizeof(*event_work), GFP_KERNEL);
+ 	if (!event_work)
+ 		return ERR_PTR(-ENOMEM);
+@@ -455,8 +443,6 @@ int exynos_drm_ipp_set_property(struct drm_device *drm_dev, void *data,
+ 	struct drm_exynos_ipp_cmd_node *c_node;
+ 	int ret, i;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (!ctx) {
+ 		DRM_ERROR("invalid context.\n");
+ 		return -EINVAL;
+@@ -562,8 +548,6 @@ err_clear:
+ 
+ static void ipp_clean_cmd_node(struct drm_exynos_ipp_cmd_node *c_node)
+ {
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	/* delete list */
+ 	list_del(&c_node->list);
+ 
+@@ -586,8 +570,6 @@ static int ipp_check_mem_list(struct drm_exynos_ipp_cmd_node *c_node)
+ 	struct list_head *head;
+ 	int ret, i, count[EXYNOS_DRM_OPS_MAX] = { 0, };
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	mutex_lock(&c_node->mem_lock);
+ 
+ 	for_each_ipp_ops(i) {
+@@ -707,8 +689,6 @@ static struct drm_exynos_ipp_mem_node
+ 	void *addr;
+ 	int i;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	mutex_lock(&c_node->mem_lock);
+ 
+ 	m_node = kzalloc(sizeof(*m_node), GFP_KERNEL);
+@@ -846,8 +826,6 @@ static void ipp_put_event(struct drm_exynos_ipp_cmd_node *c_node,
+ 	struct drm_exynos_ipp_send_event *e, *te;
+ 	int count = 0;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (list_empty(&c_node->event_list)) {
+ 		DRM_DEBUG_KMS("%s:event_list is empty.\n", __func__);
+ 		return;
+@@ -901,8 +879,6 @@ static int ipp_queue_buf_with_run(struct device *dev,
+ 	struct exynos_drm_ipp_ops *ops;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	ippdrv = ipp_find_drv_by_handle(qbuf->prop_id);
+ 	if (IS_ERR(ippdrv)) {
+ 		DRM_ERROR("failed to get ipp driver.\n");
+@@ -953,8 +929,6 @@ static void ipp_clean_queue_buf(struct drm_device *drm_dev,
+ {
+ 	struct drm_exynos_ipp_mem_node *m_node, *tm_node;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (!list_empty(&c_node->mem_list[qbuf->ops_id])) {
+ 		/* delete list */
+ 		list_for_each_entry_safe(m_node, tm_node,
+@@ -978,8 +952,6 @@ int exynos_drm_ipp_queue_buf(struct drm_device *drm_dev, void *data,
+ 	struct drm_exynos_ipp_mem_node *m_node;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (!qbuf) {
+ 		DRM_ERROR("invalid buf parameter.\n");
+ 		return -EINVAL;
+@@ -1064,8 +1036,6 @@ err_clean_node:
+ static bool exynos_drm_ipp_check_valid(struct device *dev,
+ 		enum drm_exynos_ipp_ctrl ctrl, enum drm_exynos_ipp_state state)
+ {
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (ctrl != IPP_CTRL_PLAY) {
+ 		if (pm_runtime_suspended(dev)) {
+ 			DRM_ERROR("pm:runtime_suspended.\n");
+@@ -1115,8 +1085,6 @@ int exynos_drm_ipp_cmd_ctrl(struct drm_device *drm_dev, void *data,
+ 	struct drm_exynos_ipp_cmd_work *cmd_work;
+ 	struct drm_exynos_ipp_cmd_node *c_node;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (!ctx) {
+ 		DRM_ERROR("invalid context.\n");
+ 		return -EINVAL;
+@@ -1480,8 +1448,6 @@ void ipp_sched_cmd(struct work_struct *work)
+ 	struct drm_exynos_ipp_property *property;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	ippdrv = cmd_work->ippdrv;
+ 	if (!ippdrv) {
+ 		DRM_ERROR("invalid ippdrv list.\n");
+@@ -1748,8 +1714,6 @@ static int ipp_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
+ 	struct exynos_drm_ippdrv *ippdrv;
+ 	int ret, count = 0;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	/* get ipp driver entry */
+ 	list_for_each_entry(ippdrv, &exynos_drm_ippdrv_list, drv_list) {
+ 		ippdrv->drm_dev = drm_dev;
+@@ -1805,8 +1769,6 @@ static void ipp_subdrv_remove(struct drm_device *drm_dev, struct device *dev)
+ {
+ 	struct exynos_drm_ippdrv *ippdrv;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	/* get ipp driver entry */
+ 	list_for_each_entry(ippdrv, &exynos_drm_ippdrv_list, drv_list) {
+ 		if (is_drm_iommu_supported(drm_dev))
+@@ -1823,8 +1785,6 @@ static int ipp_subdrv_open(struct drm_device *drm_dev, struct device *dev,
+ 	struct drm_exynos_file_private *file_priv = file->driver_priv;
+ 	struct exynos_drm_ipp_private *priv;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+ 	if (!priv)
+ 		return -ENOMEM;
+@@ -1900,8 +1860,6 @@ static int ipp_probe(struct platform_device *pdev)
+ 	if (!ctx)
+ 		return -ENOMEM;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	mutex_init(&ctx->ipp_lock);
+ 	mutex_init(&ctx->prop_lock);
+ 
+@@ -1965,8 +1923,6 @@ static int ipp_remove(struct platform_device *pdev)
+ {
+ 	struct ipp_context *ctx = platform_get_drvdata(pdev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	/* unregister sub driver */
+ 	exynos_drm_subdrv_unregister(&ctx->subdrv);
+ 
+@@ -1996,8 +1952,6 @@ static int ipp_suspend(struct device *dev)
+ {
+ 	struct ipp_context *ctx = get_ipp_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (pm_runtime_suspended(dev))
+ 		return 0;
+ 
+@@ -2008,8 +1962,6 @@ static int ipp_resume(struct device *dev)
+ {
+ 	struct ipp_context *ctx = get_ipp_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (!pm_runtime_suspended(dev))
+ 		return ipp_power_ctrl(ctx, true);
+ 
+@@ -2022,8 +1974,6 @@ static int ipp_runtime_suspend(struct device *dev)
+ {
+ 	struct ipp_context *ctx = get_ipp_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	return ipp_power_ctrl(ctx, false);
+ }
+ 
+@@ -2031,8 +1981,6 @@ static int ipp_runtime_resume(struct device *dev)
+ {
+ 	struct ipp_context *ctx = get_ipp_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	return ipp_power_ctrl(ctx, true);
+ }
+ #endif
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_plane.c b/drivers/gpu/drm/exynos/exynos_drm_plane.c
+index 55f8d97..fcb0652 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_plane.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_plane.c
+@@ -82,8 +82,6 @@ int exynos_plane_mode_set(struct drm_plane *plane, struct drm_crtc *crtc,
+ 	int nr;
+ 	int i;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	nr = exynos_drm_fb_get_buf_cnt(fb);
+ 	for (i = 0; i < nr; i++) {
+ 		struct exynos_drm_gem_buf *buffer = exynos_drm_fb_buffer(fb, i);
+@@ -160,8 +158,6 @@ void exynos_plane_dpms(struct drm_plane *plane, int mode)
+ 	struct exynos_plane *exynos_plane = to_exynos_plane(plane);
+ 	struct exynos_drm_overlay *overlay = &exynos_plane->overlay;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	if (mode == DRM_MODE_DPMS_ON) {
+ 		if (exynos_plane->enabled)
+ 			return;
+@@ -190,8 +186,6 @@ exynos_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
+ {
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	ret = exynos_plane_mode_set(plane, crtc, fb, crtc_x, crtc_y,
+ 			crtc_w, crtc_h, src_x >> 16, src_y >> 16,
+ 			src_w >> 16, src_h >> 16);
+@@ -208,8 +202,6 @@ exynos_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
+ 
+ static int exynos_disable_plane(struct drm_plane *plane)
+ {
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	exynos_plane_dpms(plane, DRM_MODE_DPMS_OFF);
+ 
+ 	return 0;
+@@ -219,8 +211,6 @@ static void exynos_plane_destroy(struct drm_plane *plane)
+ {
+ 	struct exynos_plane *exynos_plane = to_exynos_plane(plane);
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	exynos_disable_plane(plane);
+ 	drm_plane_cleanup(plane);
+ 	kfree(exynos_plane);
+@@ -234,8 +224,6 @@ static int exynos_plane_set_property(struct drm_plane *plane,
+ 	struct exynos_plane *exynos_plane = to_exynos_plane(plane);
+ 	struct exynos_drm_private *dev_priv = dev->dev_private;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	if (property == dev_priv->plane_zpos_property) {
+ 		exynos_plane->overlay.zpos = val;
+ 		return 0;
+@@ -257,8 +245,6 @@ static void exynos_plane_attach_zpos_property(struct drm_plane *plane)
+ 	struct exynos_drm_private *dev_priv = dev->dev_private;
+ 	struct drm_property *prop;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	prop = dev_priv->plane_zpos_property;
+ 	if (!prop) {
+ 		prop = drm_property_create_range(dev, 0, "zpos", 0,
+@@ -278,8 +264,6 @@ struct drm_plane *exynos_plane_init(struct drm_device *dev,
+ 	struct exynos_plane *exynos_plane;
+ 	int err;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	exynos_plane = kzalloc(sizeof(struct exynos_plane), GFP_KERNEL);
+ 	if (!exynos_plane)
+ 		return NULL;
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_rotator.c b/drivers/gpu/drm/exynos/exynos_drm_rotator.c
+index 97b60df..375e36a 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_rotator.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_rotator.c
+@@ -471,8 +471,6 @@ static int rotator_init_prop_list(struct exynos_drm_ippdrv *ippdrv)
+ {
+ 	struct drm_exynos_ipp_prop_list *prop_list;
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	prop_list = devm_kzalloc(ippdrv->dev, sizeof(*prop_list), GFP_KERNEL);
+ 	if (!prop_list)
+ 		return -ENOMEM;
+@@ -797,8 +795,6 @@ static int rotator_remove(struct platform_device *pdev)
+ 
+ static int rotator_clk_crtl(struct rot_context *rot, bool enable)
+ {
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (enable) {
+ 		clk_enable(rot->clock);
+ 		rot->suspended = false;
+@@ -816,8 +812,6 @@ static int rotator_suspend(struct device *dev)
+ {
+ 	struct rot_context *rot = dev_get_drvdata(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (pm_runtime_suspended(dev))
+ 		return 0;
+ 
+@@ -828,8 +822,6 @@ static int rotator_resume(struct device *dev)
+ {
+ 	struct rot_context *rot = dev_get_drvdata(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	if (!pm_runtime_suspended(dev))
+ 		return rotator_clk_crtl(rot, true);
+ 
+@@ -842,8 +834,6 @@ static int rotator_runtime_suspend(struct device *dev)
+ {
+ 	struct rot_context *rot = dev_get_drvdata(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	return  rotator_clk_crtl(rot, false);
+ }
+ 
+@@ -851,8 +841,6 @@ static int rotator_runtime_resume(struct device *dev)
+ {
+ 	struct rot_context *rot = dev_get_drvdata(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __func__);
+-
+ 	return  rotator_clk_crtl(rot, true);
+ }
+ #endif
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_vidi.c b/drivers/gpu/drm/exynos/exynos_drm_vidi.c
+index 5197eda..eb052e7 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_vidi.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_vidi.c
+@@ -96,8 +96,6 @@ static bool vidi_display_is_connected(struct device *dev)
+ {
+ 	struct vidi_context *ctx = get_vidi_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/*
+ 	 * connection request would come from user side
+ 	 * to do hotplug through specific ioctl.
+@@ -112,8 +110,6 @@ static struct edid *vidi_get_edid(struct device *dev,
+ 	struct edid *edid;
+ 	int edid_len;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/*
+ 	 * the edid data comes from user side and it would be set
+ 	 * to ctx->raw_edid through specific ioctl.
+@@ -135,8 +131,6 @@ static struct edid *vidi_get_edid(struct device *dev,
+ 
+ static void *vidi_get_panel(struct device *dev)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* TODO. */
+ 
+ 	return NULL;
+@@ -144,8 +138,6 @@ static void *vidi_get_panel(struct device *dev)
+ 
+ static int vidi_check_mode(struct device *dev, struct drm_display_mode *mode)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* TODO. */
+ 
+ 	return 0;
+@@ -153,8 +145,6 @@ static int vidi_check_mode(struct device *dev, struct drm_display_mode *mode)
+ 
+ static int vidi_display_power_on(struct device *dev, int mode)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* TODO */
+ 
+ 	return 0;
+@@ -173,7 +163,7 @@ static void vidi_dpms(struct device *subdrv_dev, int mode)
+ {
+ 	struct vidi_context *ctx = get_vidi_context(subdrv_dev);
+ 
+-	DRM_DEBUG_KMS("%s, %d\n", __FILE__, mode);
++	DRM_DEBUG_KMS("%d\n", mode);
+ 
+ 	mutex_lock(&ctx->lock);
+ 
+@@ -203,8 +193,6 @@ static void vidi_apply(struct device *subdrv_dev)
+ 	struct vidi_win_data *win_data;
+ 	int i;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	for (i = 0; i < WINDOWS_NR; i++) {
+ 		win_data = &ctx->win_data[i];
+ 		if (win_data->enabled && (ovl_ops && ovl_ops->commit))
+@@ -219,8 +207,6 @@ static void vidi_commit(struct device *dev)
+ {
+ 	struct vidi_context *ctx = get_vidi_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (ctx->suspended)
+ 		return;
+ }
+@@ -229,8 +215,6 @@ static int vidi_enable_vblank(struct device *dev)
+ {
+ 	struct vidi_context *ctx = get_vidi_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (ctx->suspended)
+ 		return -EPERM;
+ 
+@@ -253,8 +237,6 @@ static void vidi_disable_vblank(struct device *dev)
+ {
+ 	struct vidi_context *ctx = get_vidi_context(dev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (ctx->suspended)
+ 		return;
+ 
+@@ -278,8 +260,6 @@ static void vidi_win_mode_set(struct device *dev,
+ 	int win;
+ 	unsigned long offset;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (!overlay) {
+ 		dev_err(dev, "overlay is NULL\n");
+ 		return;
+@@ -331,8 +311,6 @@ static void vidi_win_commit(struct device *dev, int zpos)
+ 	struct vidi_win_data *win_data;
+ 	int win = zpos;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (ctx->suspended)
+ 		return;
+ 
+@@ -358,8 +336,6 @@ static void vidi_win_disable(struct device *dev, int zpos)
+ 	struct vidi_win_data *win_data;
+ 	int win = zpos;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (win == DEFAULT_ZPOS)
+ 		win = ctx->default_win;
+ 
+@@ -414,8 +390,6 @@ static void vidi_fake_vblank_handler(struct work_struct *work)
+ 
+ static int vidi_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/*
+ 	 * enable drm irq mode.
+ 	 * - with irq_enabled = 1, we can use the vblank feature.
+@@ -438,8 +412,6 @@ static int vidi_subdrv_probe(struct drm_device *drm_dev, struct device *dev)
+ 
+ static void vidi_subdrv_remove(struct drm_device *drm_dev, struct device *dev)
+ {
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	/* TODO. */
+ }
+ 
+@@ -448,8 +420,6 @@ static int vidi_power_on(struct vidi_context *ctx, bool enable)
+ 	struct exynos_drm_subdrv *subdrv = &ctx->subdrv;
+ 	struct device *dev = subdrv->dev;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (enable != false && enable != true)
+ 		return -EINVAL;
+ 
+@@ -490,8 +460,6 @@ static int vidi_store_connection(struct device *dev,
+ 	struct vidi_context *ctx = get_vidi_context(dev);
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	ret = kstrtoint(buf, 0, &ctx->connected);
+ 	if (ret)
+ 		return ret;
+@@ -529,8 +497,6 @@ int vidi_connection_ioctl(struct drm_device *drm_dev, void *data,
+ 	struct drm_exynos_vidi_connection *vidi = data;
+ 	int edid_len;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	if (!vidi) {
+ 		DRM_DEBUG_KMS("user data for vidi is null.\n");
+ 		return -EINVAL;
+@@ -599,8 +565,6 @@ static int vidi_probe(struct platform_device *pdev)
+ 	struct exynos_drm_subdrv *subdrv;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+ 	if (!ctx)
+ 		return -ENOMEM;
+@@ -632,8 +596,6 @@ static int vidi_remove(struct platform_device *pdev)
+ {
+ 	struct vidi_context *ctx = platform_get_drvdata(pdev);
+ 
+-	DRM_DEBUG_KMS("%s\n", __FILE__);
+-
+ 	exynos_drm_subdrv_unregister(&ctx->subdrv);
+ 
+ 	if (ctx->raw_edid != (struct edid *)fake_edid_info) {
+diff --git a/drivers/gpu/drm/exynos/exynos_hdmi.c b/drivers/gpu/drm/exynos/exynos_hdmi.c
+index e5d8dae..05b24f9 100644
+--- a/drivers/gpu/drm/exynos/exynos_hdmi.c
++++ b/drivers/gpu/drm/exynos/exynos_hdmi.c
+@@ -689,8 +689,6 @@ static void hdmi_reg_infoframe(struct hdmi_context *hdata,
+ 	u32 mod;
+ 	u32 vic;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	mod = hdmi_reg_read(hdata, HDMI_MODE_SEL);
+ 	if (hdata->dvi_mode) {
+ 		hdmi_reg_writeb(hdata, HDMI_VSI_CON,
+@@ -755,8 +753,6 @@ static struct edid *hdmi_get_edid(void *ctx, struct drm_connector *connector)
+ 	struct edid *raw_edid;
+ 	struct hdmi_context *hdata = ctx;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	if (!hdata->ddc_port)
+ 		return ERR_PTR(-ENODEV);
+ 
+@@ -777,8 +773,6 @@ static int hdmi_find_phy_conf(struct hdmi_context *hdata, u32 pixel_clock)
+ 	const struct hdmiphy_config *confs;
+ 	int count, i;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	if (hdata->type == HDMI_TYPE13) {
+ 		confs = hdmiphy_v13_configs;
+ 		count = ARRAY_SIZE(hdmiphy_v13_configs);
+@@ -1335,8 +1329,6 @@ static void hdmiphy_conf_reset(struct hdmi_context *hdata)
+ 
+ static void hdmiphy_poweron(struct hdmi_context *hdata)
+ {
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	if (hdata->type == HDMI_TYPE14)
+ 		hdmi_reg_writemask(hdata, HDMI_PHY_CON_0, 0,
+ 			HDMI_PHY_POWER_OFF_EN);
+@@ -1344,8 +1336,6 @@ static void hdmiphy_poweron(struct hdmi_context *hdata)
+ 
+ static void hdmiphy_poweroff(struct hdmi_context *hdata)
+ {
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	if (hdata->type == HDMI_TYPE14)
+ 		hdmi_reg_writemask(hdata, HDMI_PHY_CON_0, ~0,
+ 			HDMI_PHY_POWER_OFF_EN);
+@@ -1409,8 +1399,6 @@ static void hdmiphy_conf_apply(struct hdmi_context *hdata)
+ 
+ static void hdmi_conf_apply(struct hdmi_context *hdata)
+ {
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	hdmiphy_conf_reset(hdata);
+ 	hdmiphy_conf_apply(hdata);
+ 
+@@ -1660,8 +1648,6 @@ static void hdmi_mode_set(void *ctx, struct drm_display_mode *mode)
+ static void hdmi_get_max_resol(void *ctx, unsigned int *width,
+ 					unsigned int *height)
+ {
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	*width = MAX_WIDTH;
+ 	*height = MAX_HEIGHT;
+ }
+@@ -1670,8 +1656,6 @@ static void hdmi_commit(void *ctx)
+ {
+ 	struct hdmi_context *hdata = ctx;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	mutex_lock(&hdata->hdmi_mutex);
+ 	if (!hdata->powered) {
+ 		mutex_unlock(&hdata->hdmi_mutex);
+@@ -1686,8 +1670,6 @@ static void hdmi_poweron(struct hdmi_context *hdata)
+ {
+ 	struct hdmi_resources *res = &hdata->res;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	mutex_lock(&hdata->hdmi_mutex);
+ 	if (hdata->powered) {
+ 		mutex_unlock(&hdata->hdmi_mutex);
+@@ -1712,8 +1694,6 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
+ {
+ 	struct hdmi_resources *res = &hdata->res;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	mutex_lock(&hdata->hdmi_mutex);
+ 	if (!hdata->powered)
+ 		goto out;
+@@ -1941,8 +1921,6 @@ static int hdmi_probe(struct platform_device *pdev)
+ 	struct resource *res;
+ 	int ret;
+ 
+-	DRM_DEBUG_KMS("[%d]\n", __LINE__);
+-
+ 	if (dev->of_node) {
+ 		pdata = drm_hdmi_dt_parse_pdata(dev);
+ 		if (IS_ERR(pdata)) {
+@@ -2064,8 +2042,6 @@ static int hdmi_remove(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	pm_runtime_disable(dev);
+ 
+ 	/* hdmiphy i2c driver */
+@@ -2082,8 +2058,6 @@ static int hdmi_suspend(struct device *dev)
+ 	struct exynos_drm_hdmi_context *ctx = get_hdmi_context(dev);
+ 	struct hdmi_context *hdata = ctx->ctx;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	disable_irq(hdata->irq);
+ 
+ 	hdata->hpd = false;
+@@ -2105,8 +2079,6 @@ static int hdmi_resume(struct device *dev)
+ 	struct exynos_drm_hdmi_context *ctx = get_hdmi_context(dev);
+ 	struct hdmi_context *hdata = ctx->ctx;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	hdata->hpd = gpio_get_value(hdata->hpd_gpio);
+ 
+ 	enable_irq(hdata->irq);
+@@ -2127,7 +2099,6 @@ static int hdmi_runtime_suspend(struct device *dev)
+ {
+ 	struct exynos_drm_hdmi_context *ctx = get_hdmi_context(dev);
+ 	struct hdmi_context *hdata = ctx->ctx;
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+ 
+ 	hdmi_poweroff(hdata);
+ 
+@@ -2138,7 +2109,6 @@ static int hdmi_runtime_resume(struct device *dev)
+ {
+ 	struct exynos_drm_hdmi_context *ctx = get_hdmi_context(dev);
+ 	struct hdmi_context *hdata = ctx->ctx;
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+ 
+ 	hdmi_poweron(hdata);
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_mixer.c b/drivers/gpu/drm/exynos/exynos_mixer.c
+index d0a8afb..7b41942 100644
+--- a/drivers/gpu/drm/exynos/exynos_mixer.c
++++ b/drivers/gpu/drm/exynos/exynos_mixer.c
+@@ -696,8 +696,6 @@ static int mixer_enable_vblank(void *ctx, int pipe)
+ 	struct mixer_context *mixer_ctx = ctx;
+ 	struct mixer_resources *res = &mixer_ctx->mixer_res;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	mixer_ctx->pipe = pipe;
+ 
+ 	/* enable vsync interrupt */
+@@ -712,8 +710,6 @@ static void mixer_disable_vblank(void *ctx)
+ 	struct mixer_context *mixer_ctx = ctx;
+ 	struct mixer_resources *res = &mixer_ctx->mixer_res;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	/* disable vsync interrupt */
+ 	mixer_reg_writemask(res, MXR_INT_EN, 0, MXR_INT_EN_VSYNC);
+ }
+@@ -725,8 +721,6 @@ static void mixer_win_mode_set(void *ctx,
+ 	struct hdmi_win_data *win_data;
+ 	int win;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	if (!overlay) {
+ 		DRM_ERROR("overlay is NULL\n");
+ 		return;
+@@ -890,8 +884,6 @@ static void mixer_poweron(struct mixer_context *ctx)
+ {
+ 	struct mixer_resources *res = &ctx->mixer_res;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	mutex_lock(&ctx->mixer_mutex);
+ 	if (ctx->powered) {
+ 		mutex_unlock(&ctx->mixer_mutex);
+@@ -916,8 +908,6 @@ static void mixer_poweroff(struct mixer_context *ctx)
+ {
+ 	struct mixer_resources *res = &ctx->mixer_res;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	mutex_lock(&ctx->mixer_mutex);
+ 	if (!ctx->powered)
+ 		goto out;
+@@ -944,8 +934,6 @@ static void mixer_dpms(void *ctx, int mode)
+ {
+ 	struct mixer_context *mixer_ctx = ctx;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	switch (mode) {
+ 	case DRM_MODE_DPMS_ON:
+ 		if (pm_runtime_suspended(mixer_ctx->dev))
+@@ -1245,8 +1233,6 @@ static int mixer_suspend(struct device *dev)
+ 	struct exynos_drm_hdmi_context *drm_hdmi_ctx = get_mixer_context(dev);
+ 	struct mixer_context *ctx = drm_hdmi_ctx->ctx;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	if (pm_runtime_suspended(dev)) {
+ 		DRM_DEBUG_KMS("%s : Already suspended\n", __func__);
+ 		return 0;
+@@ -1262,8 +1248,6 @@ static int mixer_resume(struct device *dev)
+ 	struct exynos_drm_hdmi_context *drm_hdmi_ctx = get_mixer_context(dev);
+ 	struct mixer_context *ctx = drm_hdmi_ctx->ctx;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	if (!pm_runtime_suspended(dev)) {
+ 		DRM_DEBUG_KMS("%s : Already resumed\n", __func__);
+ 		return 0;
+@@ -1281,8 +1265,6 @@ static int mixer_runtime_suspend(struct device *dev)
+ 	struct exynos_drm_hdmi_context *drm_hdmi_ctx = get_mixer_context(dev);
+ 	struct mixer_context *ctx = drm_hdmi_ctx->ctx;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	mixer_poweroff(ctx);
+ 
+ 	return 0;
+@@ -1293,8 +1275,6 @@ static int mixer_runtime_resume(struct device *dev)
+ 	struct exynos_drm_hdmi_context *drm_hdmi_ctx = get_mixer_context(dev);
+ 	struct mixer_context *ctx = drm_hdmi_ctx->ctx;
+ 
+-	DRM_DEBUG_KMS("[%d] %s\n", __LINE__, __func__);
+-
+ 	mixer_poweron(ctx);
+ 
+ 	return 0;
+-- 
+1.8.3.2
+

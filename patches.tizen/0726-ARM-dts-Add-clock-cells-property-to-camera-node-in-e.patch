@@ -1,0 +1,40 @@
+From acec70f3fe914228046f746ab066a633964d685d Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 2 Sep 2013 15:05:57 +0200
+Subject: [PATCH 0726/1302] ARM: dts: Add #clock-cells property to camera node
+ in exynos4.dtsi
+
+Add #clock-cells property for the CAM_*_CLKOUT clocks provider
+and label the camera node to allow referencing clocks at the
+clock consumers.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index aa7fb0b..1969580 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -134,14 +134,14 @@
+ 		status = "disabled";
+ 	};
+ 
+-	camera {
++	camera: camera {
+ 		compatible = "samsung,fimc", "simple-bus";
+ 		status = "disabled";
+ 		#address-cells = <1>;
+ 		#size-cells = <1>;
++		#clock-cells = <1>;
+ 		ranges;
+ 
+-
+ 		fimc_0: fimc@11800000 {
+ 			compatible = "samsung,exynos4210-fimc";
+ 			reg = <0x11800000 0x1000>;
+-- 
+1.8.3.2
+

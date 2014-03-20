@@ -1,0 +1,37 @@
+From 668b89679908304d0f385bd0b7f259eac152417c Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 8 Oct 2013 13:03:25 +0200
+Subject: [PATCH 0852/1302] Revert "HACK: usb: gadget: Fix enumeration on boot"
+
+This reverts commit b0c2c319763e2ace63ace30cd5b9e3e0eb0b9b48.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/udc-core.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/drivers/usb/gadget/udc-core.c b/drivers/usb/gadget/udc-core.c
+index bef2f4c..5514822 100644
+--- a/drivers/usb/gadget/udc-core.c
++++ b/drivers/usb/gadget/udc-core.c
+@@ -335,16 +335,7 @@ static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *dri
+ 		driver->unbind(udc->gadget);
+ 		goto err1;
+ 	}
+-	/*
+-		 * HACK: The Android gadget driver disconnects the gadget
+-		 * on bind and expects the gadget to stay disconnected until
+-		 * it calls usb_gadget_connect when userspace is ready. Remove
+-		 * the call to usb_gadget_connect bellow to avoid enabling the
+-		 * pullup before userspace is ready.
+-		 */
+-#if !defined(CONFIG_USB_G_ANDROID) && !defined(CONFIG_USB_G_SLP)
+-		 usb_gadget_connect(udc->gadget);
+-#endif
++	usb_gadget_connect(udc->gadget);
+ 
+ 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
+ 	return 0;
+-- 
+1.8.3.2
+

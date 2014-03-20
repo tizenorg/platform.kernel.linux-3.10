@@ -1,0 +1,40 @@
+From 18bc5c759869d40cb58e172a53df99eaed3c494d Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Thu, 27 Feb 2014 10:01:03 +0100
+Subject: [PATCH 1276/1302] cpufreq:LAB:core: Remove code responsible for
+ removing LAB module
+
+Since we don't support LAB compiled in as module this code shall be
+regarded as a dead one.
+
+Change-Id: I8aba33449e08aabed38393e15519f30ccf27ab0f
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/cpufreq_lab.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/cpufreq/cpufreq_lab.c b/drivers/cpufreq/cpufreq_lab.c
+index 28f4932..8549be2 100644
+--- a/drivers/cpufreq/cpufreq_lab.c
++++ b/drivers/cpufreq/cpufreq_lab.c
+@@ -365,11 +365,6 @@ static int __init cpufreq_gov_dbs_init(void)
+ 	return cpufreq_register_governor(&cpufreq_gov_lab);
+ }
+ 
+-static void __exit cpufreq_gov_dbs_exit(void)
+-{
+-	cpufreq_unregister_governor(&cpufreq_gov_lab);
+-}
+-
+ MODULE_AUTHOR("Jonghwa Lee <jonghwa3.lee@samsung.com>");
+ MODULE_AUTHOR("Lukasz Majewski <l.majewski@samsung.com>");
+ MODULE_DESCRIPTION("'cpufreq_lab' - A dynamic cpufreq governor for "
+@@ -381,4 +376,3 @@ fs_initcall(cpufreq_gov_dbs_init);
+ #else
+ module_init(cpufreq_gov_dbs_init);
+ #endif
+-module_exit(cpufreq_gov_dbs_exit);
+-- 
+1.8.3.2
+

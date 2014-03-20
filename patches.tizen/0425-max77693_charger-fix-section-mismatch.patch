@@ -1,0 +1,31 @@
+From 63a8f9bbe7db445b98e7ef82b24324b18239c754 Mon Sep 17 00:00:00 2001
+From: Seung-Woo Kim <sw0312.kim@samsung.com>
+Date: Fri, 19 Jul 2013 16:45:57 +0900
+Subject: [PATCH 0425/1302] max77693_charger: fix section mismatch
+
+max77693_charger_of_match with __initconst flag is referenced from
+max77693_charger_driver which is non init data and this causes
+section mismatch. So flag __initconst is removed.
+
+Signed-off-by: Seung-Woo Kim <sw0312.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/power/max77693_charger.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/power/max77693_charger.c b/drivers/power/max77693_charger.c
+index 340aec0..71e94c1 100644
+--- a/drivers/power/max77693_charger.c
++++ b/drivers/power/max77693_charger.c
+@@ -654,7 +654,7 @@ static SIMPLE_DEV_PM_OPS(max77693_charger_pm_ops, max77693_charger_suspend,
+ 			max77693_charger_resume);
+ 
+ #ifdef CONFIG_OF
+-static struct of_device_id max77693_charger_of_match[] __initconst = {
++static struct of_device_id max77693_charger_of_match[] = {
+ 	{ .compatible = "samsung,max77693-charger", },
+ 	{ },
+ };
+-- 
+1.8.3.2
+

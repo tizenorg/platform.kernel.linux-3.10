@@ -1,0 +1,183 @@
+From dc4f8f5d45f280cb474317a5a06a7dbf87603764 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 28 May 2013 09:15:56 +0200
+Subject: [PATCH 0638/1302] usb: gadget: f_subset: add configfs support
+
+f_subset learns about configfs so we can, eventually,
+remove in-kernel gadget drivers.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../ABI/testing/configfs-usb-gadget-subset         | 14 +++++++
+ drivers/usb/gadget/Kconfig                         | 10 +++++
+ drivers/usb/gadget/f_subset.c                      | 46 +++++++++++++++++++++-
+ drivers/usb/gadget/u_gether.h                      |  9 +++++
+ 4 files changed, 78 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/ABI/testing/configfs-usb-gadget-subset
+
+diff --git a/Documentation/ABI/testing/configfs-usb-gadget-subset b/Documentation/ABI/testing/configfs-usb-gadget-subset
+new file mode 100644
+index 0000000..f47170a
+--- /dev/null
++++ b/Documentation/ABI/testing/configfs-usb-gadget-subset
+@@ -0,0 +1,14 @@
++What:		/config/usb-gadget/gadget/functions/geth.name
++Date:		May 2013
++KenelVersion:	3.11
++Description:
++		The attributes:
++
++		ifname		- network device interface name associated with
++				this function instance
++		qmult		- queue length multiplier for high and
++				super speed
++		host_addr	- MAC address of host's end of this
++				Ethernet over USB link
++		dev_addr	- MAC address of device's end of this
++				Ethernet over USB link
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index 15d28e5..9b15f51 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -555,6 +555,16 @@ choice
+ 
+ # this first set of drivers all depend on bulk-capable hardware.
+ 
++config USB_CONFIGFS_ECM_SUBSET
++	boolean "Ethernet Control Model (CDC ECM) subset"
++	depends on USB_CONFIGFS
++	depends on NET
++	select USB_U_ETHER
++	select USB_F_SUBSET
++	help
++	  On hardware that can't implement the full protocol,
++	  a simple CDC subset is used, placing fewer demands on USB.
++
+ config USB_CONFIGFS_EEM
+ 	bool "Ethernet Emulation Model (EEM)"
+ 	depends on USB_CONFIGFS
+diff --git a/drivers/usb/gadget/f_subset.c b/drivers/usb/gadget/f_subset.c
+index 089881a..fbc7a24 100644
+--- a/drivers/usb/gadget/f_subset.c
++++ b/drivers/usb/gadget/f_subset.c
+@@ -17,6 +17,7 @@
+ #include <linux/etherdevice.h>
+ 
+ #include "u_ether.h"
++#include "u_ether_configfs.h"
+ #include "u_gether.h"
+ 
+ /*
+@@ -313,8 +314,10 @@ geth_bind(struct usb_configuration *c, struct usb_function *f)
+ 	 * with regard to gether_opts->bound access
+ 	 */
+ 	if (!gether_opts->bound) {
++		mutex_lock(&gether_opts->lock);
+ 		gether_set_gadget(gether_opts->net, cdev->gadget);
+ 		status = gether_register_netdev(gether_opts->net);
++		mutex_unlock(&gether_opts->lock);
+ 		if (status)
+ 			return status;
+ 		gether_opts->bound = true;
+@@ -445,6 +448,41 @@ int geth_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+ 
+ #else
+ 
++static inline struct f_gether_opts *to_f_gether_opts(struct config_item *item)
++{
++	return container_of(to_config_group(item), struct f_gether_opts,
++			    func_inst.group);
++}
++
++/* f_gether_item_ops */
++USB_ETHERNET_CONFIGFS_ITEM(gether);
++
++/* f_gether_opts_dev_addr */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_DEV_ADDR(gether);
++
++/* f_gether_opts_host_addr */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_HOST_ADDR(gether);
++
++/* f_gether_opts_qmult */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(gether);
++
++/* f_gether_opts_ifname */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(gether);
++
++static struct configfs_attribute *gether_attrs[] = {
++	&f_gether_opts_dev_addr.attr,
++	&f_gether_opts_host_addr.attr,
++	&f_gether_opts_qmult.attr,
++	&f_gether_opts_ifname.attr,
++	NULL,
++};
++
++static struct config_item_type gether_func_type = {
++	.ct_item_ops	= &gether_item_ops,
++	.ct_attrs	= gether_attrs,
++	.ct_owner	= THIS_MODULE,
++};
++
+ static void geth_free_inst(struct usb_function_instance *f)
+ {
+ 	struct f_gether_opts *opts;
+@@ -464,12 +502,15 @@ static struct usb_function_instance *geth_alloc_inst(void)
+ 	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
+ 	if (!opts)
+ 		return ERR_PTR(-ENOMEM);
+-
++	mutex_init(&opts->lock);
+ 	opts->func_inst.free_func_inst = geth_free_inst;
+ 	opts->net = gether_setup_default();
+ 	if (IS_ERR(opts->net))
+ 		return ERR_CAST(opts->net);
+ 
++	config_group_init_type_name(&opts->func_inst.group, "",
++				    &gether_func_type);
++
+ 	return &opts->func_inst;
+ }
+ 
+@@ -500,6 +541,8 @@ static struct usb_function *geth_alloc(struct usb_function_instance *fi)
+ 
+ 	opts = container_of(fi, struct f_gether_opts, func_inst);
+ 
++	mutex_lock(&opts->lock);
++	opts->refcnt++;
+ 	/* export host's Ethernet address in CDC format */
+ 	status = gether_get_host_addr_cdc(opts->net, geth->ethaddr,
+ 					  sizeof(geth->ethaddr));
+@@ -510,6 +553,7 @@ static struct usb_function *geth_alloc(struct usb_function_instance *fi)
+ 	geth_string_defs[1].s = geth->ethaddr;
+ 
+ 	geth->port.ioport = netdev_priv(opts->net);
++	mutex_unlock(&opts->lock);
+ 	geth->port.cdc_filter = DEFAULT_FILTER;
+ 
+ 	geth->port.func.name = "cdc_subset";
+diff --git a/drivers/usb/gadget/u_gether.h b/drivers/usb/gadget/u_gether.h
+index 3a4a2bf..d407842 100644
+--- a/drivers/usb/gadget/u_gether.h
++++ b/drivers/usb/gadget/u_gether.h
+@@ -22,6 +22,15 @@ struct f_gether_opts {
+ 	struct usb_function_instance	func_inst;
+ 	struct net_device		*net;
+ 	bool				bound;
++
++	/*
++	 * Read/write access to configfs attributes is handled by configfs.
++	 *
++	 * This is to protect the data from concurrent access by read/write
++	 * and create symlink/remove symlink.
++	 */
++	struct mutex			lock;
++	int				refcnt;
+ };
+ 
+ #endif /* U_GETHER_H */
+-- 
+1.8.3.2
+

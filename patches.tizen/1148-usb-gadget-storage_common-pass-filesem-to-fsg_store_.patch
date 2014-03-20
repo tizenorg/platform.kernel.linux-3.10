@@ -1,0 +1,132 @@
+From 89f0b369bd38406e53ca51c87012a5daf788c51b Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 15 Oct 2013 08:33:13 +0200
+Subject: [PATCH 1148/1302] usb: gadget: storage_common: pass filesem to
+ fsg_store_cdrom
+
+If cdrom flag is set ro flag is implied. Try setting the ro first, and
+only if it succeeds set the cdrom flag.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c |  7 ++++++-
+ drivers/usb/gadget/storage_common.c | 42 +++++++++++++++++++++++++++----------
+ drivers/usb/gadget/storage_common.h |  3 ++-
+ 3 files changed, 39 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 6e5a6da..6b5f451 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -3281,7 +3281,12 @@ static ssize_t fsg_lun_opts_cdrom_show(struct fsg_lun_opts *opts, char *page)
+ static ssize_t fsg_lun_opts_cdrom_store(struct fsg_lun_opts *opts,
+ 				       const char *page, size_t len)
+ {
+-	return fsg_store_cdrom(opts->lun, page, len);
++	struct fsg_opts *fsg_opts;
++
++	fsg_opts = to_fsg_opts(opts->group.cg_item.ci_parent);
++
++	return fsg_store_cdrom(opts->lun, &fsg_opts->common->filesem, page,
++			       len);
+ }
+ 
+ static struct fsg_lun_opts_attribute fsg_lun_opts_cdrom =
+diff --git a/drivers/usb/gadget/storage_common.c b/drivers/usb/gadget/storage_common.c
+index 8bd5f2d..ec20a1f 100644
+--- a/drivers/usb/gadget/storage_common.c
++++ b/drivers/usb/gadget/storage_common.c
+@@ -371,6 +371,23 @@ ssize_t fsg_show_removable(struct fsg_lun *curlun, char *buf)
+ }
+ EXPORT_SYMBOL(fsg_show_removable);
+ 
++/*
++ * The caller must hold fsg->filesem for reading when calling this function.
++ */
++static ssize_t _fsg_store_ro(struct fsg_lun *curlun, bool ro)
++{
++	if (fsg_lun_is_open(curlun)) {
++		LDBG(curlun, "read-only status change prevented\n");
++		return -EBUSY;
++	}
++
++	curlun->ro = ro;
++	curlun->initially_ro = ro;
++	LDBG(curlun, "read-only status set to %d\n", curlun->ro);
++
++	return 0;
++}
++
+ ssize_t fsg_store_ro(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		     const char *buf, size_t count)
+ {
+@@ -386,16 +403,11 @@ ssize_t fsg_store_ro(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 	 * backing file is closed.
+ 	 */
+ 	down_read(filesem);
+-	if (fsg_lun_is_open(curlun)) {
+-		LDBG(curlun, "read-only status change prevented\n");
+-		rc = -EBUSY;
+-	} else {
+-		curlun->ro = ro;
+-		curlun->initially_ro = ro;
+-		LDBG(curlun, "read-only status set to %d\n", curlun->ro);
++	rc = _fsg_store_ro(curlun, ro);
++	if (!rc)
+ 		rc = count;
+-	}
+ 	up_read(filesem);
++
+ 	return rc;
+ }
+ EXPORT_SYMBOL(fsg_store_ro);
+@@ -450,7 +462,8 @@ ssize_t fsg_store_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ }
+ EXPORT_SYMBOL(fsg_store_file);
+ 
+-ssize_t fsg_store_cdrom(struct fsg_lun *curlun, const char *buf, size_t count)
++ssize_t fsg_store_cdrom(struct fsg_lun *curlun, struct rw_semaphore *filesem,
++			const char *buf, size_t count)
+ {
+ 	bool		cdrom;
+ 	int		ret;
+@@ -459,9 +472,16 @@ ssize_t fsg_store_cdrom(struct fsg_lun *curlun, const char *buf, size_t count)
+ 	if (ret)
+ 		return ret;
+ 
+-	curlun->cdrom = cdrom;
++	down_read(filesem);
++	ret = cdrom ? _fsg_store_ro(curlun, true) : 0;
+ 
+-	return count;
++	if (!ret) {
++		curlun->cdrom = cdrom;
++		ret = count;
++	}
++	up_read(filesem);
++
++	return ret;
+ }
+ EXPORT_SYMBOL(fsg_store_cdrom);
+ 
+diff --git a/drivers/usb/gadget/storage_common.h b/drivers/usb/gadget/storage_common.h
+index e0f7aa6..c74c2fd 100644
+--- a/drivers/usb/gadget/storage_common.h
++++ b/drivers/usb/gadget/storage_common.h
+@@ -221,7 +221,8 @@ ssize_t fsg_store_ro(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ ssize_t fsg_store_nofua(struct fsg_lun *curlun, const char *buf, size_t count);
+ ssize_t fsg_store_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		       const char *buf, size_t count);
+-ssize_t fsg_store_cdrom(struct fsg_lun *curlun, const char *buf, size_t count);
++ssize_t fsg_store_cdrom(struct fsg_lun *curlun, struct rw_semaphore *filesem,
++			const char *buf, size_t count);
+ ssize_t fsg_store_removable(struct fsg_lun *curlun, const char *buf,
+ 			    size_t count);
+ 
+-- 
+1.8.3.2
+

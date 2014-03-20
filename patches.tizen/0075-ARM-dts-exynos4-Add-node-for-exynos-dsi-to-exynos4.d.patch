@@ -1,0 +1,44 @@
+From 065a5942e662795021ead854b1771d2fd63f99be Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 31 Aug 2012 12:26:33 +0200
+Subject: [PATCH 0075/1302] ARM: dts: exynos4: Add node for exynos-dsi to
+ exynos4.dtsi
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+
+ARM: dts: exynos4: Update DSI node for new driver
+
+This patch updates DSI controller node in exynos4.dtsi for new
+exynos-dsi driver.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index f54231d..631c36d 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -104,6 +104,17 @@
+ 		arm,tag-latency = <1 1 0>;
+ 	};
+ 
++	dsi_0: dsi@11C80000 {
++		compatible = "samsung,exynos4210-mipi-dsi";
++		reg = <0x11C80000 0x10000>;
++		interrupts = <0 79 0>;
++		samsung,phy-type = <0>;
++		samsung,power-domain = <&pd_lcd0>;
++		clocks = <&clock 286>, <&clock 143>;
++		clock-names = "bus_clk", "pll_clk";
++		status = "disabled";
++	};
++
+ 	camera {
+ 		compatible = "samsung,fimc", "simple-bus";
+ 		clocks = <&clock 132>, <&clock 133>, <&clock 351>, <&clock 352>,
+-- 
+1.8.3.2
+

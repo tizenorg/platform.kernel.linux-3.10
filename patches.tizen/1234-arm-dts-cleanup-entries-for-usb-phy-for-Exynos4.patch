@@ -1,0 +1,271 @@
+From ca0f41d5be1d74e991e8a163a9bf317d64d374a2 Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 18 Feb 2014 09:07:09 +0100
+Subject: [PATCH 1234/1302] arm: dts: cleanup entries for usb phy for Exynos4
+
+Remove old, obsoleted entries for usb phy and move new common nodes to
+exynos4x12/exynos4.dtsi files.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: Ie73f5d365dd72ee4cf4f39c7b07706ec286356fe
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi                  |  2 ++
+ arch/arm/boot/dts/exynos4210-origen.dts         | 10 +---------
+ arch/arm/boot/dts/exynos4210-trats.dts          | 10 +---------
+ arch/arm/boot/dts/exynos4210-universal_c210.dts | 10 +---------
+ arch/arm/boot/dts/exynos4210.dtsi               | 10 ++++++++++
+ arch/arm/boot/dts/exynos4212-slp_pd.dts         | 10 +---------
+ arch/arm/boot/dts/exynos4412-odroidx2.dts       | 10 +---------
+ arch/arm/boot/dts/exynos4412-redwoodlte.dts     |  2 +-
+ arch/arm/boot/dts/exynos4412-slp_pq.dts         | 11 +----------
+ arch/arm/boot/dts/exynos4x12.dtsi               | 19 +++++++------------
+ 10 files changed, 26 insertions(+), 68 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 2ec0547..751847e 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -518,6 +518,8 @@
+ 		interrupts = <0 71 0>;
+ 		clocks = <&clock 305>;
+ 		clock-names = "otg";
++		phys = <&exynos_usbphy 0>;
++		phy-names = "device";
+ 		status = "disabled";
+ 	};
+ 
+diff --git a/arch/arm/boot/dts/exynos4210-origen.dts b/arch/arm/boot/dts/exynos4210-origen.dts
+index 862463b..42240f3 100644
+--- a/arch/arm/boot/dts/exynos4210-origen.dts
++++ b/arch/arm/boot/dts/exynos4210-origen.dts
+@@ -170,8 +170,6 @@
+ 		status = "okay";
+ 		vusb_d-supply = <&ldo8_reg>;
+ 		vusb_a-supply = <&ldo3_reg>;
+-		phys = <&exynos_usbphy 0>;
+-		phy-names = "device";
+ 	};
+ 
+ 	ehci@12580000 {
+@@ -331,13 +329,7 @@
+ 		};
+ 	};
+ 
+-	exynos_usbphy: exynos-usbphy@125B0000 {
+-		compatible = "samsung,exynos4210-usbphy";
+-		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
+-		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+-								<&clock 2>;
+-		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++	exynos-usbphy@125B0000 {
+ 		status = "okay";
+-		#phy-cells = <1>;
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index e783c05..0e2e165 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -527,8 +527,6 @@
+ 		status = "okay";
+ 		vusb_d-supply = <&vusb_reg>;
+ 		vusb_a-supply = <&vusbdac_reg>;
+-		phys = <&exynos_usbphy 0>;
+-		phy-names = "device";
+ 		status = "okay";
+ 	};
+ 
+@@ -703,13 +701,7 @@
+ 		vusb_a-supply = <&vusbdac_reg>;
+ 	};
+ 
+-	exynos_usbphy: exynos-usbphy@125B0000 {
+-		compatible = "samsung,exynos4210-usbphy";
+-		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
+-		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+-								<&clock 2>;
+-		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++	exynos-usbphy@125B0000 {
+ 		status = "okay";
+-		#phy-cells = <1>;
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/exynos4210-universal_c210.dts b/arch/arm/boot/dts/exynos4210-universal_c210.dts
+index 558e36e..67479eb 100644
+--- a/arch/arm/boot/dts/exynos4210-universal_c210.dts
++++ b/arch/arm/boot/dts/exynos4210-universal_c210.dts
+@@ -77,8 +77,6 @@
+ 	hsotg@12480000 {
+ 		vusb_d-supply = <&ldo3_reg>;
+ 		vusb_a-supply = <&ldo8_reg>;
+-		phys = <&exynos_usbphy 0>;
+-		phy-names = "device";
+ 		status = "okay";
+ 	};
+ 
+@@ -449,14 +447,8 @@
+ 		vusb_a-supply = <&ldo8_reg>;
+ 	};
+ 
+-	exynos_usbphy: exynos-usbphy@125B0000 {
+-		compatible = "samsung,exynos4210-usbphy";
+-		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
+-		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+-								<&clock 2>;
+-		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++	exynos-usbphy@125B0000 {
+ 		status = "okay";
+-		#phy-cells = <1>;
+ 	};
+ 
+ 	hdmi_en: voltage-regulator-hdmi-5v {
+diff --git a/arch/arm/boot/dts/exynos4210.dtsi b/arch/arm/boot/dts/exynos4210.dtsi
+index f6989aa..3fdfaf3 100644
+--- a/arch/arm/boot/dts/exynos4210.dtsi
++++ b/arch/arm/boot/dts/exynos4210.dtsi
+@@ -235,4 +235,14 @@
+ 		phy-names = "hdmiphy";
+ 		compatible = "samsung,exynos4210-hdmi";
+ 	};
++
++	exynos_usbphy: exynos-usbphy@125B0000 {
++		compatible = "samsung,exynos4210-usbphy";
++		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
++		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
++								<&clock 2>;
++		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++		status = "disabled";
++		#phy-cells = <1>;
++	};
+ };
+diff --git a/arch/arm/boot/dts/exynos4212-slp_pd.dts b/arch/arm/boot/dts/exynos4212-slp_pd.dts
+index cdf5cc3..01a2383 100644
+--- a/arch/arm/boot/dts/exynos4212-slp_pd.dts
++++ b/arch/arm/boot/dts/exynos4212-slp_pd.dts
+@@ -332,18 +332,10 @@
+ 		status = "okay";
+ 		vusb_d-supply = <&ldo8_reg>;
+ 		vusb_a-supply = <&ldo11_reg>;
+-		phys = <&exynos_usbphy 0>;
+-		phy-names = "device";
+ 	};
+ 
+-	exynos_usbphy: exynos-usbphy@125B0000 {
+-		compatible = "samsung,exynos4212-usbphy";
+-		reg = <0x125B0000 0x100>, <0x10020704 0x0c>, <0x1001021c 0x4>;
+-		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+-								<&clock 2>;
+-		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++	exynos-usbphy@125B0000 {
+ 		status = "okay";
+-		#phy-cells = <1>;
+ 	};
+ 
+ 	cpufreq {
+diff --git a/arch/arm/boot/dts/exynos4412-odroidx2.dts b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+index 05fea1b..c522ee6 100644
+--- a/arch/arm/boot/dts/exynos4412-odroidx2.dts
++++ b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+@@ -433,8 +433,6 @@
+ 		status = "okay";
+ 		vusb_d-supply = <&ldo15_reg>;
+ 		vusb_a-supply = <&ldo12_reg>;
+-		phys = <&exynos_usbphy 0>;
+-		phy-names = "device";
+ 	};
+ 
+ 	ehci@12580000 {
+@@ -445,14 +443,8 @@
+ 		phy-names = "hsic0";
+ 	};
+ 
+-	exynos_usbphy: exynos-usbphy@125B0000 {
+-		compatible = "samsung,exynos4212-usbphy";
+-		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
+-		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+-								<&clock 2>;
+-		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++	exynos-usbphy@125B0000 {
+ 		status = "okay";
+-		#phy-cells = <1>;
+ 	};
+ 
+ 	register-debug {
+diff --git a/arch/arm/boot/dts/exynos4412-redwoodlte.dts b/arch/arm/boot/dts/exynos4412-redwoodlte.dts
+index 6d38430..da1e7df 100644
+--- a/arch/arm/boot/dts/exynos4412-redwoodlte.dts
++++ b/arch/arm/boot/dts/exynos4412-redwoodlte.dts
+@@ -647,7 +647,7 @@
+ 		mmu-master = <&g2d>;
+ 	};
+ 
+-	usbphy@125B0000 {
++	exynos-usbphy@125B0000 {
+ 		status = "okay";
+ 	};
+ 
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 281c7e7..7566367 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -1069,8 +1069,6 @@
+ 		vusb_d-supply = <&ldo15_reg>;
+ 		vusb_a-supply = <&ldo12_reg>;
+ 		extcon = <&max_muic>;
+-		phys = <&exynos_usbphy 0>;
+-		phy-names = "device";
+ 	};
+ 
+ 	ehci@12580000 {
+@@ -1373,15 +1371,8 @@
+ 		status = "okay";
+ 	};
+ 
+-
+-	exynos_usbphy: exynos-usbphy@125B0000 {
+-		compatible = "samsung,exynos4212-usbphy";
+-		reg = <0x125B0000 0x100>, <0x10020704 0x0c>, <0x1001021c 0x4>;
+-		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
+-								<&clock 2>;
+-		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++	exynos-usbphy@125B0000 {
+ 		status = "okay";
+-		#phy-cells = <1>;
+ 	};
+ 
+ 	adc: adc@126C0000 {
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index f47b326..f7b96ba 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -194,19 +194,14 @@
+ 		status = "ok";
+ 	};
+ 
+-	usbphy@125B0000 {
+-		compatible = "samsung,exynos4x12-usb2phy";
+-		reg = <0x125B0000 0x100>;
+-		ranges;
+-		#address-cells = <1>;
+-		#size-cells = <1>;
+-		clocks = <&clock 305>;
+-		clock-names = "otg";
++	exynos_usbphy: exynos-usbphy@125B0000 {
++		compatible = "samsung,exynos4212-usbphy";
++		reg = <0x125B0000 0x100>, <0x10020704 0x0c>, <0x1001021c 0x4>;
++		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
++								<&clock 2>;
++		clock-names = "phy", "device", "host", "hsic0", "hsic1";
+ 		status = "disabled";
+-
+-		usbphy-sys {
+-			reg = <0x10020704 0x0c>;
+-		};
++		#phy-cells = <1>;
+ 	};
+ 
+ 	camera {
+-- 
+1.8.3.2
+

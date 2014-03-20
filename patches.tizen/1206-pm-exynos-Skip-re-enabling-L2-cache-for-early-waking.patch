@@ -1,0 +1,58 @@
+From 04eecaa551d25b0c614c7a7fcdf9febc9aa4afcc Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Mon, 3 Feb 2014 17:37:04 +0900
+Subject: [PATCH 1206/1302] pm: exynos: Skip re-enabling L2 cache for early
+ waking-up.
+
+If L2 cache is powered on, accessing L2 cache's control register is
+forbidden. Ohterwise system will hang up.
+So, when system fails to go to sleep, we have to avoid reset L2 cache
+because it still be powered on.
+
+Change-Id: Ie0271619116012627477e332b0cd5e60a27882ff
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/pm.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/mach-exynos/pm.c b/arch/arm/mach-exynos/pm.c
+index d5bac0d..e5421fa 100644
+--- a/arch/arm/mach-exynos/pm.c
++++ b/arch/arm/mach-exynos/pm.c
+@@ -273,10 +273,7 @@ static int exynos_pm_suspend(void)
+ static void exynos_pm_resume(void)
+ {
+ 	unsigned long tmp;
+-#ifdef CONFIG_CACHE_L2X0
+-	if (call_firmware_op(l2x0_resume) < 0)
+-		outer_resume();
+-#endif
++
+ 	/*
+ 	 * If PMU failed while entering sleep mode, WFI will be
+ 	 * ignored by PMU and then exiting cpu_do_idle().
+@@ -292,6 +289,7 @@ static void exynos_pm_resume(void)
+ 		/* No need to perform below restore code */
+ 		goto early_wakeup;
+ 	}
++
+ 	if (!soc_is_exynos5250()
+ 	    && call_firmware_op(c15resume, save_arm_register) == -ENOSYS)
+ 	{
+@@ -330,6 +328,12 @@ static void exynos_pm_resume(void)
+ #ifdef CONFIG_SMP
+ 		scu_enable(S5P_VA_SCU);
+ #endif
++
++#ifdef CONFIG_CACHE_L2X0
++	if (call_firmware_op(l2x0_resume) < 0)
++		outer_resume();
++#endif
++
+ 	}
+ 
+ early_wakeup:
+-- 
+1.8.3.2
+

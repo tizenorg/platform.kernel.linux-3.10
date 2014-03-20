@@ -1,0 +1,164 @@
+From b70b824c90bb46449bfbadee3ab5f312edfe670a Mon Sep 17 00:00:00 2001
+From: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Date: Mon, 17 Jun 2013 15:43:30 +0200
+Subject: [PATCH 0259/1302] iio: st_accel: Add DT bindings
+
+Signed-off-by: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../devicetree/bindings/iio/accelerometer/st_accel | 47 ++++++++++++++++++++++
+ drivers/iio/accel/st_accel.h                       | 16 ++++----
+ drivers/iio/accel/st_accel_i2c.c                   | 17 ++++++++
+ drivers/iio/accel/st_accel_spi.c                   | 17 ++++++++
+ 4 files changed, 89 insertions(+), 8 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/iio/accelerometer/st_accel
+
+diff --git a/Documentation/devicetree/bindings/iio/accelerometer/st_accel b/Documentation/devicetree/bindings/iio/accelerometer/st_accel
+new file mode 100644
+index 0000000..0c5bc26
+--- /dev/null
++++ b/Documentation/devicetree/bindings/iio/accelerometer/st_accel
+@@ -0,0 +1,47 @@
++STMicroelectronics 3D  accelerometer
++
++Required properties:
++
++  - compatible : should be one from
++	"st,lsm330dlhc_accel"
++	"st,lis3dh"
++	"st,lsm330d_accel"
++	"st,lsm330dl_accel"
++	"st,lsm330dlc_accel"
++	"st,lsm331dlh"
++	"st,lsm303dl_accel"
++	"st,lsm303dlh_accel"
++	"st,lsm303dlm_accel"
++	"st,lsm330_accelc"
++
++  - reg : the I2C address of the accelerometer
++
++Optional properties:
++
++  - irq-map-policy: irqs from interrupt-map assigment policy
++	0: no irqs
++	1: map first irq to irq_data_ready
++	2: map first irq to irq_event
++	3..n: future improvements
++  - interrupt-parent: should contain interrupt map
++
++Example:
++
++lsm330dlc_accel@19 {
++	compatible = "st,lsm330dlc_accel";
++	reg = <0x19>;
++	irq-map-policy = <1>;
++	interrupt-controller;
++	#interrups-cells = <2>;
++	interrupt-parent = <&lsm330dlc_accel_map>;
++	interrupts= <1 0>;
++
++	lsm330dlc_accel_map: lsm330dlc-accel-map {
++		compatible = "samsung,lsm330dlc-accel-map";
++		#interrupt-cells = <2>;
++		#address-cells = <0>;
++		#size-cells = <0>;
++		interrupt-map = <0x1 0 &gpx0 0 0>;
++	};
++};
++
+diff --git a/drivers/iio/accel/st_accel.h b/drivers/iio/accel/st_accel.h
+index 37949b9..699adab 100644
+--- a/drivers/iio/accel/st_accel.h
++++ b/drivers/iio/accel/st_accel.h
+@@ -14,16 +14,16 @@
+ #include <linux/types.h>
+ #include <linux/iio/common/st_sensors.h>
+ 
+-#define LSM303DLHC_ACCEL_DEV_NAME	"lsm303dlhc_accel"
++#define LSM303DLHC_ACCEL_DEV_NAME	"lsm303dlhc-accel"
+ #define LIS3DH_ACCEL_DEV_NAME		"lis3dh"
+-#define LSM330D_ACCEL_DEV_NAME		"lsm330d_accel"
+-#define LSM330DL_ACCEL_DEV_NAME		"lsm330dl_accel"
+-#define LSM330DLC_ACCEL_DEV_NAME	"lsm330dlc_accel"
++#define LSM330D_ACCEL_DEV_NAME		"lsm330d-accel"
++#define LSM330DL_ACCEL_DEV_NAME		"lsm330dl-accel"
++#define LSM330DLC_ACCEL_DEV_NAME	"lsm330dlc-accel"
+ #define LIS331DLH_ACCEL_DEV_NAME	"lis331dlh"
+-#define LSM303DL_ACCEL_DEV_NAME		"lsm303dl_accel"
+-#define LSM303DLH_ACCEL_DEV_NAME	"lsm303dlh_accel"
+-#define LSM303DLM_ACCEL_DEV_NAME	"lsm303dlm_accel"
+-#define LSM330_ACCEL_DEV_NAME		"lsm330_accel"
++#define LSM303DL_ACCEL_DEV_NAME		"lsm303dl-accel"
++#define LSM303DLH_ACCEL_DEV_NAME	"lsm303dlh-accel"
++#define LSM303DLM_ACCEL_DEV_NAME	"lsm303dlm-accel"
++#define LSM330_ACCEL_DEV_NAME		"lsm330-accel"
+ 
+ int st_accel_common_probe(struct iio_dev *indio_dev);
+ void st_accel_common_remove(struct iio_dev *indio_dev);
+diff --git a/drivers/iio/accel/st_accel_i2c.c b/drivers/iio/accel/st_accel_i2c.c
+index ffc9d09..63992f2 100644
+--- a/drivers/iio/accel/st_accel_i2c.c
++++ b/drivers/iio/accel/st_accel_i2c.c
+@@ -70,10 +70,27 @@ static const struct i2c_device_id st_accel_id_table[] = {
+ };
+ MODULE_DEVICE_TABLE(i2c, st_accel_id_table);
+ 
++#ifdef CONFIG_OF
++static struct of_device_id st_accel_dt_match[] = {
++	{ .compatible = "st,lsm330dlhc_accel" },
++	{ .compatible = "st,lis3dh" },
++	{ .compatible = "st,lsm330d-accel" },
++	{ .compatible = "st,lsm330dl-accel" },
++	{ .compatible = "st,lsm330dlc-accel" },
++	{ .compatible = "st,lsm331dlh" },
++	{ .compatible = "st,lsm303dl-accel" },
++	{ .compatible = "st,lsm303dlh-accel" },
++	{ .compatible = "st,lsm303dlm-accel" },
++	{ .compatible = "st,lsm330-accel" },
++	{ }
++};
++#endif
++
+ static struct i2c_driver st_accel_driver = {
+ 	.driver = {
+ 		.owner = THIS_MODULE,
+ 		.name = "st-accel-i2c",
++		.of_match_table = of_match_ptr(st_accel_dt_match),
+ 	},
+ 	.probe = st_accel_i2c_probe,
+ 	.remove = st_accel_i2c_remove,
+diff --git a/drivers/iio/accel/st_accel_spi.c b/drivers/iio/accel/st_accel_spi.c
+index 22b35bf..671fd48 100644
+--- a/drivers/iio/accel/st_accel_spi.c
++++ b/drivers/iio/accel/st_accel_spi.c
+@@ -69,10 +69,27 @@ static const struct spi_device_id st_accel_id_table[] = {
+ };
+ MODULE_DEVICE_TABLE(spi, st_accel_id_table);
+ 
++#ifdef CONFIG_OF
++static struct of_device_id st_accel_dt_match[] = {
++	{ .compatible = "st,lsm330dlhc-accel" },
++	{ .compatible = "st,lis3dh" },
++	{ .compatible = "st,lsm330d-accel" },
++	{ .compatible = "st,lsm330dl-accel" },
++	{ .compatible = "st,lsm330dlc-accel" },
++	{ .compatible = "st,lsm331dlh" },
++	{ .compatible = "st,lsm303dl-accel" },
++	{ .compatible = "st,lsm303dlh-accel" },
++	{ .compatible = "st,lsm303dlm-accel" },
++	{ .compatible = "st,lsm330-accel" },
++	{ }
++};
++#endif
++
+ static struct spi_driver st_accel_driver = {
+ 	.driver = {
+ 		.owner = THIS_MODULE,
+ 		.name = "st-accel-spi",
++		.of_match_table = of_match_ptr(st_accel_dt_match),
+ 	},
+ 	.probe = st_accel_spi_probe,
+ 	.remove = st_accel_spi_remove,
+-- 
+1.8.3.2
+

@@ -1,0 +1,26 @@
+From 1096d8abd0421ee2c00d18251c5c1631d2d2d701 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Thu, 31 Oct 2013 16:51:54 +0100
+Subject: [PATCH 0903/1302] cosmetic: max77686: Remove unused variable
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/regulator/max77686.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/regulator/max77686.c b/drivers/regulator/max77686.c
+index 4d40e54..a8ddbb2 100644
+--- a/drivers/regulator/max77686.c
++++ b/drivers/regulator/max77686.c
+@@ -650,7 +650,6 @@ static int max77686_pmic_probe(struct platform_device *pdev)
+ 		unsigned int buck2_dvs = pdata->buck2_voltage[i];
+ 		unsigned int buck3_dvs = pdata->buck3_voltage[i];
+ 		unsigned int buck4_dvs = pdata->buck4_voltage[i];
+-		unsigned int reg[3];
+ 
+ 		regmap_write(iodev->regmap, MAX77686_REG_BUCK2DVS1 + i,
+ 				buck2_dvs ? : 0x28);
+-- 
+1.8.3.2
+

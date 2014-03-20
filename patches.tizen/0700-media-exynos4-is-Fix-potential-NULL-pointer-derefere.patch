@@ -1,0 +1,48 @@
+From 6e6f1fba190b438abf450a590fb66a36da30f6fc Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Fri, 2 Aug 2013 04:58:25 -0300
+Subject: [PATCH 0700/1302] [media] exynos4-is: Fix potential NULL pointer
+ dereference
+
+dev->of_node could be NULL. Hence check for the same and return before
+dereferencing it in the subsequent error message.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-lite.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-lite.c b/drivers/media/platform/exynos4-is/fimc-lite.c
+index 08fbfed..318d4c3 100644
+--- a/drivers/media/platform/exynos4-is/fimc-lite.c
++++ b/drivers/media/platform/exynos4-is/fimc-lite.c
+@@ -1504,16 +1504,17 @@ static int fimc_lite_probe(struct platform_device *pdev)
+ 	struct resource *res;
+ 	int ret;
+ 
++	if (!dev->of_node)
++		return -ENODEV;
++
+ 	fimc = devm_kzalloc(dev, sizeof(*fimc), GFP_KERNEL);
+ 	if (!fimc)
+ 		return -ENOMEM;
+ 
+-	if (dev->of_node) {
+-		of_id = of_match_node(flite_of_match, dev->of_node);
+-		if (of_id)
+-			drv_data = (struct flite_drvdata *)of_id->data;
+-		fimc->index = of_alias_get_id(dev->of_node, "fimc-lite");
+-	}
++	of_id = of_match_node(flite_of_match, dev->of_node);
++	if (of_id)
++		drv_data = (struct flite_drvdata *)of_id->data;
++	fimc->index = of_alias_get_id(dev->of_node, "fimc-lite");
+ 
+ 	if (!drv_data || fimc->index >= drv_data->num_instances ||
+ 						fimc->index < 0) {
+-- 
+1.8.3.2
+

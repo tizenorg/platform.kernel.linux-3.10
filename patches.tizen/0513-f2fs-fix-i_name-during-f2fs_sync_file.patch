@@ -1,0 +1,48 @@
+From 80b6c76099b2b0b94eeb82493d99efa69c834614 Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk.kim@samsung.com>
+Date: Mon, 22 Jul 2013 22:12:56 +0900
+Subject: [PATCH 0513/1302] f2fs: fix i_name during f2fs_sync_file
+
+As similar as the i_pino fix, i_name also should be fixed when i_nlink is 1.
+
+The errorneous scenario is like this.
+
+1. touch test1
+2. link test1 test2
+3. unlink test2
+4. fsync test1
+
+After this, i_name should be test1.
+
+CC: Al Viro <viro@ZenIV.linux.org.uk>
+Signed-off-by: Jaegeuk Kim <jaegeuk.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ fs/f2fs/file.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/fs/f2fs/file.c b/fs/f2fs/file.c
+index 65ca3b3..c2deb27 100644
+--- a/fs/f2fs/file.c
++++ b/fs/f2fs/file.c
+@@ -112,11 +112,13 @@ static int get_parent_ino(struct inode *inode, nid_t *pino)
+ 	if (!dentry)
+ 		return 0;
+ 
+-	inode = igrab(dentry->d_parent->d_inode);
+-	dput(dentry);
++	if (update_dent_inode(inode, &dentry->d_name)) {
++		dput(dentry);
++		return 0;
++	}
+ 
+-	*pino = inode->i_ino;
+-	iput(inode);
++	*pino = parent_ino(dentry);
++	dput(dentry);
+ 	return 1;
+ }
+ 
+-- 
+1.8.3.2
+

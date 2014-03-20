@@ -1,0 +1,56 @@
+From 86b9ba81c0853eea326b5ca8e61c87b332cfe781 Mon Sep 17 00:00:00 2001
+From: Pratyush Anand <pratyush.anand@st.com>
+Date: Mon, 4 Nov 2013 22:13:54 +0530
+Subject: [PATCH 1187/1302] usb: gadget: mass storage: fix return of delayed
+ status
+
+Mass storage gadget returns DELAYED_STATUS in stead of
+USB_GADGET_DELAYED_STATUS while handling bulk reset request. Since
+peripheral driver uses USB_GADGET_DELAYED_STATUS for delayed status
+handling, therefore replace DELAYED_STATUS by USB_GADGET_DELAYED_STATUS
+in mass storage driver.
+
+Since, DELAYED_STATUS and hence EP0_BUFSIZE will no longer be used now,
+so remove them.
+
+Signed-off-by: Pratyush Anand <pratyush.anand@st.com>
+Cc: Paul Zimmerman <Paul.Zimmerman@synopsys.com>
+Cc: Alan Stern <stern@rowland.harvard.edu>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 2 +-
+ drivers/usb/gadget/storage_common.h | 4 ----
+ 2 files changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 1dfecdf..1b2c19b 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -523,7 +523,7 @@ static int fsg_setup(struct usb_function *f,
+ 		 */
+ 		DBG(fsg, "bulk reset request\n");
+ 		raise_exception(fsg->common, FSG_STATE_RESET);
+-		return DELAYED_STATUS;
++		return USB_GADGET_DELAYED_STATUS;
+ 
+ 	case US_BULK_GET_MAX_LUN:
+ 		if (ctrl->bRequestType !=
+diff --git a/drivers/usb/gadget/storage_common.h b/drivers/usb/gadget/storage_common.h
+index c74c2fd..70c8914 100644
+--- a/drivers/usb/gadget/storage_common.h
++++ b/drivers/usb/gadget/storage_common.h
+@@ -119,10 +119,6 @@ static inline bool fsg_lun_is_open(struct fsg_lun *curlun)
+ 	return curlun->filp != NULL;
+ }
+ 
+-/* Big enough to hold our biggest descriptor */
+-#define EP0_BUFSIZE	256
+-#define DELAYED_STATUS	(EP0_BUFSIZE + 999)	/* An impossibly large value */
+-
+ /* Default size of buffer length. */
+ #define FSG_BUFLEN	((u32)16384)
+ 
+-- 
+1.8.3.2
+

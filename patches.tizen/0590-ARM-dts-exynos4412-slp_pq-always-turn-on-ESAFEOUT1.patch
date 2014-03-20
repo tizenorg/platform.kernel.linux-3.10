@@ -1,0 +1,33 @@
+From 1b4c39a6c58a18bba523be996b80022c4d08ced6 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Thu, 29 Aug 2013 21:38:41 +0900
+Subject: [PATCH 0590/1302] ARM: dts: exynos4412-slp_pq: always turn on
+ ESAFEOUT1
+
+This patch is only WIP(work-in-progress) patch. Max77693's ESAFEOUT1 is used
+for AP-USB VBUS. To enable USB for AP, it should be turned on always or when
+a cable is connected. Extcon driver can detect the cable status, so ESAFEOUT1
+can be brought up by the extcon. Until supporting it, we should turn ESAFEOUT1
+on boot time.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 7a82690..729e3c2 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -879,6 +879,7 @@
+ 				esafeout1_reg: esafeout@1 {
+ 					regulator-compatible = "ESAFEOUT1";
+ 					regulator-name = "ESAFEOUT1";
++					regulator-always-on;
+ 					regulator-boot-on;
+ 				};
+ 				esafeout2_reg: esafeout@2 {
+-- 
+1.8.3.2
+

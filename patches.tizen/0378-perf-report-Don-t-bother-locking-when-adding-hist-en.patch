@@ -1,0 +1,66 @@
+From 726f8bccc24d44d4b21ecaadd802103057751c11 Mon Sep 17 00:00:00 2001
+From: Namhyung Kim <namhyung.kim@lge.com>
+Date: Tue, 14 May 2013 11:09:03 +0900
+Subject: [PATCH 0378/1302] perf report: Don't bother locking when adding hist
+ entries
+
+The 'perf report'command is single-threaded, so no need to grab a lock.
+
+Although the fast path of pthread_mutex_[un]lock() is very fast, there's
+a ~3% gain by eliminating it when we have huge sample data.
+
+  $ perf record -a -F 100000 -o perf.data.bench -- perf bench sched all
+  $ perf record -e cycles:upp -o perf.data.before -- \
+  > perf report -i perf.data.bench --stdio > /dev/null
+  ... apply this patch ...
+  $ perf record -e cycles:upp -o perf.data.after -- \
+  > perf report -i perf.data.bench --stdio > /dev/null
+  $ perf diff perf.data.{before,after} | grep pthread
+             +0.02%  libpthread-2.15.so  [.] _pthread_cleanup_push_defer
+             +0.02%  libpthread-2.15.so  [.] _pthread_cleanup_pop_restore
+     0.05%   -0.05%  perf                [.] pthread_mutex_unlock@plt
+     0.05%   -0.05%  perf                [.] pthread_mutex_lock@plt
+     1.01%   -1.01%  libpthread-2.15.so  [.] pthread_mutex_lock
+     1.68%   -1.68%  libpthread-2.15.so  [.] __pthread_mutex_unlock_usercnt
+     0.05%   -0.05%  libpthread-2.15.so  [.] pthread_mutex_unlock
+
+Signed-off-by: Namhyung Kim <namhyung@kernel.org>
+Acked-by: Jiri Olsa <jolsa@redhat.com>
+Cc: David Ahern <dsahern@gmail.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Jiri Olsa <jolsa@redhat.com>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1368497347-9628-6-git-send-email-namhyung@kernel.org
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/builtin-report.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/tools/perf/builtin-report.c b/tools/perf/builtin-report.c
+index 63febd2..0f0cf24 100644
+--- a/tools/perf/builtin-report.c
++++ b/tools/perf/builtin-report.c
+@@ -312,8 +312,6 @@ static int process_sample_event(struct perf_tool *tool,
+ 	if (rep->cpu_list && !test_bit(sample->cpu, rep->cpu_bitmap))
+ 		return 0;
+ 
+-	pthread_mutex_lock(&evsel->hists.lock);
+-
+ 	if (sort__mode == SORT_MODE__BRANCH) {
+ 		ret = perf_report__add_branch_hist_entry(tool, &al, sample,
+ 							 evsel, machine);
+@@ -332,8 +330,6 @@ static int process_sample_event(struct perf_tool *tool,
+ 		if (ret < 0)
+ 			pr_debug("problem incrementing symbol period, skipping event\n");
+ 	}
+-	pthread_mutex_unlock(&evsel->hists.lock);
+-
+ 	return ret;
+ }
+ 
+-- 
+1.8.3.2
+

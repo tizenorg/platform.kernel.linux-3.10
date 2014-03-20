@@ -1,0 +1,30 @@
+From d2ba7e45dd20d3193af2d997e58a8ba7e87c9320 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 1 Mar 2013 16:03:12 +0100
+Subject: [PATCH 0155/1302] ARM: dts: exynos4412-slp_pq: Add physical display
+ size properties
+
+This patch adds physical size properties to panel node.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 77ee50e..df32808 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -517,6 +517,8 @@
+ 		vdd3-supply = <&lcd_vdd3_reg>;
+ 		vci-supply = <&ldo25_reg>;
+ 		video-source = <&dsi_0>;
++		samsung,panel-width-mm = <58>; /* FIXME */
++		samsung,panel-height-mm = <103>; /* FIXME */
+ 
+ 		display-timings {
+ 			native-mode = <&timing0>;
+-- 
+1.8.3.2
+

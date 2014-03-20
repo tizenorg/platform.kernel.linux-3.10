@@ -1,0 +1,44 @@
+From d7af913f71bf83dd0875593ba372f04bb886ba62 Mon Sep 17 00:00:00 2001
+From: Byungsoo Kim <bs1770.kim@samsung.com>
+Date: Fri, 25 Oct 2013 21:37:19 +0900
+Subject: [PATCH 1072/1302] USB: gadget: s3c-hsotg: skip suspend and resume
+ when usb cable wasn't inserted
+
+Although we didn't insert usb cable, s3c_hsotg_suspend and s3c_hsotg_resume were always called and failed.
+
+[  519.686485] s3c-hsotg 12480000.hsotg: Failed to get CSftRst asserted
+[  519.686539] s3c-hsotg 12480000.hsotg: ep0: failed to become enabled (DxEPCTL=0x00000000)
+
+Signed-off-by: Byungsoo Kim <bs1770.kim@samsung.com>
+Change-Id: I084c0436992e5be76b0dd692da44d5a45761c934
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 175f35a..7360106 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -3690,6 +3690,8 @@ static int s3c_hsotg_suspend(struct platform_device *pdev, pm_message_t state)
+ 
+ 	if (hsotg->driver)
+ 		dev_info(hsotg->dev, "suspending usb gadget %s\n", hsotg->driver->driver.name);
++	else
++		return ret;
+ 
+ 	spin_lock_irqsave(&hsotg->lock, flags);
+ 	s3c_hsotg_disconnect(hsotg);
+@@ -3718,7 +3720,8 @@ static int s3c_hsotg_resume(struct platform_device *pdev)
+ 		dev_info(hsotg->dev, "resuming usb gadget %s\n", hsotg->driver->driver.name);
+ 		ret = regulator_bulk_enable(ARRAY_SIZE(hsotg->supplies),
+ 				      hsotg->supplies);
+-	}
++	} else
++		return ret;
+ 
+ 	spin_lock_irqsave(&hsotg->lock, flags);
+ 	hsotg->last_rst = jiffies;
+-- 
+1.8.3.2
+

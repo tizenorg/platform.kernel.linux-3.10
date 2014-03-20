@@ -1,0 +1,38 @@
+From dd31826e8d5219cadedb4fd8a168495aa566e788 Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Wed, 24 Jul 2013 10:57:32 -0300
+Subject: [PATCH 0708/1302] [media] V4L: s5c73m3: Add format propagation for
+ TRY formats
+
+Resolution set on ISP pad of S5C73M3-OIF subdev should be
+propagated to source pad for TRY and ACTIVE formats.
+The patch adds missing propagation for TRY format.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/s5c73m3/s5c73m3-core.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/media/i2c/s5c73m3/s5c73m3-core.c b/drivers/media/i2c/s5c73m3/s5c73m3-core.c
+index 1ff7509..b379111 100644
+--- a/drivers/media/i2c/s5c73m3/s5c73m3-core.c
++++ b/drivers/media/i2c/s5c73m3/s5c73m3-core.c
+@@ -1112,6 +1112,11 @@ static int s5c73m3_oif_set_fmt(struct v4l2_subdev *sd,
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+ 		mf = v4l2_subdev_get_try_format(fh, fmt->pad);
+ 		*mf = fmt->format;
++		if (fmt->pad == OIF_ISP_PAD) {
++			mf = v4l2_subdev_get_try_format(fh, OIF_SOURCE_PAD);
++			mf->width = fmt->format.width;
++			mf->height = fmt->format.height;
++		}
+ 	} else {
+ 		switch (fmt->pad) {
+ 		case OIF_ISP_PAD:
+-- 
+1.8.3.2
+

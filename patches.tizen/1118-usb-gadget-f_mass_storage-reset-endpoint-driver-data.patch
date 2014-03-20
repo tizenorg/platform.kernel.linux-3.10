@@ -1,0 +1,43 @@
+From b167f97efd2100612ff19393d99906c67799c880 Mon Sep 17 00:00:00 2001
+From: Peter Oh <poh@broadcom.com>
+Date: Mon, 16 Sep 2013 14:21:14 -0700
+Subject: [PATCH 1118/1302] usb: gadget: f_mass_storage: reset endpoint driver
+ data when disabled
+
+Gadgets endpoint driver data is a criteria to judge that
+whether the endpoints are in use or not. When gadget gets
+assigned an endpoint from endpoint list, they check its
+driver data if the driver data is NULL.
+
+If the driver data is not NULL then they regard it as in use.
+Therefore all of gadgets should reset their endpoints driver
+data to NULL as they are disabled. Otherwise it causes a leak
+of endpoint resource.
+
+Signed-off-by: Peter Oh <poh@broadcom.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 313b835..a01d7d3 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -2260,10 +2260,12 @@ reset:
+ 		/* Disable the endpoints */
+ 		if (fsg->bulk_in_enabled) {
+ 			usb_ep_disable(fsg->bulk_in);
++			fsg->bulk_in->driver_data = NULL;
+ 			fsg->bulk_in_enabled = 0;
+ 		}
+ 		if (fsg->bulk_out_enabled) {
+ 			usb_ep_disable(fsg->bulk_out);
++			fsg->bulk_out->driver_data = NULL;
+ 			fsg->bulk_out_enabled = 0;
+ 		}
+ 
+-- 
+1.8.3.2
+

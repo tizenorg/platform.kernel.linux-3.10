@@ -1,0 +1,29 @@
+From ddedf296eeedd11c474cb7aae491e98c73f828f5 Mon Sep 17 00:00:00 2001
+From: Beomho Seo <beomho.seo@samsung.com>
+Date: Mon, 10 Feb 2014 10:01:57 +0900
+Subject: [PATCH 1208/1302] iio: ak8975: Add device name
+
+This patch add device name.
+
+Change-Id: Icda321686ee9c9809463592bddfbaa87563aeae4
+Signed-off-by: Beomho Seo <beomho.seo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/iio/magnetometer/ak8975.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/iio/magnetometer/ak8975.c b/drivers/iio/magnetometer/ak8975.c
+index 9edf4c9..fb3aefe 100644
+--- a/drivers/iio/magnetometer/ak8975.c
++++ b/drivers/iio/magnetometer/ak8975.c
+@@ -513,6 +513,7 @@ static int ak8975_probe(struct i2c_client *client,
+ 	indio_dev->channels = ak8975_channels;
+ 	indio_dev->num_channels = ARRAY_SIZE(ak8975_channels);
+ 	indio_dev->info = &ak8975_info;
++	indio_dev->name = id->name;
+ 	indio_dev->modes = INDIO_DIRECT_MODE;
+ 
+ 	err = iio_device_register(indio_dev);
+-- 
+1.8.3.2
+

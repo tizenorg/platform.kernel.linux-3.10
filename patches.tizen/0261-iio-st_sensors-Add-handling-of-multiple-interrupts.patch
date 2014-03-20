@@ -1,0 +1,175 @@
+From 17a938cb6784d6c40b98aeb0d3bf587861eef1dd Mon Sep 17 00:00:00 2001
+From: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Date: Thu, 23 May 2013 13:35:28 +0200
+Subject: [PATCH 0261/1302] iio: st_sensors: Add handling of multiple
+ interrupts
+
+This patch adds handling of multiple interrupts for st_sensors.
+Each mapped interrupt can be declared from DT.
+
+Signed-off-by: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/iio/common/st_sensors/st_sensors_i2c.c | 32 ++++++++++++++++++++++---
+ drivers/iio/common/st_sensors/st_sensors_spi.c | 33 +++++++++++++++++++++++---
+ include/linux/iio/common/st_sensors.h          |  9 +++++++
+ 3 files changed, 68 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/iio/common/st_sensors/st_sensors_i2c.c b/drivers/iio/common/st_sensors/st_sensors_i2c.c
+index 38af944..5ef7682 100644
+--- a/drivers/iio/common/st_sensors/st_sensors_i2c.c
++++ b/drivers/iio/common/st_sensors/st_sensors_i2c.c
+@@ -8,6 +8,8 @@
+  * Licensed under the GPL-2.
+  */
+ 
++#include <linux/of.h>
++#include <linux/of_irq.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
+@@ -18,11 +20,33 @@
+ 
+ #define ST_SENSORS_I2C_MULTIREAD	0x80
+ 
+-static unsigned int st_sensors_i2c_get_irq(struct iio_dev *indio_dev)
++static unsigned int st_sensors_i2c_get_data_rdy_irq(struct iio_dev *indio_dev)
+ {
+ 	struct st_sensor_data *sdata = iio_priv(indio_dev);
+ 
+-	return to_i2c_client(sdata->dev)->irq;
++	return sdata->irq_map[ST_SENSORS_INT1];
++}
++
++static void st_sensors_i2c_map_irqs(struct i2c_client *client,
++		struct iio_dev *indio_dev)
++{
++	struct st_sensor_data *sdata = iio_priv(indio_dev);
++	struct device_node *np = client->dev.of_node;
++	u32 irq_policy = 0;
++
++	of_property_read_u32(np, "irq-map-policy", &irq_policy);
++
++	switch (irq_policy) {
++	case ST_SENSORS_MAP_ONLY_DRDY_IRQ:
++		sdata->irq_map[ST_SENSORS_INT1] = irq_of_parse_and_map(np, 0);
++		break;
++	case ST_SENSORS_MAP_ONLY_EVENT_IRQ:
++		sdata->irq_map[ST_SENSORS_INT2] = irq_of_parse_and_map(np, 0);
++		break;
++	default:
++		sdata->irq_map[ST_SENSORS_INT1] = 0;
++		sdata->irq_map[ST_SENSORS_INT2] = 0;
++	}
+ }
+ 
+ static int st_sensors_i2c_read_byte(struct st_sensor_transfer_buffer *tb,
+@@ -72,7 +96,9 @@ void st_sensors_i2c_configure(struct iio_dev *indio_dev,
+ 	indio_dev->name = client->name;
+ 
+ 	sdata->tf = &st_sensors_tf_i2c;
+-	sdata->get_irq_data_ready = st_sensors_i2c_get_irq;
++
++	st_sensors_i2c_map_irqs(client, indio_dev);
++	sdata->get_irq_data_ready = st_sensors_i2c_get_data_rdy_irq;
+ }
+ EXPORT_SYMBOL(st_sensors_i2c_configure);
+ 
+diff --git a/drivers/iio/common/st_sensors/st_sensors_spi.c b/drivers/iio/common/st_sensors/st_sensors_spi.c
+index 251baf6..69c7069 100644
+--- a/drivers/iio/common/st_sensors/st_sensors_spi.c
++++ b/drivers/iio/common/st_sensors/st_sensors_spi.c
+@@ -8,6 +8,8 @@
+  * Licensed under the GPL-2.
+  */
+ 
++#include <linux/of.h>
++#include <linux/of_irq.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
+@@ -19,11 +21,34 @@
+ #define ST_SENSORS_SPI_MULTIREAD	0xc0
+ #define ST_SENSORS_SPI_READ		0x80
+ 
+-static unsigned int st_sensors_spi_get_irq(struct iio_dev *indio_dev)
++static unsigned int st_sensors_spi_get_data_rdy_irq(struct iio_dev *indio_dev)
+ {
+ 	struct st_sensor_data *sdata = iio_priv(indio_dev);
+ 
+-	return to_spi_device(sdata->dev)->irq;
++	return sdata->irq_map[ST_SENSORS_INT1];
++}
++
++static void st_sensors_spi_map_irqs(struct spi_device *spi,
++		struct iio_dev *indio_dev)
++{
++	struct st_sensor_data *sdata = iio_priv(indio_dev);
++	struct device_node *np = spi->dev.of_node;
++	u32 irq_policy = 0;
++
++	of_property_read_u32(np, "irq-map-policy", &irq_policy);
++
++	switch (irq_policy) {
++	case ST_SENSORS_MAP_ONLY_DRDY_IRQ:
++		sdata->irq_map[ST_SENSORS_INT1] = irq_of_parse_and_map(np, 0);
++		break;
++	case ST_SENSORS_MAP_ONLY_EVENT_IRQ:
++		sdata->irq_map[ST_SENSORS_INT2] = irq_of_parse_and_map(np, 0);
++		break;
++	default:
++		sdata->irq_map[ST_SENSORS_INT1] = 0;
++		sdata->irq_map[ST_SENSORS_INT2] = 0;
++		break;
++	}
+ }
+ 
+ static int st_sensors_spi_read(struct st_sensor_transfer_buffer *tb,
+@@ -112,7 +137,9 @@ void st_sensors_spi_configure(struct iio_dev *indio_dev,
+ 	indio_dev->name = spi->modalias;
+ 
+ 	sdata->tf = &st_sensors_tf_spi;
+-	sdata->get_irq_data_ready = st_sensors_spi_get_irq;
++
++	st_sensors_spi_map_irqs(spi, indio_dev);
++	sdata->get_irq_data_ready = st_sensors_spi_get_data_rdy_irq;
+ }
+ EXPORT_SYMBOL(st_sensors_spi_configure);
+ 
+diff --git a/include/linux/iio/common/st_sensors.h b/include/linux/iio/common/st_sensors.h
+index 172c5b2..2fd12a6 100644
+--- a/include/linux/iio/common/st_sensors.h
++++ b/include/linux/iio/common/st_sensors.h
+@@ -42,6 +42,13 @@
+ #define ST_SENSORS_MAX_NAME			17
+ #define ST_SENSORS_MAX_4WAI			7
+ 
++#define ST_SENSORS_INT_MAX			2
++#define ST_SENSORS_INT1				0
++#define ST_SENSORS_INT2				1
++#define ST_SENSORS_MAP_ONLY_DRDY_IRQ		1
++#define ST_SENSORS_MAP_ONLY_EVENT_IRQ		2
++
++
+ #define ST_SENSORS_LSM_CHANNELS(device_type, index, mod, endian, bits, addr) \
+ { \
+ 	.type = device_type, \
+@@ -204,6 +211,7 @@ struct st_sensors {
+  * @multiread_bit: Use or not particular bit for [I2C/SPI] multiread.
+  * @buffer_data: Data used by buffer part.
+  * @odr: Output data rate of the sensor [Hz].
++ * @irq_map: Container of mapped IRQs.
+  * @get_irq_data_ready: Function to get the IRQ used for data ready signal.
+  * @tf: Transfer function structure used by I/O operations.
+  * @tb: Transfer buffers and mutex used by I/O operations.
+@@ -220,6 +228,7 @@ struct st_sensor_data {
+ 	char *buffer_data;
+ 
+ 	unsigned int odr;
++	unsigned int irq_map[ST_SENSORS_INT_MAX];
+ 
+ 	unsigned int (*get_irq_data_ready) (struct iio_dev *indio_dev);
+ 
+-- 
+1.8.3.2
+

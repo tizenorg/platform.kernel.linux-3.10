@@ -1,0 +1,92 @@
+From b82afb0ea71ab41e32c624d0841d993400f20389 Mon Sep 17 00:00:00 2001
+From: Robert Baldyga <r.baldyga@samsung.com>
+Date: Mon, 10 Feb 2014 10:42:43 +0100
+Subject: [PATCH 1215/1302] usb: gadget: f_fs: add poll for endpoint 0
+
+This patch adds poll function for file representing ep0.
+
+Ability of read from or write to ep0 file is related with actual state of ffs:
+- When desctiptors or strings are not written yet, POLLOUT flag is set.
+- If there is any event to read, POLLIN flag is set.
+- If setup request was read, POLLIN and POLLOUT flag is set, to allow
+  send response (by performing I/O operation consistent with setup request
+  direction) or set stall (by performing I/O operation opposite  setup
+  request direction).
+
+Signed-off-by: Robert Baldyga <r.baldyga@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 42 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index 849a095..2a75601 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -28,6 +28,8 @@
+ #include <linux/usb/composite.h>
+ #include <linux/usb/functionfs.h>
+ 
++#include <linux/poll.h>
++
+ #include "u_fs.h"
+ #include "configfs.h"
+ 
+@@ -570,6 +572,45 @@ static long ffs_ep0_ioctl(struct file *file, unsigned code, unsigned long value)
+ 	return ret;
+ }
+ 
++static unsigned int ffs_ep0_poll(struct file *file, poll_table *wait)
++{
++	struct ffs_data *ffs = file->private_data;
++	unsigned int mask = POLLWRNORM;
++	int ret;
++
++	poll_wait(file, &ffs->ev.waitq, wait);
++
++	ret = ffs_mutex_lock(&ffs->mutex, file->f_flags & O_NONBLOCK);
++	if (unlikely(ret < 0))
++		return mask;
++
++	switch (ffs->state) {
++	case FFS_READ_DESCRIPTORS:
++	case FFS_READ_STRINGS:
++		mask |= POLLOUT;
++		break;
++
++	case FFS_ACTIVE:
++		switch (ffs->setup_state) {
++		case FFS_NO_SETUP:
++			if (ffs->ev.count)
++				mask |= POLLIN;
++			break;
++
++		case FFS_SETUP_PENDING:
++		case FFS_SETUP_CANCELLED:
++			mask |= (POLLIN | POLLOUT);
++			break;
++		}
++	case FFS_CLOSING:
++		break;
++	}
++
++	mutex_unlock(&ffs->mutex);
++
++	return mask;
++}
++
+ static const struct file_operations ffs_ep0_operations = {
+ 	.llseek =	no_llseek,
+ 
+@@ -578,6 +619,7 @@ static const struct file_operations ffs_ep0_operations = {
+ 	.read =		ffs_ep0_read,
+ 	.release =	ffs_ep0_release,
+ 	.unlocked_ioctl =	ffs_ep0_ioctl,
++	.poll =		ffs_ep0_poll,
+ };
+ 
+ 
+-- 
+1.8.3.2
+

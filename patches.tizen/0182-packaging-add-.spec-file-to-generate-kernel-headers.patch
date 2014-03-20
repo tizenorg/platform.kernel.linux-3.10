@@ -1,0 +1,67 @@
+From 1040b2b7d76c201b09dc4c7bfff1c08a414b5a31 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Wed, 27 Mar 2013 16:55:49 +0900
+Subject: [PATCH 0182/1302] packaging: add .spec file to generate
+ kernel-headers
+
+This patch is able to generate kernel-headers by GBS. I'll add build script
+to generate a kernel binary.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ packaging/linux-kernel.spec | 42 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+ create mode 100644 packaging/linux-kernel.spec
+
+diff --git a/packaging/linux-kernel.spec b/packaging/linux-kernel.spec
+new file mode 100644
+index 0000000..dbd105f
+--- /dev/null
++++ b/packaging/linux-kernel.spec
+@@ -0,0 +1,42 @@
++Name: linux-kernel
++Summary: The Linux Kernel
++Version: 3.8.3
++Release: 1
++License: GPL
++Group: System Environment/Kernel
++Vendor: The Linux Community
++URL: http://www.kernel.org
++Source0:   %{name}-%{version}.tar.gz
++BuildRoot: %{_tmppath}/%{name}-%{PACKAGE_VERSION}-root
++
++%description
++The Linux Kernel, the operating system core itself
++
++%package headers
++Summary: Header files for the Linux kernel for use by glibc
++Group: Development/System
++Obsoletes: kernel-headers
++Provides: kernel-headers = %{version}
++%description headers
++Kernel-headers includes the C header files that specify the interface
++between the Linux kernel and userspace libraries and programs.  The
++header files define structures and constants that are needed for
++building most standard programs and are also needed for rebuilding the
++glibc package.
++
++%prep
++%setup -q
++
++%build
++
++%install
++QA_SKIP_BUILD_ROOT="DO_NOT_WANT"; export QA_SKIP_BUILD_ROOT
++mkdir $RPM_BUILD_ROOT/usr
++make ARCH=arm INSTALL_HDR_PATH=$RPM_BUILD_ROOT/usr headers_install
++
++%clean
++rm -rf $RPM_BUILD_ROOT
++
++%files headers
++%defattr (-, root, root)
++/usr/include
+-- 
+1.8.3.2
+

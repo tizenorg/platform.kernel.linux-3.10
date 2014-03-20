@@ -1,0 +1,32 @@
+From c4769bdb948c2b0b1328d75385c763ed2cbb1d9e Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 26 Sep 2013 19:14:12 +0200
+Subject: [PATCH 0889/1302] ARM: atags_to_fdt: Add support for passing serial
+ number
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/compressed/atags_to_fdt.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm/boot/compressed/atags_to_fdt.c b/arch/arm/boot/compressed/atags_to_fdt.c
+index d1153c8..d819985 100644
+--- a/arch/arm/boot/compressed/atags_to_fdt.c
++++ b/arch/arm/boot/compressed/atags_to_fdt.c
+@@ -177,6 +177,12 @@ int atags_to_fdt(void *atag_list, void *fdt, int total_space)
+ 					initrd_start);
+ 			setprop_cell(fdt, "/chosen", "linux,initrd-end",
+ 					initrd_start + initrd_size);
++		} else if (atag->hdr.tag == ATAG_SERIAL) {
++			uint32_t serial[2];
++			serial[0] = cpu_to_fdt32(atag->u.serialnr.high);
++			serial[1] = cpu_to_fdt32(atag->u.serialnr.low);
++			setprop(fdt, "/chosen", "linux,serial-number",
++					serial, sizeof(serial));
+ 		}
+ 	}
+ 
+-- 
+1.8.3.2
+

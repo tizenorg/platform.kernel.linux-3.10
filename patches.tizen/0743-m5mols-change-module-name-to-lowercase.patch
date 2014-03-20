@@ -1,0 +1,40 @@
+From 309d5c46a209175bde0c79ae382640bed8356dfd Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Thu, 18 Jul 2013 11:32:22 +0200
+Subject: [PATCH 0743/1302] m5mols: change module name to lowercase
+
+The change allows automatic load of the module
+in case it is linked dynamically.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/m5mols/m5mols_core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/i2c/m5mols/m5mols_core.c b/drivers/media/i2c/m5mols/m5mols_core.c
+index 8119b30..dce8b47 100644
+--- a/drivers/media/i2c/m5mols/m5mols_core.c
++++ b/drivers/media/i2c/m5mols/m5mols_core.c
+@@ -33,7 +33,7 @@
+ int m5mols_debug;
+ module_param(m5mols_debug, int, 0644);
+ 
+-#define MODULE_NAME		"M5MOLS"
++#define MODULE_NAME		"m5mols"
+ #define M5MOLS_I2C_CHECK_RETRY	500
+ 
+ /* The regulator consumer names for external voltage regulators */
+@@ -996,7 +996,7 @@ static int m5mols_probe(struct i2c_client *client,
+ 
+ 	sd = &info->sd;
+ 	v4l2_i2c_subdev_init(sd, client, &m5mols_ops);
+-	strlcpy(sd->name, MODULE_NAME, sizeof(sd->name));
++	strlcpy(sd->name, "M5MOLS", sizeof(sd->name));
+ 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+ 
+ 	sd->internal_ops = &m5mols_subdev_internal_ops;
+-- 
+1.8.3.2
+

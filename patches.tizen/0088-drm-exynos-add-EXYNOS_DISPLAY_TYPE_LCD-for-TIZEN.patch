@@ -1,0 +1,28 @@
+From c50a96316b3edc34b4a1917bdaa274a10cc23cdb Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Tue, 29 Jan 2013 17:00:54 +0900
+Subject: [PATCH 0088/1302] drm/exynos: add EXYNOS_DISPLAY_TYPE_LCD for TIZEN
+
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_connector.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_connector.c b/drivers/gpu/drm/exynos/exynos_drm_connector.c
+index 8bcc13a..e5c1a01 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_connector.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_connector.c
+@@ -342,6 +342,9 @@ struct drm_connector *exynos_drm_connector_create(struct drm_device *dev,
+ 		type = DRM_MODE_CONNECTOR_VIRTUAL;
+ 		connector->polled = DRM_CONNECTOR_POLL_HPD;
+ 		break;
++	case EXYNOS_DISPLAY_TYPE_LCD:
++		type = DRM_MODE_CONNECTOR_LVDS;
++		break;
+ 	default:
+ 		type = DRM_MODE_CONNECTOR_Unknown;
+ 		break;
+-- 
+1.8.3.2
+

@@ -1,0 +1,79 @@
+From 61b1784e9910768505f64c114015c5373fc29f95 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 3 Dec 2013 15:15:22 +0100
+Subject: [PATCH 1161/1302] usb: gadget: g_ffs: remove a reduntant
+ gfs_ether_setup variable
+
+Since d6a0143985489e470a118605352f4b18df0ce142
+usb: gadget: move the global the_dev variable to their users
+"the_dev" variable can be used as a "setup done" flag; non-NULL
+meaning "setup done", NULL meaning "setup not done". Moreover,
+gether_cleanup() can be safely called with a NULL argument.
+
+Corrected a comment to be consistent with the code.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/g_ffs.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/usb/gadget/g_ffs.c b/drivers/usb/gadget/g_ffs.c
+index 2344efe..e954082 100644
+--- a/drivers/usb/gadget/g_ffs.c
++++ b/drivers/usb/gadget/g_ffs.c
+@@ -182,7 +182,6 @@ static __refdata struct usb_composite_driver gfs_driver = {
+ 
+ static DEFINE_MUTEX(gfs_lock);
+ static unsigned int missing_funcs;
+-static bool gfs_ether_setup;
+ static bool gfs_registered;
+ static bool gfs_single_func;
+ static struct gfs_ffs_obj *ffs_tab;
+@@ -364,7 +363,6 @@ static int gfs_bind(struct usb_composite_dev *cdev)
+ 		ret = PTR_ERR(the_dev);
+ 		goto error_quick;
+ 	}
+-	gfs_ether_setup = true;
+ 
+ 	ret = usb_string_ids_tab(cdev, gfs_strings);
+ 	if (unlikely(ret < 0))
+@@ -401,8 +399,8 @@ error_unbind:
+ 		functionfs_unbind(ffs_tab[i].ffs_data);
+ error:
+ 	gether_cleanup(the_dev);
++	the_dev = NULL;
+ error_quick:
+-	gfs_ether_setup = false;
+ 	return ret;
+ }
+ 
+@@ -415,18 +413,17 @@ static int gfs_unbind(struct usb_composite_dev *cdev)
+ 
+ 	ENTER();
+ 
++	gether_cleanup(the_dev);
++	the_dev = NULL;
++
+ 	/*
+ 	 * We may have been called in an error recovery from
+ 	 * composite_bind() after gfs_unbind() failure so we need to
+-	 * check if gfs_ffs_data is not NULL since gfs_bind() handles
++	 * check if instance's ffs_data is not NULL since gfs_bind() handles
+ 	 * all error recovery itself.  I'd rather we werent called
+ 	 * from composite on orror recovery, but what you're gonna
+ 	 * do...?
+ 	 */
+-	if (gfs_ether_setup)
+-		gether_cleanup(the_dev);
+-	gfs_ether_setup = false;
+-
+ 	for (i = func_num; i--; )
+ 		if (ffs_tab[i].ffs_data)
+ 			functionfs_unbind(ffs_tab[i].ffs_data);
+-- 
+1.8.3.2
+

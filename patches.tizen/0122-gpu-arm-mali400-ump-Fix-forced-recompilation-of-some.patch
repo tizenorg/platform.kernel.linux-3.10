@@ -1,0 +1,77 @@
+From 310a12119656eb493f96db308ecbd8043d32b81c Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Mon, 13 May 2013 18:09:13 +0200
+Subject: [PATCH 0122/1302] gpu: arm: mali400: ump: Fix forced recompilation of
+ some files
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/arm/mali400/ump/Kbuild            |  1 -
+ drivers/gpu/arm/mali400/ump/arch              |  1 +
+ drivers/gpu/arm/mali400/ump/arch/arch-release |  1 -
+ drivers/gpu/arm/mali400/ump/arch/config.h     | 22 ----------------------
+ 4 files changed, 1 insertion(+), 24 deletions(-)
+ create mode 120000 drivers/gpu/arm/mali400/ump/arch
+ delete mode 120000 drivers/gpu/arm/mali400/ump/arch/arch-release
+ delete mode 100644 drivers/gpu/arm/mali400/ump/arch/config.h
+
+diff --git a/drivers/gpu/arm/mali400/ump/Kbuild b/drivers/gpu/arm/mali400/ump/Kbuild
+index 2c4d72c..55aa2d9 100644
+--- a/drivers/gpu/arm/mali400/ump/Kbuild
++++ b/drivers/gpu/arm/mali400/ump/Kbuild
+@@ -22,7 +22,6 @@ else
+ # Link arch to the selected arch-config directory
+ $(shell [ -L $(src)/arch ] && rm $(src)/arch)
+ $(shell ln -sf arch-$(CONFIG) $(src)/arch)
+-$(shell touch $(src)/arch/config.h)
+ endif
+ 
+ UDD_FILE_PREFIX = ../mali/
+diff --git a/drivers/gpu/arm/mali400/ump/arch b/drivers/gpu/arm/mali400/ump/arch
+new file mode 120000
+index 0000000..58ffbe7
+--- /dev/null
++++ b/drivers/gpu/arm/mali400/ump/arch
+@@ -0,0 +1 @@
++arch-release
+\ No newline at end of file
+diff --git a/drivers/gpu/arm/mali400/ump/arch/arch-release b/drivers/gpu/arm/mali400/ump/arch/arch-release
+deleted file mode 120000
+index 58ffbe7..0000000
+--- a/drivers/gpu/arm/mali400/ump/arch/arch-release
++++ /dev/null
+@@ -1 +0,0 @@
+-arch-release
+\ No newline at end of file
+diff --git a/drivers/gpu/arm/mali400/ump/arch/config.h b/drivers/gpu/arm/mali400/ump/arch/config.h
+deleted file mode 100644
+index 0b8dd5a..0000000
+--- a/drivers/gpu/arm/mali400/ump/arch/config.h
++++ /dev/null
+@@ -1,22 +0,0 @@
+-/*
+- * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
+- *
+- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+- *
+- * A copy of the licence is included with the program, and can also be obtained from Free Software
+- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+- */
+-
+-#ifndef __ARCH_CONFIG_UMP_H__
+-#define __ARCH_CONFIG_UMP_H__
+-
+-#define ARCH_UMP_BACKEND_DEFAULT          	USING_MEMORY
+-#if (USING_MEMORY == 0) /* Dedicated Memory */
+-#define ARCH_UMP_MEMORY_ADDRESS_DEFAULT   	0x2C000000
+-#else
+-#define ARCH_UMP_MEMORY_ADDRESS_DEFAULT   	0
+-#endif
+-
+-#define ARCH_UMP_MEMORY_SIZE_DEFAULT 		UMP_MEM_SIZE*1024*1024
+-#endif /* __ARCH_CONFIG_UMP_H__ */
+-- 
+1.8.3.2
+

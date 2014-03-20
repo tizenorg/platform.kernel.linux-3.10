@@ -1,0 +1,33 @@
+From 658b307f2588487671d64d534a5f0ce83a8e8ecb Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Mon, 16 Dec 2013 18:43:50 +0900
+Subject: [PATCH 1181/1302] usb: gadget: f_obex: Fix sparse warning
+
+Make local symbol static in order to fix the following sparse
+warning.
+
+drivers/usb/gadget/f_obex.c:502:21: warning: symbol 'obex_alloc' was not declared. Should it be static?
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_obex.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_obex.c b/drivers/usb/gadget/f_obex.c
+index ad39f1d..aebae18 100644
+--- a/drivers/usb/gadget/f_obex.c
++++ b/drivers/usb/gadget/f_obex.c
+@@ -499,7 +499,7 @@ static void obex_unbind(struct usb_configuration *c, struct usb_function *f)
+ 	usb_free_all_descriptors(f);
+ }
+ 
+-struct usb_function *obex_alloc(struct usb_function_instance *fi)
++static struct usb_function *obex_alloc(struct usb_function_instance *fi)
+ {
+ 	struct f_obex	*obex;
+ 	struct f_serial_opts *opts;
+-- 
+1.8.3.2
+

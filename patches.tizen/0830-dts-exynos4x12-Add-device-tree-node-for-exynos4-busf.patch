@@ -1,0 +1,29 @@
+From 2bc18df98df254bfc090b2e3e8dc9dee8763a23e Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Mon, 7 Oct 2013 15:37:19 +0900
+Subject: [PATCH 0830/1302] dts: exynos4x12: Add device tree node for exynos4
+ busfreq.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 0eafcce..5d73533 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -364,4 +364,9 @@
+ 	rotator@12810000 {
+ 		compatible = "samsung,exynos4212-rotator";
+ 	};
++
++	busfreq@0 {
++		compatible = "samsung,exynos4x12-busfreq";
++		status = "disabled";
++	};
+ };
+-- 
+1.8.3.2
+

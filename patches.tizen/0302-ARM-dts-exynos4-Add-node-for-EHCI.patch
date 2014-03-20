@@ -1,0 +1,34 @@
+From 7c303812b35c01487d77ce4beaac91fdbee78e9a Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 8 Mar 2013 18:12:43 +0100
+Subject: [PATCH 0302/1302] ARM: dts: exynos4: Add node for EHCI
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 7620fce..d8525ec 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -500,6 +500,15 @@
+ 		status = "disabled";
+ 	};
+ 
++	ehci@12580000 {
++		compatible = "samsung,exynos-ehci";
++		reg = <0x12580000 0x20000>;
++		interrupts = <0 70 0>;
++		clocks = <&clock 304>;
++		clock-names = "usbhost";
++		status = "disabled";
++	};
++
+ 	i2s0: i2s@03830000 {
+ 		compatible = "samsung,i2s-v5";
+ 		reg = <0x03830000 0x100>;
+-- 
+1.8.3.2
+

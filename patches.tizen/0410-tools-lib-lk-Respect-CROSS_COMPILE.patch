@@ -1,0 +1,34 @@
+From 312c8b226c5371dd789c1a9315b4de4a331cc4ca Mon Sep 17 00:00:00 2001
+From: Rabin Vincent <rabin@rab.in>
+Date: Fri, 17 May 2013 22:27:44 +0200
+Subject: [PATCH 0410/1302] tools lib lk: Respect CROSS_COMPILE
+
+Make lk use CROSS_COMPILE, in order to be able to cross compile perf
+again.
+
+Signed-off-by: Rabin Vincent <rabin@rab.in>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Borislav Petkov <bp@suse.de>
+Link: http://lkml.kernel.org/r/1368822464-4887-1-git-send-email-rabin@rab.in
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/lib/lk/Makefile | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/tools/lib/lk/Makefile b/tools/lib/lk/Makefile
+index 926cbf3..2c5a197 100644
+--- a/tools/lib/lk/Makefile
++++ b/tools/lib/lk/Makefile
+@@ -1,5 +1,8 @@
+ include ../../scripts/Makefile.include
+ 
++CC = $(CROSS_COMPILE)gcc
++AR = $(CROSS_COMPILE)ar
++
+ # guard against environment variables
+ LIB_H=
+ LIB_OBJS=
+-- 
+1.8.3.2
+

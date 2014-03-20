@@ -1,0 +1,107 @@
+From b5cb6e1e81cb6392a91f4ffb6a662b11f7bb333a Mon Sep 17 00:00:00 2001
+From: Casey Schaufler <casey@schaufler-ca.com>
+Date: Wed, 22 May 2013 18:43:07 -0700
+Subject: [PATCH 1045/1302] Smack: Add smkfstransmute mount option
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Suppliment the smkfsroot mount option with another, smkfstransmute,
+that does the same thing but also marks the root inode as
+transmutting. This allows a freshly created filesystem to
+be mounted with a transmutting heirarchy.
+
+Targeted for git://git.gitorious.org/smack-next/kernel.git
+
+Change-Id: I3d7238ca1c5251fcfc96a6a61bec47bdf9466152
+Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
+Signed-off-by: Łukasz Stelmach <l.stelmach@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ security/smack/smack.h     |  1 +
+ security/smack/smack_lsm.c | 25 ++++++++++++++++++++-----
+ 2 files changed, 21 insertions(+), 5 deletions(-)
+
+diff --git a/security/smack/smack.h b/security/smack/smack.h
+index 159f25b..339614c 100644
+--- a/security/smack/smack.h
++++ b/security/smack/smack.h
+@@ -143,6 +143,7 @@ struct smk_port_label {
+ #define SMK_FSFLOOR	"smackfsfloor="
+ #define SMK_FSHAT	"smackfshat="
+ #define SMK_FSROOT	"smackfsroot="
++#define SMK_FSTRANS	"smackfstransmute="
+ 
+ #define SMACK_CIPSO_OPTION 	"-CIPSO"
+ 
+diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+index 3669d9f..6a08330 100644
+--- a/security/smack/smack_lsm.c
++++ b/security/smack/smack_lsm.c
+@@ -261,8 +261,9 @@ static int smack_sb_alloc_security(struct super_block *sb)
+ 	sbsp->smk_default = smack_known_floor.smk_known;
+ 	sbsp->smk_floor = smack_known_floor.smk_known;
+ 	sbsp->smk_hat = smack_known_hat.smk_known;
+-	sbsp->smk_initialized = 0;
+-
++	/*
++	 * smk_initialized will be zero from kzalloc.
++	 */
+ 	sb->s_security = sbsp;
+ 
+ 	return 0;
+@@ -306,6 +307,8 @@ static int smack_sb_copy_data(char *orig, char *smackopts)
+ 			dp = smackopts;
+ 		else if (strstr(cp, SMK_FSROOT) == cp)
+ 			dp = smackopts;
++		else if (strstr(cp, SMK_FSTRANS) == cp)
++			dp = smackopts;
+ 		else
+ 			dp = otheropts;
+ 
+@@ -341,8 +344,9 @@ static int smack_sb_kern_mount(struct super_block *sb, int flags, void *data)
+ 	char *op;
+ 	char *commap;
+ 	char *nsp;
++	int transmute = 0;
+ 
+-	if (sp->smk_initialized != 0)
++	if (sp->smk_initialized)
+ 		return 0;
+ 
+ 	sp->smk_initialized = 1;
+@@ -373,6 +377,13 @@ static int smack_sb_kern_mount(struct super_block *sb, int flags, void *data)
+ 			nsp = smk_import(op, 0);
+ 			if (nsp != NULL)
+ 				sp->smk_root = nsp;
++		} else if (strncmp(op, SMK_FSTRANS, strlen(SMK_FSTRANS)) == 0) {
++			op += strlen(SMK_FSTRANS);
++			nsp = smk_import(op, 0);
++			if (nsp != NULL) {
++				sp->smk_root = nsp;
++				transmute = 1;
++			}
+ 		}
+ 	}
+ 
+@@ -380,11 +391,15 @@ static int smack_sb_kern_mount(struct super_block *sb, int flags, void *data)
+ 	 * Initialize the root inode.
+ 	 */
+ 	isp = inode->i_security;
+-	if (isp == NULL)
++	if (inode->i_security == NULL) {
+ 		inode->i_security = new_inode_smack(sp->smk_root);
+-	else
++		isp = inode->i_security;
++	} else
+ 		isp->smk_inode = sp->smk_root;
+ 
++	if (transmute)
++		isp->smk_flags |= SMK_INODE_TRANSMUTE;
++
+ 	return 0;
+ }
+ 
+-- 
+1.8.3.2
+

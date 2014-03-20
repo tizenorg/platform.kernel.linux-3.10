@@ -1,0 +1,120 @@
+From b91c85372c805dc7308fd0609369155407637de7 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 21 May 2013 18:54:09 +0200
+Subject: [PATCH 0317/1302] modem_if: Modification of the modem driver to
+ compile on the 3.8 kernel
+
+The modem_if driver code was taken from 3.0 kernel and did not compile
+on 3.8. These changes are necessary to make the driver work.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/misc/modem_if/modem_link_device_hsic.c       | 4 ++--
+ drivers/misc/modem_if/modem_net_flowcontrol_device.c | 4 ++--
+ drivers/misc/modem_if/sipc4_modem.c                  | 7 ++++---
+ drivers/misc/modem_if/sipc5_modem.c                  | 7 ++++---
+ 4 files changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/misc/modem_if/modem_link_device_hsic.c b/drivers/misc/modem_if/modem_link_device_hsic.c
+index bb8066a..81c732e 100644
+--- a/drivers/misc/modem_if/modem_link_device_hsic.c
++++ b/drivers/misc/modem_if/modem_link_device_hsic.c
+@@ -1251,7 +1251,7 @@ static int if_usb_set_pipe(struct usb_link_device *usb_ld,
+ 	return 0;
+ }
+ 
+-static int __devinit if_usb_probe(struct usb_interface *intf,
++static int if_usb_probe(struct usb_interface *intf,
+ 					const struct usb_device_id *id)
+ {
+ 	int err;
+@@ -1444,7 +1444,7 @@ MODULE_DEVICE_TABLE(usb, if_usb_ids);
+ 
+ static struct usb_driver if_usb_driver = {
+ 	.name =		"cdc_modem",
+-	.probe =		if_usb_probe,
++	.probe =	if_usb_probe,
+ 	.disconnect =	if_usb_disconnect,
+ 	.id_table =	if_usb_ids,
+ 	.suspend =	if_usb_suspend,
+diff --git a/drivers/misc/modem_if/modem_net_flowcontrol_device.c b/drivers/misc/modem_if/modem_net_flowcontrol_device.c
+index 164f471..4e8b314 100644
+--- a/drivers/misc/modem_if/modem_net_flowcontrol_device.c
++++ b/drivers/misc/modem_if/modem_net_flowcontrol_device.c
+@@ -113,5 +113,5 @@ static int __init modem_net_flowcontrol_device_init(void)
+ 
+ module_init(modem_net_flowcontrol_device_init);
+ 
+-MODULE_LICENSE("GPL");
+-MODULE_DESCRIPTION("Samsung Modem IF Net Flowcontrol Driver");
++//MODULE_LICENSE("GPL");
++//MODULE_DESCRIPTION("Samsung Modem IF Net Flowcontrol Driver");
+diff --git a/drivers/misc/modem_if/sipc4_modem.c b/drivers/misc/modem_if/sipc4_modem.c
+index 58b3faf..65d9444 100644
+--- a/drivers/misc/modem_if/sipc4_modem.c
++++ b/drivers/misc/modem_if/sipc4_modem.c
+@@ -33,6 +33,7 @@
+ #ifdef CONFIG_HAS_WAKELOCK
+ #include <linux/wakelock.h>
+ #endif
++#include <linux/rbtree.h>
+ 
+ #include <linux/platform_data/modem.h>
+ #include "modem_prj.h"
+@@ -119,8 +120,8 @@ static struct io_device *create_io_device(struct modem_io_t *io_t,
+ 		return NULL;
+ 	}
+ 
+-	rb_init_node(&iod->node_chan);
+-	rb_init_node(&iod->node_fmt);
++	RB_CLEAR_NODE(&iod->node_chan);
++	RB_CLEAR_NODE(&iod->node_fmt);
+ 
+ 	iod->name = io_t->name;
+ 	iod->id = io_t->id;
+@@ -242,7 +243,7 @@ static int attach_devices(struct io_device *iod, enum modem_link tx_link)
+ 	return 0;
+ }
+ 
+-static int __devinit modem_probe(struct platform_device *pdev)
++static int modem_probe(struct platform_device *pdev)
+ {
+ 	int i;
+ 	struct modem_data *pdata = pdev->dev.platform_data;
+diff --git a/drivers/misc/modem_if/sipc5_modem.c b/drivers/misc/modem_if/sipc5_modem.c
+index 9898751..ccfad5f 100644
+--- a/drivers/misc/modem_if/sipc5_modem.c
++++ b/drivers/misc/modem_if/sipc5_modem.c
+@@ -32,6 +32,7 @@
+ #include <linux/gpio.h>
+ #include <linux/delay.h>
+ #include <linux/wakelock.h>
++#include <linux/rbtree.h>
+ 
+ #include <linux/platform_data/modem.h>
+ #include "modem_prj.h"
+@@ -120,8 +121,8 @@ static struct io_device *create_io_device(struct modem_io_t *io_t,
+ 		return NULL;
+ 	}
+ 
+-	rb_init_node(&iod->node_chan);
+-	rb_init_node(&iod->node_fmt);
++	RB_CLEAR_NODE(&iod->node_chan);
++	RB_CLEAR_NODE(&iod->node_fmt);
+ 
+ 	iod->name = io_t->name;
+ 	iod->id = io_t->id;
+@@ -228,7 +229,7 @@ static int attach_devices(struct io_device *iod, enum modem_link tx_link)
+ 	return 0;
+ }
+ 
+-static int __devinit modem_probe(struct platform_device *pdev)
++static int modem_probe(struct platform_device *pdev)
+ {
+ 	int i;
+ 	struct modem_data *pdata = pdev->dev.platform_data;
+-- 
+1.8.3.2
+

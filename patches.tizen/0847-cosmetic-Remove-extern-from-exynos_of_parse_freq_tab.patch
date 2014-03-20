@@ -1,0 +1,29 @@
+From ec338a8b3489b3c0092746a353fb3136e2d4703d Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Tue, 8 Oct 2013 12:07:43 +0200
+Subject: [PATCH 0847/1302] cosmetic: Remove extern from
+ exynos_of_parse_freq_table() declaration
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/exynos-cpufreq.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/cpufreq/exynos-cpufreq.h b/drivers/cpufreq/exynos-cpufreq.h
+index 8ad711f..12b2b66 100644
+--- a/drivers/cpufreq/exynos-cpufreq.h
++++ b/drivers/cpufreq/exynos-cpufreq.h
+@@ -47,7 +47,7 @@ struct exynos_dvfs_info {
+ extern int exynos4210_cpufreq_init(struct exynos_dvfs_info *);
+ extern int exynos4x12_cpufreq_init(struct exynos_dvfs_info *);
+ extern int exynos5250_cpufreq_init(struct exynos_dvfs_info *);
+-extern struct cpufreq_frequency_table *exynos_of_parse_freq_table(
+-		struct exynos_dvfs_info *info, const char *property_name);
++struct cpufreq_frequency_table *exynos_of_parse_freq_table(
++       struct exynos_dvfs_info *info, const char *property_name);
+ unsigned int *exynos_of_parse_volt_table(struct exynos_dvfs_info *info,
+ 					 const char *property_name);
+-- 
+1.8.3.2
+

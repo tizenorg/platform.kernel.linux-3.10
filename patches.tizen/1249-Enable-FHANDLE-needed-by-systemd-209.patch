@@ -1,0 +1,28 @@
+From 9e5fefcfa8b3c3d260fbe5f6b3cbc86c71e1f288 Mon Sep 17 00:00:00 2001
+From: Maciej Wereski <m.wereski@partner.samsung.com>
+Date: Wed, 26 Feb 2014 17:14:34 +0100
+Subject: [PATCH 1249/1302] Enable FHANDLE, needed by systemd >= 209
+
+Change-Id: Ic01e9ad45ff6241ba451742857f5808f56deb970
+Signed-off-by: Maciej Wereski <m.wereski@partner.samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index 73702f2..b04638d 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -48,7 +48,7 @@ CONFIG_SWAP=y
+ CONFIG_SYSVIPC=y
+ CONFIG_SYSVIPC_SYSCTL=y
+ # CONFIG_POSIX_MQUEUE is not set
+-# CONFIG_FHANDLE is not set
++CONFIG_FHANDLE=y
+ CONFIG_AUDIT=y
+ # CONFIG_AUDIT_LOGINUID_IMMUTABLE is not set
+ CONFIG_HAVE_GENERIC_HARDIRQS=y
+-- 
+1.8.3.2
+

@@ -1,0 +1,89 @@
+From 1986f941ed6c4a61dafa5498ec06f9671b25b3e9 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 8 Oct 2013 10:53:58 +0200
+Subject: [PATCH 0840/1302] dts: arm: Add voltage regulator and additional
+ clock supply to ehci-s5p
+
+This patch adds voltage regulator and additional clock support to the
+ehci-s5p driver.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi                  | 4 ++--
+ arch/arm/boot/dts/exynos4210-origen.dts         | 2 ++
+ arch/arm/boot/dts/exynos4210-universal_c210.dts | 2 ++
+ arch/arm/boot/dts/exynos4412-odroidx2.dts       | 2 ++
+ arch/arm/boot/dts/exynos4412-slp_pq.dts         | 2 ++
+ 5 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index c5c1516..d9b14b3 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -506,8 +506,8 @@
+ 		compatible = "samsung,exynos-ehci";
+ 		reg = <0x12580000 0x20000>;
+ 		interrupts = <0 70 0>;
+-		clocks = <&clock 304>;
+-		clock-names = "usbhost";
++		clocks = <&clock 304>, <&clock 305>;
++		clock-names = "usbhost", "otg";
+ 		status = "disabled";
+ 	};
+ 
+diff --git a/arch/arm/boot/dts/exynos4210-origen.dts b/arch/arm/boot/dts/exynos4210-origen.dts
+index 40fd476..862463b 100644
+--- a/arch/arm/boot/dts/exynos4210-origen.dts
++++ b/arch/arm/boot/dts/exynos4210-origen.dts
+@@ -175,6 +175,8 @@
+ 	};
+ 
+ 	ehci@12580000 {
++		vusb_d-supply = <&ldo3_reg>;
++		vusb_a-supply = <&ldo8_reg>;
+ 		status = "okay";
+ 		phys = <&exynos_usbphy 1>;
+ 		phy-names = "host";
+diff --git a/arch/arm/boot/dts/exynos4210-universal_c210.dts b/arch/arm/boot/dts/exynos4210-universal_c210.dts
+index e063602..045221e 100644
+--- a/arch/arm/boot/dts/exynos4210-universal_c210.dts
++++ b/arch/arm/boot/dts/exynos4210-universal_c210.dts
+@@ -445,6 +445,8 @@
+ 		status = "okay";
+ 		phys = <&exynos_usbphy 1>;
+ 		phy-names = "host";
++		vusb_d-supply = <&ldo3_reg>;
++		vusb_a-supply = <&ldo8_reg>;
+ 	};
+ 
+ 	exynos_usbphy: exynos-usbphy@125B0000 {
+diff --git a/arch/arm/boot/dts/exynos4412-odroidx2.dts b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+index c93fb7a..05fea1b 100644
+--- a/arch/arm/boot/dts/exynos4412-odroidx2.dts
++++ b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+@@ -439,6 +439,8 @@
+ 
+ 	ehci@12580000 {
+ 		status = "okay";
++		vusb_d-supply = <&ldo15_reg>;
++		vusb_a-supply = <&ldo12_reg>;
+ 		phys = <&exynos_usbphy 2>;
+ 		phy-names = "hsic0";
+ 	};
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 4cf3f59..e8d0bbc 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -1073,6 +1073,8 @@
+ 
+ 	ehci@12580000 {
+ 		status = "okay";
++		vusb_d-supply = <&ldo15_reg>;
++		vusb_a-supply = <&ldo12_reg>;
+ 		phys = <&exynos_usbphy 2>;
+ 		phy-names = "hsic0";
+ 	};
+-- 
+1.8.3.2
+

@@ -1,0 +1,29 @@
+From e7f5f027bc00faa267d4cf315b0f18bf4f0e5f34 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 28 Dec 2012 16:44:39 +0100
+Subject: [PATCH 0032/1302] ARM: dts: exynos4210-trats: Enable USB PHY node
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index ce729c7..a413897 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -290,6 +290,10 @@
+ 		};
+ 	};
+ 
++	usbphy@125B0000 {
++		status = "okay";
++	};
++
+ 	hsotg@12480000 {
+ 		status = "okay";
+ 		vusb_d-supply = <&vusb_reg>;
+-- 
+1.8.3.2
+

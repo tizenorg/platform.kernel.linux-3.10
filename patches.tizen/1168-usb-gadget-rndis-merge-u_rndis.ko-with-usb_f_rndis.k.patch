@@ -1,0 +1,169 @@
+From f0d8d1efe8bc705a9fb474d0fc44dde703ca440d Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 3 Dec 2013 15:15:29 +0100
+Subject: [PATCH 1168/1302] usb: gadget: rndis: merge u_rndis.ko with
+ usb_f_rndis.ko
+
+The rndis function's users use only the new interface, so the two modules
+can be merged.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/Kconfig   |  7 -------
+ drivers/usb/gadget/Makefile  |  4 +---
+ drivers/usb/gadget/f_rndis.c | 22 +++++++++++++++++++++-
+ drivers/usb/gadget/rndis.c   |  7 ++-----
+ drivers/usb/gadget/u_rndis.h |  2 ++
+ 5 files changed, 26 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index 60e00cf..0ba106c 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -510,9 +510,6 @@ config USB_U_SERIAL
+ config USB_U_ETHER
+ 	tristate
+ 
+-config USB_U_RNDIS
+-	tristate
+-
+ config USB_F_SERIAL
+ 	tristate
+ 
+@@ -640,7 +637,6 @@ config USB_CONFIGFS_RNDIS
+ 	depends on USB_CONFIGFS
+ 	depends on NET
+ 	select USB_U_ETHER
+-	select USB_U_RNDIS
+ 	select USB_F_RNDIS
+ 	help
+ 	   Microsoft Windows XP bundles the "Remote NDIS" (RNDIS) protocol,
+@@ -770,7 +766,6 @@ config USB_ETH
+ 	depends on NET
+ 	select USB_LIBCOMPOSITE
+ 	select USB_U_ETHER
+-	select USB_U_RNDIS
+ 	select USB_F_ECM
+ 	select USB_F_SUBSET
+ 	select CRC32
+@@ -903,7 +898,6 @@ config USB_FUNCTIONFS_RNDIS
+ 	bool "Include configuration with RNDIS (Ethernet)"
+ 	depends on USB_FUNCTIONFS && NET
+ 	select USB_U_ETHER
+-	select USB_U_RNDIS
+ 	select USB_F_RNDIS
+ 	help
+ 	  Include a configuration with RNDIS function (Ethernet) and the Filesystem.
+@@ -1090,7 +1084,6 @@ config USB_G_MULTI
+ config USB_G_MULTI_RNDIS
+ 	bool "RNDIS + CDC Serial + Storage configuration"
+ 	depends on USB_G_MULTI
+-	select USB_U_RNDIS
+ 	select USB_F_RNDIS
+ 	default y
+ 	help
+diff --git a/drivers/usb/gadget/Makefile b/drivers/usb/gadget/Makefile
+index e43af2e..47646b6 100644
+--- a/drivers/usb/gadget/Makefile
++++ b/drivers/usb/gadget/Makefile
+@@ -46,8 +46,6 @@ obj-$(CONFIG_USB_F_SERIAL)	+= usb_f_serial.o
+ usb_f_obex-y			:= f_obex.o
+ obj-$(CONFIG_USB_F_OBEX)	+= usb_f_obex.o
+ obj-$(CONFIG_USB_U_ETHER)	+= u_ether.o
+-u_rndis-y			:= rndis.o
+-obj-$(CONFIG_USB_U_RNDIS)	+= u_rndis.o
+ usb_f_ncm-y			:= f_ncm.o
+ obj-$(CONFIG_USB_F_NCM)		+= usb_f_ncm.o
+ usb_f_ecm-y			:= f_ecm.o
+@@ -58,7 +56,7 @@ usb_f_eem-y			:= f_eem.o
+ obj-$(CONFIG_USB_F_EEM)		+= usb_f_eem.o
+ usb_f_ecm_subset-y		:= f_subset.o
+ obj-$(CONFIG_USB_F_SUBSET)	+= usb_f_ecm_subset.o
+-usb_f_rndis-y			:= f_rndis.o
++usb_f_rndis-y			:= f_rndis.o rndis.o
+ obj-$(CONFIG_USB_F_RNDIS)	+= usb_f_rndis.o
+ usb_f_mass_storage-y		:= f_mass_storage.o storage_common.o
+ obj-$(CONFIG_USB_F_MASS_STORAGE)+= usb_f_mass_storage.o
+diff --git a/drivers/usb/gadget/f_rndis.c b/drivers/usb/gadget/f_rndis.c
+index 9d7c995..c11761c 100644
+--- a/drivers/usb/gadget/f_rndis.c
++++ b/drivers/usb/gadget/f_rndis.c
+@@ -979,6 +979,26 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
+ 	return &rndis->port.func;
+ }
+ 
+-DECLARE_USB_FUNCTION_INIT(rndis, rndis_alloc_inst, rndis_alloc);
++DECLARE_USB_FUNCTION(rndis, rndis_alloc_inst, rndis_alloc);
++
++static int __init rndis_mod_init(void)
++{
++	int ret;
++
++	ret = rndis_init();
++	if (ret)
++		return ret;
++
++	return usb_function_register(&rndisusb_func);
++}
++module_init(rndis_mod_init);
++
++static void __exit rndis_mod_exit(void)
++{
++	usb_function_unregister(&rndisusb_func);
++	rndis_exit();
++}
++module_exit(rndis_mod_exit);
++
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("David Brownell");
+diff --git a/drivers/usb/gadget/rndis.c b/drivers/usb/gadget/rndis.c
+index 9575085..3184a13 100644
+--- a/drivers/usb/gadget/rndis.c
++++ b/drivers/usb/gadget/rndis.c
+@@ -1142,7 +1142,7 @@ static struct proc_dir_entry *rndis_connect_state [RNDIS_MAX_CONFIGS];
+ #endif /* CONFIG_USB_GADGET_DEBUG_FILES */
+ 
+ 
+-static int rndis_init(void)
++int rndis_init(void)
+ {
+ 	u8 i;
+ 
+@@ -1174,9 +1174,8 @@ static int rndis_init(void)
+ 
+ 	return 0;
+ }
+-module_init(rndis_init);
+ 
+-static void rndis_exit(void)
++void rndis_exit(void)
+ {
+ #ifdef CONFIG_USB_GADGET_DEBUG_FILES
+ 	u8 i;
+@@ -1188,6 +1187,4 @@ static void rndis_exit(void)
+ 	}
+ #endif
+ }
+-module_exit(rndis_exit);
+ 
+-MODULE_LICENSE("GPL");
+diff --git a/drivers/usb/gadget/u_rndis.h b/drivers/usb/gadget/u_rndis.h
+index c62ba82..7291b15 100644
+--- a/drivers/usb/gadget/u_rndis.h
++++ b/drivers/usb/gadget/u_rndis.h
+@@ -36,6 +36,8 @@ struct f_rndis_opts {
+ 	int				refcnt;
+ };
+ 
++int rndis_init(void);
++void rndis_exit(void);
+ void rndis_borrow_net(struct usb_function_instance *f, struct net_device *net);
+ 
+ #endif /* U_RNDIS_H */
+-- 
+1.8.3.2
+

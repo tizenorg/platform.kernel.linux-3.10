@@ -1,0 +1,65 @@
+From 0e2c8bcfafe8e2f29bfbb6da649506c221d72fdd Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 8 Nov 2013 17:53:46 +0900
+Subject: [PATCH 1019/1302] cpufreq: exysnos: Fix the way of enabling boost in
+ exynos cpufreq driver.
+
+Follow the codes from ML.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts |  1 -
+ drivers/cpufreq/exynos-cpufreq.c         | 10 +++-------
+ 2 files changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index e6dca07..09cf22c 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -140,7 +140,6 @@
+ 
+ 	cpufreq {
+ 		freq_table;
+-		boost_mode = "okay";
+ 		status = "okay";
+ 	};
+ 
+diff --git a/drivers/cpufreq/exynos-cpufreq.c b/drivers/cpufreq/exynos-cpufreq.c
+index 51a126c..249d19b 100644
+--- a/drivers/cpufreq/exynos-cpufreq.c
++++ b/drivers/cpufreq/exynos-cpufreq.c
+@@ -277,6 +277,9 @@ static struct cpufreq_driver exynos_driver = {
+ 	.exit		= exynos_cpufreq_cpu_exit,
+ 	.name		= "exynos_cpufreq",
+ 	.attr		= exynos_cpufreq_attr,
++#ifdef CONFIG_CPU_FREQ_BOOST_SW
++	.boost_supported = true,
++#endif
+ #ifdef CONFIG_PM
+ 	.suspend	= exynos_cpufreq_suspend,
+ 	.resume		= exynos_cpufreq_resume,
+@@ -405,9 +408,6 @@ static struct of_device_id exynos_cpufreq_of_match[] = {
+ 
+ static int exynos_cpufreq_probe(struct platform_device *pdev)
+ {
+-#ifdef CONFIG_CPU_FREQ_BOOST_SW
+-	struct device_node *node = pdev->dev.of_node;
+-#endif
+ 	int ret = -EINVAL;
+ 
+ 	exynos_info = kzalloc(sizeof(struct exynos_dvfs_info), GFP_KERNEL);
+@@ -440,10 +440,6 @@ static int exynos_cpufreq_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	locking_frequency = exynos_getspeed(0);
+-#ifdef CONFIG_CPU_FREQ_BOOST_SW
+-	if (of_property_read_bool(node, "boost_mode"))
+-		exynos_driver.boost_supported = true;
+-#endif
+ 
+ 	register_pm_notifier(&exynos_cpufreq_nb);
+ 
+-- 
+1.8.3.2
+

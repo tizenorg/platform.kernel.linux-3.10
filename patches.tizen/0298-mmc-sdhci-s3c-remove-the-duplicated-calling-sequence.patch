@@ -1,0 +1,60 @@
+From 0689006d342df007b5b38eda3fc9a5712d833241 Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Thu, 27 Jun 2013 11:29:47 +0900
+Subject: [PATCH 0298/1302] mmc: sdhci-s3c: remove the duplicated calling
+ sequence
+
+Didn't need to call the sdhci_s3c_notify_change in
+setup_card_detect_gpio()
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/sdhci-s3c.c | 27 +++++++++++++--------------
+ 1 file changed, 13 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/mmc/host/sdhci-s3c.c b/drivers/mmc/host/sdhci-s3c.c
+index 504f5c3..1b6485f 100644
+--- a/drivers/mmc/host/sdhci-s3c.c
++++ b/drivers/mmc/host/sdhci-s3c.c
+@@ -402,24 +402,23 @@ static void sdhci_s3c_setup_card_detect_gpio(struct sdhci_s3c *sc)
+ {
+ 	struct s3c_sdhci_platdata *pdata = sc->pdata;
+ 	struct device *dev = &sc->pdev->dev;
++	int ret = 0;
+ 
+ 	if (devm_gpio_request(dev, pdata->ext_cd_gpio, "SDHCI EXT CD") == 0) {
+ 		sc->ext_cd_gpio = pdata->ext_cd_gpio;
+ 		sc->ext_cd_irq = gpio_to_irq(pdata->ext_cd_gpio);
+-		if (sc->ext_cd_irq &&
+-		    request_threaded_irq(sc->ext_cd_irq, NULL,
+-					 sdhci_s3c_gpio_card_detect_thread,
+-					 IRQF_TRIGGER_RISING |
+-					 IRQF_TRIGGER_FALLING |
+-					 IRQF_ONESHOT,
+-					 dev_name(dev), sc) == 0) {
+-			int status = gpio_get_value(sc->ext_cd_gpio);
+-			if (pdata->ext_cd_gpio_invert)
+-				status = !status;
+-			sdhci_s3c_notify_change(sc->pdev, status);
+-		} else {
+-			dev_warn(dev, "cannot request irq for card detect\n");
+-			sc->ext_cd_irq = 0;
++		if (sc->ext_cd_irq) {
++			ret = request_threaded_irq(sc->ext_cd_irq, NULL,
++					sdhci_s3c_gpio_card_detect_thread,
++					IRQF_TRIGGER_RISING |
++					IRQF_TRIGGER_FALLING |
++					IRQF_ONESHOT,
++					dev_name(dev), sc);
++			if (ret) {
++				dev_warn(dev,
++					"cannot request irq for card detect\n");
++				sc->ext_cd_irq = 0;
++			}
+ 		}
+ 	} else {
+ 		dev_err(dev, "cannot request gpio for card detect\n");
+-- 
+1.8.3.2
+

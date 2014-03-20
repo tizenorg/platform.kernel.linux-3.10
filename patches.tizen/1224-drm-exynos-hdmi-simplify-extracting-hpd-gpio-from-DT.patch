@@ -1,0 +1,52 @@
+From ec8ae0fb250dd356a1ee4e534acda63e0d60d038 Mon Sep 17 00:00:00 2001
+From: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Date: Tue, 15 Oct 2013 16:40:07 +0200
+Subject: [PATCH 1224/1302] drm: exynos: hdmi: simplify extracting hpd-gpio
+ from DT
+
+This patch eliminates redundant checks while retrieving HPD gpio from DT during
+HDMI's probe().
+
+Signed-off-by: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Change-Id: I1f2312291bd7c2334783c8067889b95db305377f
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_hdmi.c | 14 ++++----------
+ 1 file changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_hdmi.c b/drivers/gpu/drm/exynos/exynos_hdmi.c
+index 9b52b4f..77f09ed 100644
+--- a/drivers/gpu/drm/exynos/exynos_hdmi.c
++++ b/drivers/gpu/drm/exynos/exynos_hdmi.c
+@@ -1857,24 +1857,18 @@ static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
+ {
+ 	struct device_node *np = dev->of_node;
+ 	struct s5p_hdmi_platform_data *pd;
+-	enum of_gpio_flags flags;
+-	u32 value;
+ 
+ 	pd = devm_kzalloc(dev, sizeof(*pd), GFP_KERNEL);
+ 	if (!pd)
+-		goto err_data;
++		return NULL;
+ 
+-	if (!of_find_property(np, "hpd-gpio", &value)) {
++	pd->hpd_gpio = of_get_named_gpio_flags(np, "hpd-gpio", 0, NULL);
++	if (pd->hpd_gpio < 0) {
+ 		DRM_ERROR("no hpd gpio property found\n");
+-		goto err_data;
++		return NULL;
+ 	}
+ 
+-	pd->hpd_gpio = of_get_named_gpio_flags(np, "hpd-gpio", 0, &flags);
+-
+ 	return pd;
+-
+-err_data:
+-	return NULL;
+ }
+ #else
+ static struct s5p_hdmi_platform_data *drm_hdmi_dt_parse_pdata
+-- 
+1.8.3.2
+

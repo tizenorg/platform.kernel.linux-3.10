@@ -1,0 +1,58 @@
+From 0119a9732641d68c5c85bd222766202dce1b87f2 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 2 Sep 2013 13:23:29 +0900
+Subject: [PATCH 0596/1302] Revert "drm/exynos: add dt-binding documentation
+ for rotator"
+
+This reverts commit 5e842af0339fda92b300bf95be9886aff776f80c.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../bindings/drm/exynos/samsung-rotator.txt        | 35 ----------------------
+ 1 file changed, 35 deletions(-)
+ delete mode 100644 Documentation/devicetree/bindings/drm/exynos/samsung-rotator.txt
+
+diff --git a/Documentation/devicetree/bindings/drm/exynos/samsung-rotator.txt b/Documentation/devicetree/bindings/drm/exynos/samsung-rotator.txt
+deleted file mode 100644
+index 6b1d704..0000000
+--- a/Documentation/devicetree/bindings/drm/exynos/samsung-rotator.txt
++++ /dev/null
+@@ -1,35 +0,0 @@
+-* Samsung Image Rotator
+-
+-Required properties:
+-  - compatible : value should be the "samsung,exynos4210".
+-  - reg : Physical base address of the IP registers and length of memory
+-	  mapped region.
+-  - interrupts : interrupt number to the CPU.
+-  - clocks : clock number of exynos4 rotator clock.
+-  - clocks : clock name of rotator
+-  - status : "okay" or "disabled"
+-  - limit table for image formats : min_w/min_h/max_w/max_h for min/max of image
+-
+-Example:
+-	rotator: rotator@12810000 {
+-		compatible = "samsung,exynos4210-rotator";
+-		reg = <0x12810000 0x1000>;
+-		interrupts = <0 83 0>;
+-		clocks = <&clock 278>;
+-		clock-names = "rotator";
+-		status = "disabled";
+-		ycbcr420_2p {
+-			min_w = <32>;
+-			min_h = <32>;
+-			max_w = <32768>;
+-			max_h = <32768>;
+-			align = <3>;
+-		};
+-		rgb888 {
+-			min_w = <8>;
+-			min_h = <8>;
+-			max_w = <8192>;
+-			max_h = <8192>;
+-			align = <2>;
+-		};
+-	};
+-- 
+1.8.3.2
+

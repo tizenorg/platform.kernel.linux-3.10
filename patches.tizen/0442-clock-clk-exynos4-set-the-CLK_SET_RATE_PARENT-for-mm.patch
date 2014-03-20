@@ -1,0 +1,38 @@
+From a9caf2743da97298d75e0d1234f7a21d91f532e6 Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Wed, 24 Jul 2013 14:11:08 +0900
+Subject: [PATCH 0442/1302] clock: clk-exynos4: set the CLK_SET_RATE_PARENT for
+ mmc4
+
+mmc4_clk set to CLK_SET_PARENT with DIV_F().
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/samsung/clk-exynos4.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/clk/samsung/clk-exynos4.c b/drivers/clk/samsung/clk-exynos4.c
+index adb1352..f8ff509 100644
+--- a/drivers/clk/samsung/clk-exynos4.c
++++ b/drivers/clk/samsung/clk-exynos4.c
+@@ -525,7 +525,6 @@ struct samsung_div_clock exynos4_div_clks[] __initdata = {
+ 	DIV(sclk_i2s1, "sclk_i2s1", "sclk_audio1", DIV_PERIL5, 0, 6),
+ 	DIV(sclk_i2s2, "sclk_i2s2", "sclk_audio2", DIV_PERIL5, 8, 6),
+ 	DIV(none, "div_mmc4", "mout_mmc4", DIV_FSYS3, 0, 4),
+-	DIV(none, "div_mmc_pre4", "div_mmc4", DIV_FSYS3, 8, 8),
+ 	DIV(none, "div_uart0", "mout_uart0", DIV_PERIL0, 0, 4),
+ 	DIV(none, "div_uart1", "mout_uart1", DIV_PERIL0, 4, 4),
+ 	DIV(none, "div_uart2", "mout_uart2", DIV_PERIL0, 8, 4),
+@@ -552,6 +551,8 @@ struct samsung_div_clock exynos4_div_clks[] __initdata = {
+ 			CLK_SET_RATE_PARENT, 0),
+ 	DIV_F(none, "div_mmc_pre3", "div_mmc3", DIV_FSYS2, 24, 8,
+ 			CLK_SET_RATE_PARENT, 0),
++	DIV_F(none, "div_mmc_pre4", "div_mmc4", DIV_FSYS3, 8, 8,
++			CLK_SET_RATE_PARENT, 0),
+ };
+ 
+ /* list of divider clocks supported in exynos4210 soc */
+-- 
+1.8.3.2
+

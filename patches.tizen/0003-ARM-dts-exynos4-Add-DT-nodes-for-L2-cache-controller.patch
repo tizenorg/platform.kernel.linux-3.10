@@ -1,0 +1,64 @@
+From fd0079387c13066ea0ef1f9d6f7f863fd16cc69f Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 12 Sep 2012 15:36:39 +0200
+Subject: [PATCH 0003/1302] ARM: dts: exynos4: Add DT nodes for L2 cache
+ controller
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi    | 6 ++++++
+ arch/arm/boot/dts/exynos4210.dtsi | 4 ++++
+ arch/arm/boot/dts/exynos4x12.dtsi | 4 ++++
+ 3 files changed, 14 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 359694c..b90bab3 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -92,6 +92,12 @@
+ 		reg = <0x10010000 0x400>;
+ 	};
+ 
++	cache-controller@0x10502000 {
++		compatible = "arm,pl310-cache";
++		reg = <0x10502000 0x1000>;
++		arm,tag-latency = <1 1 0>;
++	};
++
+ 	watchdog@10060000 {
+ 		compatible = "samsung,s3c2410-wdt";
+ 		reg = <0x10060000 0x100>;
+diff --git a/arch/arm/boot/dts/exynos4210.dtsi b/arch/arm/boot/dts/exynos4210.dtsi
+index 54710de..ef707bd 100644
+--- a/arch/arm/boot/dts/exynos4210.dtsi
++++ b/arch/arm/boot/dts/exynos4210.dtsi
+@@ -48,6 +48,10 @@
+ 			     <0 12 0>, <0 13 0>, <0 14 0>, <0 15 0>;
+ 	};
+ 
++	cache-controller@0x10502000 {
++		arm,data-latency = <1 1 0>;
++	};
++
+ 	mct@10050000 {
+ 		compatible = "samsung,exynos4210-mct";
+ 		reg = <0x10050000 0x800>;
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index e3380a7..4afda47 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -36,6 +36,10 @@
+ 			     <0 16 0>, <0 17 0>, <0 18 0>, <0 19 0>;
+ 	};
+ 
++	cache-controller@0x10502000 {
++		arm,data-latency = <1 2 0>;
++	};
++
+ 	clock: clock-controller@0x10030000 {
+ 		compatible = "samsung,exynos4412-clock";
+ 		reg = <0x10030000 0x20000>;
+-- 
+1.8.3.2
+

@@ -1,0 +1,36 @@
+From ddcec36daf6294a3ca6c1f612e4e0df32fbd4d4a Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 7 Mar 2013 15:08:22 +0100
+Subject: [PATCH 0167/1302] ARM: dts: PQ mipi-csis clock frequency correction
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 214b35b..23bc1ac 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -698,7 +698,7 @@
+ 			status = "okay";
+ 			vddcore-supply = <&ldo8_reg>;
+ 			vddio-supply = <&ldo10_reg>;
+-			clock-frequency = <160000000>;
++			clock-frequency = <176000000>;
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 
+@@ -717,7 +717,7 @@
+ 			status = "okay";
+ 			vddcore-supply = <&ldo8_reg>;
+ 			vddio-supply = <&ldo10_reg>;
+-			clock-frequency = <160000000>;
++			clock-frequency = <176000000>;
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 
+-- 
+1.8.3.2
+

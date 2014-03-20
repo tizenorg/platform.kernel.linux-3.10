@@ -1,0 +1,46 @@
+From 5c4726c8b8261f1ee23754218a2ac179fce93226 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Wed, 25 Sep 2013 16:47:33 +0900
+Subject: [PATCH 0803/1302] WIP: extcon: do not update cable state if notifier
+ cannot handle it
+
+During probing a extcon-max77693 driver, extcon-port driver can't receive nb
+callback due to initializing sequences.
+Thus, if the callback can't be handled, we do not update the cable state.
+I'm not sure this patch is good solution :)
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/extcon/extcon-class.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/extcon/extcon-class.c b/drivers/extcon/extcon-class.c
+index 60adc04..e7b851b 100644
+--- a/drivers/extcon/extcon-class.c
++++ b/drivers/extcon/extcon-class.c
+@@ -229,6 +229,7 @@ int extcon_update_state(struct extcon_dev *edev, u32 mask, u32 state)
+ 	int env_offset = 0;
+ 	int length;
+ 	unsigned long flags;
++	int ret;
+ 
+ 	spin_lock_irqsave(&edev->lock, flags);
+ 
+@@ -244,7 +245,12 @@ int extcon_update_state(struct extcon_dev *edev, u32 mask, u32 state)
+ 		edev->state &= ~mask;
+ 		edev->state |= state & mask;
+ 
+-		raw_notifier_call_chain(&edev->nh, old_state, edev);
++		ret = raw_notifier_call_chain(&edev->nh, old_state, edev);
++		if ((ret & ~NOTIFY_STOP_MASK) != NOTIFY_OK) {
++			edev->state = old_state;
++			spin_unlock_irqrestore(&edev->lock, flags);
++			return -ENODEV;
++		}
+ 
+ 		/* This could be in interrupt handler */
+ 		prop_buf = (char *)get_zeroed_page(GFP_ATOMIC);
+-- 
+1.8.3.2
+

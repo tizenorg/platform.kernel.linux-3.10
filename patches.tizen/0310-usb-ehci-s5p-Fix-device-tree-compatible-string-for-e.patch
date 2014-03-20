@@ -1,0 +1,32 @@
+From c098620b3b13eea9e696e7bd73472361841e0747 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 2 Jul 2013 16:14:29 +0200
+Subject: [PATCH 0310/1302] usb: ehci-s5p: Fix device tree compatible string
+ for ehci-s5p.c
+
+Change device tree compatible string to a more generic one covering whole
+Exynos SoC family.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/host/ehci-s5p.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/host/ehci-s5p.c b/drivers/usb/host/ehci-s5p.c
+index 30c8f44..708b5b4 100644
+--- a/drivers/usb/host/ehci-s5p.c
++++ b/drivers/usb/host/ehci-s5p.c
+@@ -355,7 +355,7 @@ static const struct dev_pm_ops s5p_ehci_pm_ops = {
+ 
+ #ifdef CONFIG_OF
+ static const struct of_device_id exynos_ehci_match[] = {
+-	{ .compatible = "samsung,exynos4210-ehci" },
++	{ .compatible = "samsung,exynos-ehci" },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, exynos_ehci_match);
+-- 
+1.8.3.2
+

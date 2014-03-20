@@ -1,0 +1,40 @@
+From 5075b092782f790465bb489ee641d49e4f0c6bb0 Mon Sep 17 00:00:00 2001
+From: Chanwoo Choi <cw00.choi@samsung.com>
+Date: Mon, 9 Sep 2013 19:47:21 +0900
+Subject: [PATCH 0802/1302] tizen: Update default configuration to enable
+ extcon-port driver
+
+Signed-off-by: Chanwoo Choi <cw00.choi@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_defconfig | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index 5062ba0..f14bbbb 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -602,6 +602,7 @@ CONFIG_PM_SLEEP_DEBUG=y
+ # CONFIG_APM_EMULATION is not set
+ CONFIG_PM_CLK=y
+ CONFIG_PM_GENERIC_DOMAINS=y
++# CONFIG_WQ_POWER_EFFICIENT_DEFAULT is not set
+ CONFIG_PM_GENERIC_DOMAINS_SLEEP=y
+ CONFIG_PM_GENERIC_DOMAINS_RUNTIME=y
+ CONFIG_CPU_PM=y
+@@ -2840,10 +2841,12 @@ CONFIG_EXTCON=y
+ #
+ # Extcon Device Drivers
+ #
++CONFIG_OF_EXTCON=y
+ CONFIG_EXTCON_GPIO=y
+ CONFIG_EXTCON_ADC_JACK=y
+ CONFIG_EXTCON_MAX77693=y
+ CONFIG_EXTCON_MAX8997=y
++CONFIG_EXTCON_PORT=y
+ # CONFIG_MEMORY is not set
+ CONFIG_IIO=y
+ CONFIG_IIO_BUFFER=y
+-- 
+1.8.3.2
+

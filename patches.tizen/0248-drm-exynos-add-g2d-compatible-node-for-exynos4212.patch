@@ -1,0 +1,28 @@
+From 82f6fe7d4fc48db171e42925bae6f90e8cd05665 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 31 May 2013 20:37:02 +0900
+Subject: [PATCH 0248/1302] drm/exynos: add g2d compatible node for exynos4212
+
+This patch adds a g2d node compatible with exynos4212.
+
+Signe-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_g2d.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_g2d.c b/drivers/gpu/drm/exynos/exynos_drm_g2d.c
+index af75434..7a6e310 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_g2d.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_g2d.c
+@@ -1522,6 +1522,7 @@ static SIMPLE_DEV_PM_OPS(g2d_pm_ops, g2d_suspend, g2d_resume);
+ 
+ #ifdef CONFIG_OF
+ static const struct of_device_id exynos_g2d_match[] = {
++	{ .compatible = "samsung,exynos4212-g2d" },
+ 	{ .compatible = "samsung,exynos5250-g2d" },
+ 	{},
+ };
+-- 
+1.8.3.2
+

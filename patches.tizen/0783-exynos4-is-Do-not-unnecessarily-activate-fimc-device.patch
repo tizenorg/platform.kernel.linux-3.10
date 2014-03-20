@@ -1,0 +1,50 @@
+From 0a13cdbe7f0dab7b17948774df1c9b1a467d8f8c Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 12 Sep 2013 18:48:04 +0200
+Subject: [PATCH 0783/1302] exynos4-is: Do not unnecessarily activate fimc
+ devices in probe()
+
+There is no use of temporarily activating the device in probe()
+so remove the pm_runtime_get_sync(), pm_runtime_put() calls.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-core.c | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-core.c b/drivers/media/platform/exynos4-is/fimc-core.c
+index 5c0f438..6823ce0 100644
+--- a/drivers/media/platform/exynos4-is/fimc-core.c
++++ b/drivers/media/platform/exynos4-is/fimc-core.c
+@@ -1029,23 +1029,18 @@ static int fimc_probe(struct platform_device *pdev)
+ 		goto err_clk;
+ 
+ 	platform_set_drvdata(pdev, fimc);
+-	pm_runtime_enable(dev);
+-	ret = pm_runtime_get_sync(dev);
+-	if (ret < 0)
+-		goto err_sd;
++
+ 	/* Initialize contiguous memory allocator */
+ 	fimc->alloc_ctx = vb2_dma_contig_init_ctx(dev);
+ 	if (IS_ERR(fimc->alloc_ctx)) {
+ 		ret = PTR_ERR(fimc->alloc_ctx);
+-		goto err_pm;
++		goto err_sd;
+ 	}
+ 
+-	dev_dbg(dev, "FIMC.%d registered successfully\n", fimc->id);
++	pm_runtime_enable(dev);
+ 
+-	pm_runtime_put(dev);
++	dev_dbg(dev, "FIMC.%d registered successfully\n", fimc->id);
+ 	return 0;
+-err_pm:
+-	pm_runtime_put(dev);
+ err_sd:
+ 	fimc_unregister_capture_subdev(fimc);
+ err_clk:
+-- 
+1.8.3.2
+

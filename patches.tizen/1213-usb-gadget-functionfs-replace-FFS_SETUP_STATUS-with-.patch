@@ -1,0 +1,121 @@
+From cccccde3f66399d92c226271da2a9614e0e54dbb Mon Sep 17 00:00:00 2001
+From: Michal Nazarewicz <mina86@mina86.com>
+Date: Mon, 10 Feb 2014 10:42:41 +0100
+Subject: [PATCH 1213/1302] usb: gadget: functionfs: replace FFS_SETUP_STATUS
+ with an inline function
+
+The FFS_SETUP_STATUS macro could be trivialy replaced with an static
+inline function but more importantly its name was tad confusing.
+The name suggested it was a simple accessor macro but it actually
+did change the state of the ffs_data structure perfomring
+a FFS_SETUP_CANCELLED -> FFS_NO_SETUP transition.  The name of the
+function -- ffs_setup_state_clear_cancelled -- should better
+describe what the function actually does.
+
+Signed-off-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Robert Baldyga <r.baldyga@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 22 ++++++++++++++++------
+ drivers/usb/gadget/u_fs.h |  7 +++----
+ 2 files changed, 19 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index bfb52f6..169067c 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -99,6 +99,14 @@ static struct ffs_function *ffs_func_from_usb(struct usb_function *f)
+ }
+ 
+ 
++static inline enum ffs_setup_state
++ffs_setup_state_clear_cancelled(struct ffs_data *ffs)
++{
++	return (enum ffs_setup_state)
++		cmpxchg(&ffs->setup_state, FFS_SETUP_CANCELLED, FFS_NO_SETUP);
++}
++
++
+ static void ffs_func_eps_disable(struct ffs_function *func);
+ static int __must_check ffs_func_eps_enable(struct ffs_function *func);
+ 
+@@ -246,7 +254,7 @@ static ssize_t ffs_ep0_write(struct file *file, const char __user *buf,
+ 	ENTER();
+ 
+ 	/* Fast check if setup was canceled */
+-	if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELLED)
++	if (ffs_setup_state_clear_cancelled(ffs) == FFS_SETUP_CANCELLED)
+ 		return -EIDRM;
+ 
+ 	/* Acquire mutex */
+@@ -312,7 +320,7 @@ static ssize_t ffs_ep0_write(struct file *file, const char __user *buf,
+ 		 * rather then _irqsave
+ 		 */
+ 		spin_lock_irq(&ffs->ev.waitq.lock);
+-		switch (FFS_SETUP_STATE(ffs)) {
++		switch (ffs_setup_state_clear_cancelled(ffs)) {
+ 		case FFS_SETUP_CANCELLED:
+ 			ret = -EIDRM;
+ 			goto done_spin;
+@@ -357,7 +365,8 @@ static ssize_t ffs_ep0_write(struct file *file, const char __user *buf,
+ 		 * transition can be performed and it's protected by
+ 		 * mutex.
+ 		 */
+-		if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELLED) {
++		if (ffs_setup_state_clear_cancelled(ffs) ==
++		    FFS_SETUP_CANCELLED) {
+ 			ret = -EIDRM;
+ done_spin:
+ 			spin_unlock_irq(&ffs->ev.waitq.lock);
+@@ -423,7 +432,7 @@ static ssize_t ffs_ep0_read(struct file *file, char __user *buf,
+ 	ENTER();
+ 
+ 	/* Fast check if setup was canceled */
+-	if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELLED)
++	if (ffs_setup_state_clear_cancelled(ffs) == FFS_SETUP_CANCELLED)
+ 		return -EIDRM;
+ 
+ 	/* Acquire mutex */
+@@ -443,7 +452,7 @@ static ssize_t ffs_ep0_read(struct file *file, char __user *buf,
+ 	 */
+ 	spin_lock_irq(&ffs->ev.waitq.lock);
+ 
+-	switch (FFS_SETUP_STATE(ffs)) {
++	switch (ffs_setup_state_clear_cancelled(ffs)) {
+ 	case FFS_SETUP_CANCELLED:
+ 		ret = -EIDRM;
+ 		break;
+@@ -491,7 +500,8 @@ static ssize_t ffs_ep0_read(struct file *file, char __user *buf,
+ 		spin_lock_irq(&ffs->ev.waitq.lock);
+ 
+ 		/* See ffs_ep0_write() */
+-		if (FFS_SETUP_STATE(ffs) == FFS_SETUP_CANCELLED) {
++		if (ffs_setup_state_clear_cancelled(ffs) ==
++		    FFS_SETUP_CANCELLED) {
+ 			ret = -EIDRM;
+ 			break;
+ 		}
+diff --git a/drivers/usb/gadget/u_fs.h b/drivers/usb/gadget/u_fs.h
+index 38012bc..78263cc 100644
+--- a/drivers/usb/gadget/u_fs.h
++++ b/drivers/usb/gadget/u_fs.h
+@@ -172,13 +172,12 @@ struct ffs_data {
+ 	 *               happens only in ep0 i/o  which is P: mutex
+ 	 * + FFS_SETUP_PENDING   -> FFS_SETUP_CANCELLED -- P: ev.waitq.lock
+ 	 * + FFS_SETUP_CANCELLED -> FFS_NO_SETUP        -- cmpxchg
++	 *
++	 * This field should never be accessed directly and instead
++	 * ffs_setup_state_clear_cancelled function should be used.
+ 	 */
+ 	enum ffs_setup_state		setup_state;
+ 
+-#define FFS_SETUP_STATE(ffs)					\
+-	((enum ffs_setup_state)cmpxchg(&(ffs)->setup_state,	\
+-				       FFS_SETUP_CANCELLED, FFS_NO_SETUP))
+-
+ 	/* Events & such. */
+ 	struct {
+ 		u8				types[4];
+-- 
+1.8.3.2
+

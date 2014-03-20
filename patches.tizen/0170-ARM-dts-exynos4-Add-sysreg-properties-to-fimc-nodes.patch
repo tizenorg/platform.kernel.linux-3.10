@@ -1,0 +1,54 @@
+From eddb469dea7e4b273fc2a509598419a9808252fb Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 13 Mar 2013 17:45:31 +0100
+Subject: [PATCH 0170/1302] ARM: dts: exynos4: Add sysreg properties to fimc
+ nodes
+
+Through the "samsung,sysreg" property the driver can get a handle
+to regmap instance exposing the SYSREG block registers.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index d1d7f1e..b3dee47 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -144,6 +144,7 @@
+ 			reg = <0x11800000 0x1000>;
+ 			interrupts = <0 84 0>;
+ 			samsung,power-domain = <&pd_cam>;
++			samsung,sysreg = <&sys_reg>;
+ 			status = "disabled";
+ 		};
+ 
+@@ -152,6 +153,7 @@
+ 			reg = <0x11810000 0x1000>;
+ 			interrupts = <0 85 0>;
+ 			samsung,power-domain = <&pd_cam>;
++			samsung,sysreg = <&sys_reg>;
+ 			status = "disabled";
+ 		};
+ 
+@@ -160,6 +162,7 @@
+ 			reg = <0x11820000 0x1000>;
+ 			interrupts = <0 86 0>;
+ 			samsung,power-domain = <&pd_cam>;
++			samsung,sysreg = <&sys_reg>;
+ 			status = "disabled";
+ 		};
+ 
+@@ -168,6 +171,7 @@
+ 			reg = <0x11830000 0x1000>;
+ 			interrupts = <0 87 0>;
+ 			samsung,power-domain = <&pd_cam>;
++			samsung,sysreg = <&sys_reg>;
+ 			status = "disabled";
+ 		};
+ 
+-- 
+1.8.3.2
+

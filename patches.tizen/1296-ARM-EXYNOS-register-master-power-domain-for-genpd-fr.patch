@@ -1,0 +1,68 @@
+From 560b021404616a7494c107c1f37f9925c911a6dc Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Tue, 11 Mar 2014 13:44:20 +0900
+Subject: [PATCH 1296/1302] ARM: EXYNOS: register master power domain for genpd
+ from DT
+
+There is one case for EXYNOS4412 that mixer needs LCD0 power domain as
+well as TV power domain. If disable LCD0 power domain, mixer occurs
+underflow of mixer graphic layer0 line buffer and we can't output normal
+data from hdmi. I don't know why mixer has dependency of LCD0 power
+domain.
+
+We can control the dependency as LCD0 power domain register to master of
+TV power domain on genpd framework.
+
+Change-Id: I71ef5bba37393d2e00c4dd7ea3f7da09d72e8db7
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412.dtsi |  4 ++++
+ arch/arm/mach-exynos/pm_domains.c | 11 +++++++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412.dtsi b/arch/arm/boot/dts/exynos4412.dtsi
+index b0fde4a..bf78f61 100644
+--- a/arch/arm/boot/dts/exynos4412.dtsi
++++ b/arch/arm/boot/dts/exynos4412.dtsi
+@@ -86,4 +86,8 @@
+ 		phy-names = "hdmiphy";
+ 		compatible = "samsung,exynos5-hdmi";
+ 	};
++
++	mixer: mixer@12C10000 {
++		samsung,power-domain-master = <&pd_lcd0>;
++	};
+ };
+diff --git a/arch/arm/mach-exynos/pm_domains.c b/arch/arm/mach-exynos/pm_domains.c
+index 435e396..5a7eb8ec 100644
+--- a/arch/arm/mach-exynos/pm_domains.c
++++ b/arch/arm/mach-exynos/pm_domains.c
+@@ -124,6 +124,7 @@ static void exynos_read_domain_from_dt(struct device *dev)
+ {
+ 	struct platform_device *pd_pdev;
+ 	struct exynos_pm_domain *pd;
++	struct exynos_pm_domain *master_pd;
+ 	struct device_node *node;
+ 
+ 	node = of_parse_phandle(dev->of_node, "samsung,power-domain", 0);
+@@ -134,6 +135,16 @@ static void exynos_read_domain_from_dt(struct device *dev)
+ 		return;
+ 	pd = platform_get_drvdata(pd_pdev);
+ 	exynos_add_device_to_domain(pd, dev);
++
++	/* make master and slave hierarchy */
++	node = of_parse_phandle(dev->of_node, "samsung,power-domain-master", 0);
++	if (!node)
++		return;
++	pd_pdev = of_find_device_by_node(node);
++	if (!pd_pdev)
++		return;
++	master_pd = platform_get_drvdata(pd_pdev);
++	pm_genpd_add_subdomain(&master_pd->pd, &pd->pd);
+ }
+ 
+ static int exynos_pm_notifier_call(struct notifier_block *nb,
+-- 
+1.8.3.2
+

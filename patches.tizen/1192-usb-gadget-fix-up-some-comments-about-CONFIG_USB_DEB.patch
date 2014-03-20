@@ -1,0 +1,47 @@
+From 58d8fd5ef33d6863c63f6d96ebb2bda1840f7e20 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Thu, 19 Dec 2013 15:43:10 -0800
+Subject: [PATCH 1192/1302] usb: gadget: fix up some comments about
+ CONFIG_USB_DEBUG
+
+These two gadget drivers said that their #endif was for
+CONFIG_USB_DEBUG, but they really were not, so fix them up to be
+correct.
+
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/acm_ms.c | 2 +-
+ drivers/usb/gadget/multi.c  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/acm_ms.c b/drivers/usb/gadget/acm_ms.c
+index 7bfa134..a252444 100644
+--- a/drivers/usb/gadget/acm_ms.c
++++ b/drivers/usb/gadget/acm_ms.c
+@@ -107,7 +107,7 @@ static unsigned int fsg_num_buffers = CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS;
+  */
+ #define fsg_num_buffers	CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS
+ 
+-#endif /* CONFIG_USB_DEBUG */
++#endif /* CONFIG_USB_GADGET_DEBUG_FILES */
+ 
+ FSG_MODULE_PARAMETERS(/* no prefix */, fsg_mod_data);
+ 
+diff --git a/drivers/usb/gadget/multi.c b/drivers/usb/gadget/multi.c
+index 4fdaa54..940f6cd 100644
+--- a/drivers/usb/gadget/multi.c
++++ b/drivers/usb/gadget/multi.c
+@@ -134,7 +134,7 @@ static unsigned int fsg_num_buffers = CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS;
+  */
+ #define fsg_num_buffers	CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS
+ 
+-#endif /* CONFIG_USB_DEBUG */
++#endif /* CONFIG_USB_GADGET_DEBUG_FILES */
+ 
+ FSG_MODULE_PARAMETERS(/* no prefix */, fsg_mod_data);
+ 
+-- 
+1.8.3.2
+

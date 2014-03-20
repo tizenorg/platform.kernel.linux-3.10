@@ -1,0 +1,46 @@
+From c3f62262be187c199f4dfa9980a4aa0f132b1957 Mon Sep 17 00:00:00 2001
+From: Beomho Seo <beomho.seo@samsung.com>
+Date: Mon, 9 Dec 2013 19:43:06 +0900
+Subject: [PATCH 1038/1302] dts: exynos4x12: fix clock properties.
+
+This patch fix incorrect clock properties.
+And then, move fixed clock properties to
+exynos4x12.dtsi to avoid further duplication of broken properties.
+
+Change-Id: Ib980422ad67af8dc2493f1886f6e26f23b451d12
+Signed-off-by: Beomho Seo <beomho.seo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 --
+ arch/arm/boot/dts/exynos4x12.dtsi       | 2 ++
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index e99ddc9..0867ada 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -266,8 +266,6 @@
+ 		fifo-depth = <0x80>;
+ 		desc-num = <4>;
+ 		card-detect-delay = <200>;
+-		clocks = <&clock 351>, <&clock 132>;
+-		clock-name = "biu", "ciu";
+ 		vmmc-supply = <&vemmc_reg>;
+ 		clock-frequency = <400000000>;
+ 		samsung,dw-mshc-ciu-div = <0>;
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 5d73533..f47b326 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -83,6 +83,8 @@
+ 		interrupts = <0 77 0>;
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
++		clocks = <&clock 301>, <&clock 149>;
++		clock-names = "biu", "ciu";
+ 	};
+ 
+ 	pinctrl_2: pinctrl@03860000 {
+-- 
+1.8.3.2
+

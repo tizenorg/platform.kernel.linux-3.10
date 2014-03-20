@@ -1,0 +1,34 @@
+From 753ae81eb752c83c0451b96ab18cfeeb5f2e6093 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 22 Mar 2013 14:11:09 +0900
+Subject: [PATCH 0177/1302] ARM: dts: change mdma clock node of 4x12
+
+A MDMA gate clock is controlled by CLK_GATE_IP_IMAGE. Its base address differs
+4210 and 4x12. If we use a 4x12 board, we should use right clock node of mdma.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index c2cdbffb..9d386fc 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -71,6 +71,12 @@
+ 		};
+ 	};
+ 
++	amba {
++		mdma1: mdma@12850000 {
++			clocks = <&clock 350>;
++		};
++	};
++
+ 	mshc@12550000 {
+ 		compatible = "samsung,exynos4412-dw-mshc";
+ 		reg = <0x12550000 0x1000>;
+-- 
+1.8.3.2
+

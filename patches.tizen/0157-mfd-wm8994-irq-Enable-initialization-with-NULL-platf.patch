@@ -1,0 +1,45 @@
+From 6b8ecea12093f6bdfb357f2c26f8c6e15edb8013 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Tue, 5 Mar 2013 17:40:41 +0100
+Subject: [PATCH 0157/1302] mfd: wm8994-irq: Enable initialization with NULL
+ platform_data
+
+Interrupts are disabled, until the FIFO error interrupt flooding
+issue is resolved.
+
+TODO: Add proper support for device tree based initialization.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mfd/wm8994-irq.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/mfd/wm8994-irq.c b/drivers/mfd/wm8994-irq.c
+index a050e56..a348d5d 100644
+--- a/drivers/mfd/wm8994-irq.c
++++ b/drivers/mfd/wm8994-irq.c
+@@ -144,16 +144,18 @@ int wm8994_irq_init(struct wm8994 *wm8994)
+ 	unsigned long irqflags;
+ 	struct wm8994_pdata *pdata = wm8994->dev->platform_data;
+ 
+-	if (!wm8994->irq) {
++	if (!pdata || !wm8994->irq) {
+ 		dev_warn(wm8994->dev,
+ 			 "No interrupt specified, no interrupts\n");
+ 		wm8994->irq_base = 0;
+ 		return 0;
+ 	}
+ 
++	wm8994->irq_base = -1;
++
+ 	/* select user or default irq flags */
+ 	irqflags = IRQF_TRIGGER_HIGH | IRQF_ONESHOT;
+-	if (pdata->irq_flags)
++	if (pdata && pdata->irq_flags)
+ 		irqflags = pdata->irq_flags;
+ 
+ 	ret = regmap_add_irq_chip(wm8994->regmap, wm8994->irq,
+-- 
+1.8.3.2
+

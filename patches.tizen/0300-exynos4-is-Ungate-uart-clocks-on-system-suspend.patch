@@ -1,0 +1,78 @@
+From 9f8ea90494a724e8a2cb93b25cad03d801ff42c1 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 26 Jun 2013 15:42:14 +0200
+Subject: [PATCH 0300/1302] exynos4-is: Ungate uart clocks on system suspend
+
+Due to hardware requirements, several ISP clocks must be enabled when
+suspending the system. This patch adds ungating to suspend and
+gating to resume callbacks to keep such clocks ungated.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-is.c | 22 ++++++++++++++++++++++
+ drivers/media/platform/exynos4-is/fimc-is.h |  3 ++-
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-is.c b/drivers/media/platform/exynos4-is/fimc-is.c
+index 37dac12..0b641b5 100644
+--- a/drivers/media/platform/exynos4-is/fimc-is.c
++++ b/drivers/media/platform/exynos4-is/fimc-is.c
+@@ -905,17 +905,39 @@ static int fimc_is_runtime_suspend(struct device *dev)
+ static int fimc_is_resume(struct device *dev)
+ {
+ 	/* TODO: */
++	struct fimc_is *is = dev_get_drvdata(dev);
++	int i;
++
++	for (i = ISS_GATE_CLKS_SUSPEND; i < ISS_GATE_CLKS_MAX; i++)
++		if (!IS_ERR(is->clocks[i]))
++			clk_disable_unprepare(is->clocks[i]);
++
+ 	return 0;
+ }
+ 
+ static int fimc_is_suspend(struct device *dev)
+ {
+ 	struct fimc_is *is = dev_get_drvdata(dev);
++	int i, ret;
+ 
+ 	/* TODO: */
+ 	if (test_bit(IS_ST_A5_PWR_ON, &is->state))
+ 		return -EBUSY;
+ 
++	for (i = ISS_GATE_CLKS_SUSPEND; i < ISS_GATE_CLKS_MAX; i++) {
++		if (IS_ERR(is->clocks[i]))
++			continue;
++
++		ret = clk_prepare_enable(is->clocks[i]);
++		if (ret < 0) {
++			dev_err(&is->pdev->dev, "clock %s enable failed\n",
++							fimc_is_clocks[i]);
++			for (--i; i >= ISS_GATE_CLKS_SUSPEND; i--)
++				clk_disable_unprepare(is->clocks[i]);
++			return ret;
++		}
++	}
++
+ 	return 0;
+ }
+ #endif /* CONFIG_PM_SLEEP */
+diff --git a/drivers/media/platform/exynos4-is/fimc-is.h b/drivers/media/platform/exynos4-is/fimc-is.h
+index 1a97e09..fc6d1130 100644
+--- a/drivers/media/platform/exynos4-is/fimc-is.h
++++ b/drivers/media/platform/exynos4-is/fimc-is.h
+@@ -77,7 +77,8 @@ enum {
+ 	ISS_CLK_DRC,
+ 	ISS_CLK_FD,
+ 	ISS_CLK_MCUISP,
+-	ISS_CLK_UART,
++	ISS_GATE_CLKS_SUSPEND,
++	ISS_CLK_UART = ISS_GATE_CLKS_SUSPEND,
+ 	ISS_GATE_CLKS_MAX,
+ 	ISS_CLK_ISP_DIV0 = ISS_GATE_CLKS_MAX,
+ 	ISS_CLK_ISP_DIV1,
+-- 
+1.8.3.2
+

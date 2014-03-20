@@ -1,0 +1,1209 @@
+From f3dce49058a1c4650cafabf425c03bbaa8369ae1 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Fri, 30 Aug 2013 15:56:59 +0900
+Subject: [PATCH 0591/1302] dmabuf-sync: update it to patch v8
+
+- Consider the write-and-then-read ordering.
+  The ordering issue means that a task don't take a lock to the dmabuf
+  so this task would be stalled even though this task requested a lock
+  to the dmabuf between other task unlocked and tries to lock the dmabuf
+  again. For this, it addes a wait event mechanism using only generic
+  APIs, wait_event_timeout and wake_up functions.
+
+  The below is how to handle the ordering issue using this mechanism:
+  1. Check if there is a sync object added prior to current task's one.
+  2. If exists, it unlocks the dmabuf so that other task can take a lock
+     to the dmabuf first.
+  3. Wait for the wake up event from other task: current task will be
+     waked up when other task unlocks the dmabuf.
+  4. Take a lock to the dmabuf again.
+- Update Document
+- Code cleanups.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ Documentation/dma-buf-sync.txt          | 100 +++----
+ drivers/base/dmabuf-sync.c              | 502 +++++++++++++++++++++++++-------
+ drivers/gpu/drm/exynos/exynos_drm_g2d.c |   2 +-
+ include/linux/dmabuf-sync.h             |  93 +++++-
+ 4 files changed, 518 insertions(+), 179 deletions(-)
+
+diff --git a/Documentation/dma-buf-sync.txt b/Documentation/dma-buf-sync.txt
+index 4427759..5945c8a 100644
+--- a/Documentation/dma-buf-sync.txt
++++ b/Documentation/dma-buf-sync.txt
+@@ -53,50 +53,6 @@ What is the best way to solve these buffer synchronization issues?
+ 	Now we have already been using the dma-buf to share one buffer with
+ 	other drivers.
+ 
+-How we can utilize multi threads for more performance?
+-	DMA and CPU works individually. So CPU could perform other works while
+-	DMA are performing some works, and vise versa.
+-	However, in the conventional way, that is not easy to do so because
+-	DMA operation is depend on CPU operation, and vice versa.
+-
+-	Conventional way:
+-        User                                     Kernel
+-        ---------------------------------------------------------------------
+-        CPU writes something to src
+-        send the src to driver------------------------->
+-                                                 update DMA register
+-        request DMA start(1)--------------------------->
+-                                                 DMA start
+-                <---------completion signal(2)----------
+-        CPU accesses dst
+-
+-        (1) Request DMA start after the CPU access to src buffer is completed.
+-        (2) Access dst buffer after DMA access to the dst buffer is completed.
+-
+-On the other hand, if there is something to control buffer access between CPU
+-and DMA? The below shows that:
+-
+-        User(thread a)          User(thread b)            Kernel
+-        ---------------------------------------------------------------------
+-        send a src to driver---------------------------------->
+-                                                          update DMA register
+-        lock the src
+-                                request DMA start(1)---------->
+-        CPU acccess to src
+-        unlock the src                                    lock src and dst
+-                                                          DMA start
+-                <-------------completion signal(2)-------------
+-        lock dst                                          DMA completion
+-        CPU access to dst                                 unlock src and dst
+-        unlock DST
+-
+-        (1) Try to start DMA operation while CPU is accessing the src buffer.
+-        (2) Try CPU access to dst buffer while DMA is accessing the dst buffer.
+-
+-	In the same way, we could reduce hand shaking overhead between
+-	two processes when those processes need to share a shared buffer.
+-	There may be other cases that we could reduce overhead as well.
+-
+ 
+ Basic concept
+ -------------
+@@ -172,10 +128,12 @@ DMA_BUF_ACCESS_DMA_W - DMA will access a buffer for read or write.
+ Generic user interfaces
+ -----------------------
+ 
+-And this framework includes fcntl system call[3] as interfaces exported
+-to user. As you know, user sees a buffer object as a dma-buf file descriptor.
+-So fcntl() call with the file descriptor means to lock some buffer region being
+-managed by the dma-buf object.
++And this framework includes fcntl[3] and select system calls as interfaces
++exported to user. As you know, user sees a buffer object as a dma-buf file
++descriptor. fcntl() call with the file descriptor means to lock some buffer
++region being managed by the dma-buf object. And select call with the file
++descriptor means to poll the completion event of CPU or DMA access to
++the dma-buf.
+ 
+ 
+ API set
+@@ -184,10 +142,14 @@ API set
+ bool is_dmabuf_sync_supported(void)
+ 	- Check if dmabuf sync is supported or not.
+ 
+-struct dmabuf_sync *dmabuf_sync_init(void *priv, const char *name)
++struct dmabuf_sync *dmabuf_sync_init(const char *name,
++					struct dmabuf_sync_priv_ops *ops,
++					void priv*)
+ 	- Allocate and initialize a new sync object. The caller can get a new
+-	sync object for buffer synchronization. priv is used to set caller's
+-	private data and name is the name of sync object.
++	sync object for buffer synchronization. ops is used for device driver
++	to clean up its own sync object. For this, each device driver should
++	implement a free callback. priv is used for device driver to get its
++	device context when free callback is called.
+ 
+ void dmabuf_sync_fini(struct dmabuf_sync *sync)
+ 	- Release all resources to the sync object.
+@@ -235,9 +197,25 @@ Tutorial for device driver
+ --------------------------
+ 
+ 1. Allocate and Initialize a sync object:
++	static void xxx_dmabuf_sync_free(void *priv)
++	{
++		struct xxx_context *ctx = priv;
++
++		if (!ctx)
++			return;
++
++		ctx->sync = NULL;
++	}
++	...
++
++	static struct dmabuf_sync_priv_ops driver_specific_ops = {
++		.free = xxx_dmabuf_sync_free,
++	};
++	...
++
+ 	struct dmabuf_sync *sync;
+ 
+-	sync = dmabuf_sync_init(NULL, "test sync");
++	sync = dmabuf_sync_init("test sync", &driver_specific_ops, ctx);
+ 	...
+ 
+ 2. Add a dmabuf to the sync object when setting up dma buffer relevant registers:
+@@ -261,6 +239,8 @@ Tutorial for device driver
+ 
+ Tutorial for user application
+ -----------------------------
++fcntl system call:
++
+ 	struct flock filelock;
+ 
+ 1. Lock a dma buf:
+@@ -284,6 +264,22 @@ Tutorial for user application
+ 	detail, please refer to [3]
+ 
+ 
++select system call:
++
++	fd_set wdfs or rdfs;
++
++	FD_ZERO(&wdfs or &rdfs);
++	FD_SET(fd, &wdfs or &rdfs);
++
++	select(fd + 1, &rdfs, NULL, NULL, NULL);
++		or
++	select(fd + 1, NULL, &wdfs, NULL, NULL);
++
++	Every time select system call is called, a caller will wait for
++	the completion of DMA or CPU access to a shared buffer if there
++	is someone accessing the shared buffer. If no anyone then select
++	system call will be returned at once.
++
+ References:
+ [1] http://lwn.net/Articles/470339/
+ [2] https://patchwork.kernel.org/patch/2625361/
+diff --git a/drivers/base/dmabuf-sync.c b/drivers/base/dmabuf-sync.c
+index dab5b32..288aaff 100644
+--- a/drivers/base/dmabuf-sync.c
++++ b/drivers/base/dmabuf-sync.c
+@@ -18,9 +18,8 @@
+ 
+ #include <linux/dmabuf-sync.h>
+ 
+-#define MAX_SYNC_TIMEOUT	5 /* Second. */
+-
+-int dmabuf_sync_enabled = 1;
++#define MAX_SYNC_TIMEOUT	5	/* Second. */
++#define MAX_WAIT_TIMEOUT	2000	/* Millisecond. */
+ 
+ #define NEED_BEGIN_CPU_ACCESS(old, new_type)	\
+ 			((old->accessed_type & DMA_BUF_ACCESS_DMA_W) == \
+@@ -31,11 +30,31 @@ int dmabuf_sync_enabled = 1;
+ 			 (old->accessed_type == DMA_BUF_ACCESS_RW)) && \
+ 			 new_type & DMA_BUF_ACCESS_DMA)
+ 
++#define WAKE_UP_SYNC_OBJ(obj) {						\
++		if (obj->waiting) {					\
++			obj->waiting = false;				\
++			wake_up(&obj->wq);				\
++		}							\
++	}
++
++#define DEL_OBJ_FROM_RSV(obj, rsv) {					\
++		struct dmabuf_sync_object *e, *n;			\
++									\
++		list_for_each_entry_safe(e, n, &rsv->syncs, r_head) {	\
++			if (e == obj && !e->task) {			\
++				list_del_init(&e->r_head);		\
++				break;					\
++			}						\
++		}							\
++	}
++
++int dmabuf_sync_enabled = 1;
++
+ MODULE_PARM_DESC(enabled, "Check if dmabuf sync is supported or not");
+ module_param_named(enabled, dmabuf_sync_enabled, int, 0444);
+ 
+ DEFINE_WW_CLASS(dmabuf_sync_ww_class);
+-EXPORT_SYMBOL(dmabuf_sync_ww_class);
++EXPORT_SYMBOL_GPL(dmabuf_sync_ww_class);
+ 
+ static void dmabuf_sync_timeout_worker(struct work_struct *work)
+ {
+@@ -45,50 +64,61 @@ static void dmabuf_sync_timeout_worker(struct work_struct *work)
+ 	mutex_lock(&sync->lock);
+ 
+ 	list_for_each_entry(sobj, &sync->syncs, head) {
+-		if (WARN_ON(!sobj->robj))
+-			continue;
++		struct dmabuf_sync_reservation *rsvp = sobj->robj;
+ 
+-		mutex_lock(&sobj->robj->lock);
++		mutex_lock(&rsvp->lock);
+ 
+-		printk(KERN_WARNING "%s: timeout = 0x%x [type = %d, " \
++		pr_warn("%s: timeout = 0x%p [type = %d:%d, "
+ 					"refcnt = %d, locked = %d]\n",
+-					sync->name, (u32)sobj->dmabuf,
++					sync->name, sobj->dmabuf,
++					rsvp->accessed_type,
+ 					sobj->access_type,
+-					atomic_read(&sobj->robj->shared_cnt),
+-					sobj->robj->locked);
++					atomic_read(&rsvp->shared_cnt),
++					rsvp->locked);
+ 
+-		/* unlock only valid sync object. */
+-		if (!sobj->robj->locked) {
+-			mutex_unlock(&sobj->robj->lock);
+-			continue;
++		if (rsvp->polled) {
++			rsvp->poll_event = true;
++			rsvp->polled = false;
++			wake_up_interruptible(&rsvp->poll_wait);
+ 		}
+ 
+-		if (sobj->robj->polled) {
+-			sobj->robj->poll_event = true;
+-			sobj->robj->polled = false;
+-			wake_up_interruptible(&sobj->robj->poll_wait);
+-		}
++		/*
++		 * Wake up a task blocked by dmabuf_sync_wait_prev_objs().
++		 *
++		 * If sobj->waiting is true, the task is waiting for the wake
++		 * up event so wake up the task if a given time period is
++		 * elapsed and current task is timed out.
++		 */
++		WAKE_UP_SYNC_OBJ(sobj);
+ 
+-		if (atomic_add_unless(&sobj->robj->shared_cnt, -1, 1)) {
+-			mutex_unlock(&sobj->robj->lock);
++		/* Delete a sync object from reservation object of dmabuf. */
++		DEL_OBJ_FROM_RSV(sobj, rsvp);
++
++		if (atomic_add_unless(&rsvp->shared_cnt, -1, 1)) {
++			mutex_unlock(&rsvp->lock);
+ 			continue;
+ 		}
+ 
+-		mutex_unlock(&sobj->robj->lock);
++		/* unlock only valid sync object. */
++		if (!rsvp->locked) {
++			mutex_unlock(&rsvp->lock);
++			continue;
++		}
+ 
+-		ww_mutex_unlock(&sobj->robj->sync_lock);
++		mutex_unlock(&rsvp->lock);
++		ww_mutex_unlock(&rsvp->sync_lock);
+ 
+-		mutex_lock(&sobj->robj->lock);
+-		sobj->robj->locked = false;
++		mutex_lock(&rsvp->lock);
++		rsvp->locked = false;
+ 
+ 		if (sobj->access_type & DMA_BUF_ACCESS_R)
+-			printk(KERN_WARNING "%s: r-unlocked = 0x%x\n",
+-					sync->name, (u32)sobj->dmabuf);
++			pr_warn("%s: r-unlocked = 0x%p\n",
++					sync->name, sobj->dmabuf);
+ 		else
+-			printk(KERN_WARNING "%s: w-unlocked = 0x%x\n",
+-					sync->name, (u32)sobj->dmabuf);
++			pr_warn("%s: w-unlocked = 0x%p\n",
++					sync->name, sobj->dmabuf);
+ 
+-		mutex_unlock(&sobj->robj->lock);
++		mutex_unlock(&rsvp->lock);
+ 	}
+ 
+ 	sync->status = 0;
+@@ -167,6 +197,99 @@ static void dmabuf_sync_lock_timeout(unsigned long arg)
+ 	schedule_work(&sync->work);
+ }
+ 
++static void dmabuf_sync_wait_prev_objs(struct dmabuf_sync_object *sobj,
++					struct dmabuf_sync_reservation *rsvp,
++					struct ww_acquire_ctx *ctx)
++{
++	mutex_lock(&rsvp->lock);
++
++	/*
++	 * This function handles the write-and-then-read ordering issue.
++	 *
++	 * The ordering issue:
++	 * There is a case that a task don't take a lock to a dmabuf so
++	 * this task would be stalled even though this task requested a lock
++	 * to the dmabuf between other task unlocked and tries to lock
++	 * the dmabuf again.
++	 *
++	 * How to handle the ordering issue:
++	 * 1. Check if there is a sync object added prior to current task's one.
++	 * 2. If exists, it unlocks the dmabuf so that other task can take
++	 *	a lock to the dmabuf first.
++	 * 3. Wait for the wake up event from other task: current task will be
++	 *	waked up when other task unlocks the dmabuf.
++	 * 4. Take a lock to the dmabuf again.
++	 */
++	if (!list_empty(&rsvp->syncs)) {
++		struct dmabuf_sync_object *r_sobj, *next;
++
++		list_for_each_entry_safe(r_sobj, next, &rsvp->syncs,
++					r_head) {
++			long timeout;
++
++			/*
++			 * Find a sync object added to rsvp->syncs by other task
++			 * before current task tries to lock the dmabuf again.
++			 * If sobj == r_sobj, it means that there is no any task
++			 * that added its own sync object to rsvp->syncs so out
++			 * of this loop.
++			 */
++			if (sobj == r_sobj)
++				break;
++
++			/*
++			 * Unlock the dmabuf if there is a sync object added
++			 * to rsvp->syncs so that other task can take a lock
++			 * first.
++			 */
++			if (rsvp->locked) {
++				ww_mutex_unlock(&rsvp->sync_lock);
++				rsvp->locked = false;
++			}
++
++			r_sobj->waiting = true;
++
++			atomic_inc(&r_sobj->refcnt);
++			mutex_unlock(&rsvp->lock);
++
++			/* Wait for the wake up event from other task. */
++			timeout = wait_event_timeout(r_sobj->wq,
++					!r_sobj->waiting,
++					msecs_to_jiffies(MAX_WAIT_TIMEOUT));
++			if (!timeout) {
++				r_sobj->waiting = false;
++				pr_warn("wait event timeout: sobj = 0x%p\n",
++						r_sobj);
++
++				/*
++				 * A sync object from fcntl system call has no
++				 * timeout handler so delete ane free r_sobj
++				 * once timeout here without checking refcnt.
++				 */
++				if (r_sobj->task) {
++					pr_warn("delete: user sobj = 0x%p\n",
++							r_sobj);
++					list_del_init(&r_sobj->r_head);
++					kfree(r_sobj);
++				}
++			}
++
++			if (!atomic_add_unless(&r_sobj->refcnt, -1, 1))
++				kfree(r_sobj);
++
++			/*
++			 * Other task unlocked the dmabuf so take a lock again.
++			 */
++			ww_mutex_lock(&rsvp->sync_lock, ctx);
++
++			mutex_lock(&rsvp->lock);
++			rsvp->locked = true;
++		}
++	}
++
++	mutex_unlock(&rsvp->lock);
++}
++
+ static int dmabuf_sync_lock_objs(struct dmabuf_sync *sync,
+ 					struct ww_acquire_ctx *ctx)
+ {
+@@ -180,41 +303,58 @@ static int dmabuf_sync_lock_objs(struct dmabuf_sync *sync,
+ 
+ retry:
+ 	list_for_each_entry(sobj, &sync->syncs, head) {
+-		if (WARN_ON(!sobj->robj))
++		struct dmabuf_sync_reservation *rsvp = sobj->robj;
++
++		if (WARN_ON(!rsvp))
+ 			continue;
+ 
+-		mutex_lock(&sobj->robj->lock);
++		mutex_lock(&rsvp->lock);
++
++		/*
++		 * Add a sync object to reservation object of dmabuf
++		 * to handle the write-and-then-read ordering issue.
++		 *
++		 * For more details, see dmabuf_sync_wait_prev_objs function.
++		 */
++		list_add_tail(&sobj->r_head, &rsvp->syncs);
+ 
+ 		/* Don't lock in case of read and read. */
+-		if (sobj->robj->accessed_type & DMA_BUF_ACCESS_R &&
++		if (rsvp->accessed_type & DMA_BUF_ACCESS_R &&
+ 		    sobj->access_type & DMA_BUF_ACCESS_R) {
+-			atomic_inc(&sobj->robj->shared_cnt);
+-			mutex_unlock(&sobj->robj->lock);
++			atomic_inc(&rsvp->shared_cnt);
++			mutex_unlock(&rsvp->lock);
+ 			continue;
+ 		}
+ 
+ 		if (sobj == res_sobj) {
+ 			res_sobj = NULL;
+-			mutex_unlock(&sobj->robj->lock);
++			mutex_unlock(&rsvp->lock);
+ 			continue;
+ 		}
+ 
+-		mutex_unlock(&sobj->robj->lock);
++		mutex_unlock(&rsvp->lock);
+ 
+-		ret = ww_mutex_lock(&sobj->robj->sync_lock, ctx);
++		ret = ww_mutex_lock(&rsvp->sync_lock, ctx);
+ 		if (ret < 0) {
+ 			contended_sobj = sobj;
+ 
+ 			if (ret == -EDEADLK)
+-				printk(KERN_WARNING"%s: deadlock = 0x%x\n",
+-					sync->name, (u32)sobj->dmabuf);
++				pr_warn("%s: deadlock = 0x%p\n",
++					sync->name, sobj->dmabuf);
+ 			goto err;
+ 		}
+ 
+-		mutex_lock(&sobj->robj->lock);
+-		sobj->robj->locked = true;
+-
+-		mutex_unlock(&sobj->robj->lock);
++		mutex_lock(&rsvp->lock);
++		rsvp->locked = true;
++		mutex_unlock(&rsvp->lock);
++
++		/*
++		 * Check if there is a sync object added to reservation object
++		 * of dmabuf before current task takes a lock to the dmabuf.
++		 * And ithen wait for the for the wake up event from other task
++		 * if exists.
++		 */
++		dmabuf_sync_wait_prev_objs(sobj, rsvp, ctx);
+ 	}
+ 
+ 	if (ctx)
+@@ -232,29 +372,52 @@ retry:
+ 
+ err:
+ 	list_for_each_entry_continue_reverse(sobj, &sync->syncs, head) {
+-		mutex_lock(&sobj->robj->lock);
++		struct dmabuf_sync_reservation *rsvp = sobj->robj;
++
++		mutex_lock(&rsvp->lock);
+ 
+ 		/* Don't need to unlock in case of read and read. */
+-		if (atomic_add_unless(&sobj->robj->shared_cnt, -1, 1)) {
+-			mutex_unlock(&sobj->robj->lock);
++		if (atomic_add_unless(&rsvp->shared_cnt, -1, 1)) {
++			mutex_unlock(&rsvp->lock);
+ 			continue;
+ 		}
+ 
+-		ww_mutex_unlock(&sobj->robj->sync_lock);
+-		sobj->robj->locked = false;
++		/*
++		 * Delete a sync object from reservation object of dmabuf.
++		 *
++		 * The sync object was added to reservation object of dmabuf
++		 * just before ww_mutex_lock() is called.
++		 */
++		DEL_OBJ_FROM_RSV(sobj, rsvp);
++		mutex_unlock(&rsvp->lock);
+ 
+-		mutex_unlock(&sobj->robj->lock);
++		ww_mutex_unlock(&rsvp->sync_lock);
++
++		mutex_lock(&rsvp->lock);
++		rsvp->locked = false;
++		mutex_unlock(&rsvp->lock);
+ 	}
+ 
+ 	if (res_sobj) {
+-		mutex_lock(&res_sobj->robj->lock);
++		struct dmabuf_sync_reservation *rsvp = res_sobj->robj;
+ 
+-		if (!atomic_add_unless(&res_sobj->robj->shared_cnt, -1, 1)) {
+-			ww_mutex_unlock(&res_sobj->robj->sync_lock);
+-			res_sobj->robj->locked = false;
++		mutex_lock(&rsvp->lock);
++
++		if (!atomic_add_unless(&rsvp->shared_cnt, -1, 1)) {
++			/*
++			 * Delete a sync object from reservation object
++			 * of dmabuf.
++			 */
++			DEL_OBJ_FROM_RSV(sobj, rsvp);
++			mutex_unlock(&rsvp->lock);
++
++			ww_mutex_unlock(&rsvp->sync_lock);
++
++			mutex_lock(&rsvp->lock);
++			rsvp->locked = false;
+ 		}
+ 
+-		mutex_unlock(&res_sobj->robj->lock);
++		mutex_unlock(&rsvp->lock);
+ 	}
+ 
+ 	if (ret == -EDEADLK) {
+@@ -281,26 +444,40 @@ static void dmabuf_sync_unlock_objs(struct dmabuf_sync *sync,
+ 	mutex_lock(&sync->lock);
+ 
+ 	list_for_each_entry(sobj, &sync->syncs, head) {
+-		mutex_lock(&sobj->robj->lock);
++		struct dmabuf_sync_reservation *rsvp = sobj->robj;
+ 
+-		if (sobj->robj->polled) {
+-			sobj->robj->poll_event = true;
+-			sobj->robj->polled = false;
+-			wake_up_interruptible(&sobj->robj->poll_wait);
++		mutex_lock(&rsvp->lock);
++
++		if (rsvp->polled) {
++			rsvp->poll_event = true;
++			rsvp->polled = false;
++			wake_up_interruptible(&rsvp->poll_wait);
+ 		}
+ 
+-		if (atomic_add_unless(&sobj->robj->shared_cnt, -1, 1)) {
+-			mutex_unlock(&sobj->robj->lock);
++		/*
++		 * Wake up a task blocked by dmabuf_sync_wait_prev_objs().
++		 *
++		 * If sobj->waiting is true, the task is waiting for wake_up
++		 * call. So wake up the task if a given time period was
++		 * elapsed so current task was timed out.
++		 */
++		WAKE_UP_SYNC_OBJ(sobj);
++
++		/* Delete a sync object from reservation object of dmabuf. */
++		DEL_OBJ_FROM_RSV(sobj, rsvp);
++
++		if (atomic_add_unless(&rsvp->shared_cnt, -1, 1)) {
++			mutex_unlock(&rsvp->lock);
+ 			continue;
+ 		}
+ 
+-		mutex_unlock(&sobj->robj->lock);
++		mutex_unlock(&rsvp->lock);
+ 
+-		ww_mutex_unlock(&sobj->robj->sync_lock);
++		ww_mutex_unlock(&rsvp->sync_lock);
+ 
+-		mutex_lock(&sobj->robj->lock);
+-		sobj->robj->locked = false;
+-		mutex_unlock(&sobj->robj->lock);
++		mutex_lock(&rsvp->lock);
++		rsvp->locked = false;
++		mutex_unlock(&rsvp->lock);
+ 	}
+ 
+ 	mutex_unlock(&sync->lock);
+@@ -312,13 +489,13 @@ static void dmabuf_sync_unlock_objs(struct dmabuf_sync *sync,
+ }
+ 
+ /**
+- * is_dmabuf_sync_supported - Check if dmabuf sync is supported or not.
++ * dmabuf_sync_is_supported - Check if dmabuf sync is supported or not.
+  */
+-bool is_dmabuf_sync_supported(void)
++bool dmabuf_sync_is_supported(void)
+ {
+ 	return dmabuf_sync_enabled == 1;
+ }
+-EXPORT_SYMBOL(is_dmabuf_sync_supported);
++EXPORT_SYMBOL_GPL(dmabuf_sync_is_supported);
+ 
+ /**
+  * dmabuf_sync_init - Allocate and initialize a dmabuf sync.
+@@ -342,7 +519,7 @@ struct dmabuf_sync *dmabuf_sync_init(const char *name,
+ 	if (!sync)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	strncpy(sync->name, name, ARRAY_SIZE(sync->name) - 1);
++	strncpy(sync->name, name, DMABUF_SYNC_NAME_SIZE);
+ 
+ 	sync->ops = ops;
+ 	sync->priv = priv;
+@@ -352,7 +529,7 @@ struct dmabuf_sync *dmabuf_sync_init(const char *name,
+ 
+ 	return sync;
+ }
+-EXPORT_SYMBOL(dmabuf_sync_init);
++EXPORT_SYMBOL_GPL(dmabuf_sync_init);
+ 
+ /**
+  * dmabuf_sync_fini - Release a given dmabuf sync.
+@@ -365,18 +542,47 @@ EXPORT_SYMBOL(dmabuf_sync_init);
+  */
+ void dmabuf_sync_fini(struct dmabuf_sync *sync)
+ {
++	struct dmabuf_sync_object *sobj;
++
+ 	if (WARN_ON(!sync))
+ 		return;
+ 
++	if (list_empty(&sync->syncs))
++		goto free_sync;
++
++	list_for_each_entry(sobj, &sync->syncs, head) {
++		struct dmabuf_sync_reservation *rsvp = sobj->robj;
++
++		mutex_lock(&rsvp->lock);
++
++		if (rsvp->locked) {
++			mutex_unlock(&rsvp->lock);
++			ww_mutex_unlock(&rsvp->sync_lock);
++
++			mutex_lock(&rsvp->lock);
++			rsvp->locked = false;
++		}
++
++		mutex_unlock(&rsvp->lock);
++	}
++
++	/*
++	 * If !list_empty(&sync->syncs) then it means that dmabuf_sync_put()
++	 * or dmabuf_sync_put_all() was never called. So unreference all
++	 * dmabuf objects added to sync->syncs, and remove them from the syncs.
++	 */
++	dmabuf_sync_put_all(sync);
++
++free_sync:
+ 	if (sync->ops && sync->ops->free)
+ 		sync->ops->free(sync->priv);
+ 
+ 	kfree(sync);
+ }
+-EXPORT_SYMBOL(dmabuf_sync_fini);
++EXPORT_SYMBOL_GPL(dmabuf_sync_fini);
+ 
+ /*
+- * dmabuf_sync_get_obj - Add a given object to syncs list.
++ * dmabuf_sync_get_obj - Add a given object to sync's list.
+  *
+  * @sync: An object to dmabuf_sync structure.
+  * @dmabuf: An object to dma_buf structure.
+@@ -395,10 +601,8 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
+ {
+ 	struct dmabuf_sync_object *sobj;
+ 
+-	if (!dmabuf->sync) {
+-		WARN_ON(1);
++	if (!dmabuf->sync)
+ 		return -EFAULT;
+-	}
+ 
+ 	if (!IS_VALID_DMA_BUF_ACCESS_TYPE(type))
+ 		return -EINVAL;
+@@ -407,16 +611,16 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
+ 		type &= ~DMA_BUF_ACCESS_R;
+ 
+ 	sobj = kzalloc(sizeof(*sobj), GFP_KERNEL);
+-	if (!sobj) {
+-		WARN_ON(1);
++	if (!sobj)
+ 		return -ENOMEM;
+-	}
+ 
+ 	get_dma_buf(dmabuf);
+ 
+ 	sobj->dmabuf = dmabuf;
+ 	sobj->robj = dmabuf->sync;
+ 	sobj->access_type = type;
++	atomic_set(&sobj->refcnt, 1);
++	init_waitqueue_head(&sobj->wq);
+ 
+ 	mutex_lock(&sync->lock);
+ 	list_add_tail(&sobj->head, &sync->syncs);
+@@ -430,7 +634,7 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
+  *
+  * @sync: An object to dmabuf_sync structure.
+  *
+- * This function should be called if some operation is failed after
++ * This function should be called if some operation failed after
+  * dmabuf_sync_get_obj call to release a given sync object.
+  */
+ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
+@@ -447,7 +651,9 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
+ 		dma_buf_put(sobj->dmabuf);
+ 
+ 		list_del_init(&sobj->head);
+-		kfree(sobj);
++
++		if (!atomic_add_unless(&sobj->refcnt, -1, 1))
++			kfree(sobj);
+ 		break;
+ 	}
+ 
+@@ -462,7 +668,7 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
+  *
+  * @sync: An object to dmabuf_sync structure.
+  *
+- * This function should be called if some operation is failed after
++ * This function should be called if some operation failed after
+  * dmabuf_sync_get_obj call to release all sync objects.
+  */
+ static void dmabuf_sync_put_objs(struct dmabuf_sync *sync)
+@@ -475,7 +681,9 @@ static void dmabuf_sync_put_objs(struct dmabuf_sync *sync)
+ 		dma_buf_put(sobj->dmabuf);
+ 
+ 		list_del_init(&sobj->head);
+-		kfree(sobj);
++
++		if (!atomic_add_unless(&sobj->refcnt, -1, 1))
++			kfree(sobj);
+ 	}
+ 
+ 	mutex_unlock(&sync->lock);
+@@ -496,10 +704,8 @@ int dmabuf_sync_lock(struct dmabuf_sync *sync)
+ {
+ 	int ret;
+ 
+-	if (!sync) {
+-		WARN_ON(1);
++	if (!sync)
+ 		return -EFAULT;
+-	}
+ 
+ 	if (list_empty(&sync->syncs))
+ 		return -EINVAL;
+@@ -508,10 +714,8 @@ int dmabuf_sync_lock(struct dmabuf_sync *sync)
+ 		return -EINVAL;
+ 
+ 	ret = dmabuf_sync_lock_objs(sync, &sync->ctx);
+-	if (ret < 0) {
+-		WARN_ON(1);
++	if (ret < 0)
+ 		return ret;
+-	}
+ 
+ 	sync->status = DMABUF_SYNC_LOCKED;
+ 
+@@ -519,7 +723,7 @@ int dmabuf_sync_lock(struct dmabuf_sync *sync)
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL(dmabuf_sync_lock);
++EXPORT_SYMBOL_GPL(dmabuf_sync_lock);
+ 
+ /**
+  * dmabuf_sync_unlock - unlock all objects added to syncs list.
+@@ -531,10 +735,8 @@ EXPORT_SYMBOL(dmabuf_sync_lock);
+  */
+ int dmabuf_sync_unlock(struct dmabuf_sync *sync)
+ {
+-	if (!sync) {
+-		WARN_ON(1);
++	if (!sync)
+ 		return -EFAULT;
+-	}
+ 
+ 	/* If current dmabuf sync object wasn't reserved then just return. */
+ 	if (sync->status != DMABUF_SYNC_LOCKED)
+@@ -544,7 +746,7 @@ int dmabuf_sync_unlock(struct dmabuf_sync *sync)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(dmabuf_sync_unlock);
++EXPORT_SYMBOL_GPL(dmabuf_sync_unlock);
+ 
+ /**
+  * dmabuf_sync_single_lock - lock a dma buf.
+@@ -568,22 +770,36 @@ int dmabuf_sync_single_lock(struct dma_buf *dmabuf, unsigned int type,
+ 				bool wait)
+ {
+ 	struct dmabuf_sync_reservation *robj;
++	struct dmabuf_sync_object *sobj;
+ 
+-	if (!dmabuf->sync) {
+-		WARN_ON(1);
++	if (!dmabuf->sync)
+ 		return -EFAULT;
+-	}
+ 
+-	if (!IS_VALID_DMA_BUF_ACCESS_TYPE(type)) {
+-		WARN_ON(1);
++	if (!IS_VALID_DMA_BUF_ACCESS_TYPE(type))
+ 		return -EINVAL;
+-	}
+ 
+ 	get_dma_buf(dmabuf);
+ 	robj = dmabuf->sync;
+ 
++	sobj = kzalloc(sizeof(*sobj), GFP_KERNEL);
++	if (!sobj) {
++		dma_buf_put(dmabuf);
++		return -ENOMEM;
++	}
++
++	sobj->dmabuf = dmabuf;
++	sobj->task = (unsigned long)current;
++	atomic_set(&sobj->refcnt, 1);
++	init_waitqueue_head(&sobj->wq);
++
+ 	mutex_lock(&robj->lock);
+ 
++	/*
++	 * Add a sync object to reservation object of dmabuf to handle
++	 * the write-and-then-read ordering issue.
++	 */
++	list_add_tail(&sobj->r_head, &robj->syncs);
++
+ 	/* Don't lock in case of read and read. */
+ 	if (robj->accessed_type & DMA_BUF_ACCESS_R && type & DMA_BUF_ACCESS_R) {
+ 		atomic_inc(&robj->shared_cnt);
+@@ -596,24 +812,36 @@ int dmabuf_sync_single_lock(struct dma_buf *dmabuf, unsigned int type,
+ 	 * been locked.
+ 	 */
+ 	if (!wait && robj->locked) {
++		list_del_init(&sobj->r_head);
+ 		mutex_unlock(&robj->lock);
++		kfree(sobj);
+ 		dma_buf_put(dmabuf);
+ 		return -EAGAIN;
+ 	}
+ 
+ 	mutex_unlock(&robj->lock);
+ 
++	/* Unlocked by dmabuf_sync_single_unlock or dmabuf_sync_unlock. */
+ 	mutex_lock(&robj->sync_lock.base);
+ 
+ 	mutex_lock(&robj->lock);
+ 	robj->locked = true;
++	mutex_unlock(&robj->lock);
++
++	/*
++	 * Check if there is a sync object added to reservation object of
++	 * dmabuf before current task takes a lock to the dmabuf, and wait
++	 * for the for the wake up event from other task if exists.
++	 */
++	dmabuf_sync_wait_prev_objs(sobj, robj, NULL);
+ 
++	mutex_lock(&robj->lock);
+ 	dmabuf_sync_single_cache_ops(dmabuf, type);
+ 	mutex_unlock(&robj->lock);
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(dmabuf_sync_single_lock);
++EXPORT_SYMBOL_GPL(dmabuf_sync_single_lock);
+ 
+ /**
+  * dmabuf_sync_single_unlock - unlock a dma buf.
+@@ -626,6 +854,7 @@ EXPORT_SYMBOL(dmabuf_sync_single_lock);
+ void dmabuf_sync_single_unlock(struct dma_buf *dmabuf)
+ {
+ 	struct dmabuf_sync_reservation *robj;
++	struct dmabuf_sync_object *sobj, *next;
+ 
+ 	if (!dmabuf->sync) {
+ 		WARN_ON(1);
+@@ -642,6 +871,57 @@ void dmabuf_sync_single_unlock(struct dma_buf *dmabuf)
+ 		wake_up_interruptible(&robj->poll_wait);
+ 	}
+ 
++	/*
++	 * Wake up a blocked task/tasks by dmabuf_sync_wait_prev_objs()
++	 * with two steps.
++	 *
++	 * 1. Wake up a task waiting for the wake up event to a sync object
++	 *	of same task, and remove the sync object from reservation
++	 *	object of dmabuf, and then go to out: requested by same task.
++	 * 2. Wait up a task waiting for the wake up event to a sync object
++	 *	of other task, and remove the sync object if not existed
++	 *	at step 1: requested by other task.
++	 *
++	 * The reason, we have to handle it with the above two steps,
++	 * is that fcntl system call is called with a file descriptor so
++	 * kernel side cannot be aware of which sync object of robj->syncs
++	 * should be waked up and deleted at this function.
++	 * So for this, we use the above two steps to find a sync object
++	 * to be waked up.
++	 */
++	list_for_each_entry_safe(sobj, next, &robj->syncs, r_head) {
++		if (sobj->task == (unsigned long)current) {
++			/*
++			 * Wake up a task blocked by
++			 * dmabuf_sync_wait_prev_objs().
++			 */
++			WAKE_UP_SYNC_OBJ(sobj);
++
++			list_del_init(&sobj->r_head);
++
++			if (!atomic_add_unless(&sobj->refcnt, -1, 1))
++				kfree(sobj);
++			goto out;
++		}
++	}
++
++	list_for_each_entry_safe(sobj, next, &robj->syncs, r_head) {
++		if (sobj->task) {
++			/*
++			 * Wake up a task blocked by
++			 * dmabuf_sync_wait_prev_objs().
++			 */
++			WAKE_UP_SYNC_OBJ(sobj);
++
++			list_del_init(&sobj->r_head);
++
++			if (!atomic_add_unless(&sobj->refcnt, -1, 1))
++				kfree(sobj);
++			break;
++		}
++	}
++
++out:
+ 	if (atomic_add_unless(&robj->shared_cnt, -1 , 1)) {
+ 		mutex_unlock(&robj->lock);
+ 		dma_buf_put(dmabuf);
+@@ -660,7 +940,7 @@ void dmabuf_sync_single_unlock(struct dma_buf *dmabuf)
+ 
+ 	return;
+ }
+-EXPORT_SYMBOL(dmabuf_sync_single_unlock);
++EXPORT_SYMBOL_GPL(dmabuf_sync_single_unlock);
+ 
+ /**
+  * dmabuf_sync_get - Get dmabuf sync object.
+@@ -684,22 +964,18 @@ int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf, unsigned int type)
+ {
+ 	int ret;
+ 
+-	if (!sync || !sync_buf) {
+-		WARN_ON(1);
++	if (!sync || !sync_buf)
+ 		return -EFAULT;
+-	}
+ 
+ 	ret = dmabuf_sync_get_obj(sync, sync_buf, type);
+-	if (ret < 0) {
+-		WARN_ON(1);
++	if (ret < 0)
+ 		return ret;
+-	}
+ 
+ 	sync->status = DMABUF_SYNC_GOT;
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(dmabuf_sync_get);
++EXPORT_SYMBOL_GPL(dmabuf_sync_get);
+ 
+ /**
+  * dmabuf_sync_put - Put dmabuf sync object to a given dmabuf.
+@@ -725,7 +1001,7 @@ void dmabuf_sync_put(struct dmabuf_sync *sync, struct dma_buf *dmabuf)
+ 
+ 	dmabuf_sync_put_obj(sync, dmabuf);
+ }
+-EXPORT_SYMBOL(dmabuf_sync_put);
++EXPORT_SYMBOL_GPL(dmabuf_sync_put);
+ 
+ /**
+  * dmabuf_sync_put_all - Put dmabuf sync object to dmabufs.
+@@ -750,4 +1026,4 @@ void dmabuf_sync_put_all(struct dmabuf_sync *sync)
+ 
+ 	dmabuf_sync_put_objs(sync);
+ }
+-EXPORT_SYMBOL(dmabuf_sync_put_all);
++EXPORT_SYMBOL_GPL(dmabuf_sync_put_all);
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_g2d.c b/drivers/gpu/drm/exynos/exynos_drm_g2d.c
+index 90432d3..f438e80 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_g2d.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_g2d.c
+@@ -700,7 +700,7 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
+ 	int ret;
+ 	int i;
+ 
+-	if (is_dmabuf_sync_supported()) {
++	if (dmabuf_sync_is_supported()) {
+ 		node->sync = dmabuf_sync_init("g2d", &dmabuf_sync_ops, node);
+ 		if (IS_ERR(node->sync))
+ 			node->sync = NULL;
+diff --git a/include/linux/dmabuf-sync.h b/include/linux/dmabuf-sync.h
+index 9a3afc4..6577af8 100644
+--- a/include/linux/dmabuf-sync.h
++++ b/include/linux/dmabuf-sync.h
+@@ -14,12 +14,58 @@
+ #include <linux/sched.h>
+ #include <linux/dma-buf.h>
+ 
++#define DMABUF_SYNC_NAME_SIZE	64
++
++/*
++ * Status to a dmabuf_sync object.
++ *
++ * @DMABUF_SYNC_GOT: Indicate that one more dmabuf objects have been added
++ *			to a sync's list.
++ * @DMABUF_SYNC_LOCKED: Indicate that all dmabuf objects in a sync's list
++ *			have been locked.
++ */
+ enum dmabuf_sync_status {
+ 	DMABUF_SYNC_GOT		= 1,
+ 	DMABUF_SYNC_LOCKED,
+ };
+ 
++/*
++ * A structure for dmabuf_sync_reservation.
++ *
++ * @syncs: A list head to sync object and this is global to system.
++ *	This contains sync objects of tasks that requested a lock
++ *	to this dmabuf.
++ * @sync_lock: This provides read or write lock to a dmabuf.
++ *	Except in the below cases, a task will be blocked if the task
++ *	tries to lock a dmabuf for CPU or DMA access when other task
++ *	already locked the dmabuf.
++ *
++ *	Before		After
++ *	--------------------------
++ *	CPU read	CPU read
++ *	CPU read	DMA read
++ *	DMA read	CPU read
++ *	DMA read	DMA read
++ *
++ * @lock: Protecting a dmabuf_sync_reservation object.
++ * @poll_wait: A wait queue object to poll a dmabuf object.
++ * @poll_event: Indicate whether a dmabuf object - being polled -
++ *	was unlocked or not. If true, a blocked task will be out
++ *	of select system call.
++ * @poll: Indicate whether the polling to a dmabuf object was requested
++ *	or not by userspace.
++ * @shared_cnt: Shared count to a dmabuf object.
++ * @accessed_type: Indicate how and who a dmabuf object was accessed by.
++ *	One of the below types could be set.
++ *	DMA_BUF_ACCESS_R -> CPU access for read.
++ *	DMA_BUF_ACCRSS_W -> CPU access for write.
++ *	DMA_BUF_ACCESS_R | DMA_BUF_ACCESS_DMA -> DMA access for read.
++ *	DMA_BUF_ACCESS_W | DMA_BUF_ACCESS_DMA -> DMA access for write.
++ * @locked: Indicate whether a dmabuf object has been locked or not.
++ *
++ */
+ struct dmabuf_sync_reservation {
++	struct list_head	syncs;
+ 	struct ww_mutex		sync_lock;
+ 	struct mutex		lock;
+ 	wait_queue_head_t	poll_wait;
+@@ -33,17 +79,36 @@ struct dmabuf_sync_reservation {
+ /*
+  * A structure for dmabuf_sync_object.
+  *
+- * @head: A list head to be added to syncs list.
++ * @head: A list head to be added to dmabuf_sync's syncs.
++ * @r_head: A list head to be added to dmabuf_sync_reservation's syncs.
+  * @robj: A reservation_object object.
+  * @dma_buf: A dma_buf object.
++ * @task: An address value to current task.
++ *	This is used to indicate who is a owner of a sync object.
++ * @wq: A wait queue head.
++ *	This is used to guarantee that a task can take a lock to a dmabuf
++ *	if the task requested a lock to the dmabuf prior to other task.
++ *	For more details, see dmabuf_sync_wait_prev_objs function.
++ * @refcnt: A reference count to a sync object.
+  * @access_type: Indicate how a current task tries to access
+- *	a given buffer.
++ *	a given buffer, and one of the below types could be set.
++ *	DMA_BUF_ACCESS_R -> CPU access for read.
++ *	DMA_BUF_ACCRSS_W -> CPU access for write.
++ *	DMA_BUF_ACCESS_R | DMA_BUF_ACCESS_DMA -> DMA access for read.
++ *	DMA_BUF_ACCESS_W | DMA_BUF_ACCESS_DMA -> DMA access for write.
++ * @waiting: Indicate whether current task is waiting for the wake up event
++ *	from other task or not.
+  */
+ struct dmabuf_sync_object {
+ 	struct list_head		head;
++	struct list_head		r_head;
+ 	struct dmabuf_sync_reservation	*robj;
+ 	struct dma_buf			*dmabuf;
++	unsigned long			task;
++	wait_queue_head_t		wq;
++	atomic_t			refcnt;
+ 	unsigned int			access_type;
++	unsigned int			waiting;
+ };
+ 
+ struct dmabuf_sync_priv_ops {
+@@ -54,8 +119,9 @@ struct dmabuf_sync_priv_ops {
+  * A structure for dmabuf_sync.
+  *
+  * @syncs: A list head to sync object and this is global to system.
++ *	This contains sync objects of dmabuf_sync owner.
+  * @list: A list entry used as committed list node
+- * @lock: A mutex lock to current sync object.
++ * @lock: Protecting a dmabuf_sync object.
+  * @ctx: A current context for ww mutex.
+  * @work: A work struct to release resources at timeout.
+  * @priv: A private data.
+@@ -71,7 +137,7 @@ struct dmabuf_sync {
+ 	struct work_struct		work;
+ 	void				*priv;
+ 	struct dmabuf_sync_priv_ops	*ops;
+-	char				name[64];
++	char				name[DMABUF_SYNC_NAME_SIZE];
+ 	struct timer_list		timer;
+ 	unsigned int			status;
+ };
+@@ -94,6 +160,7 @@ static inline void dmabuf_sync_reservation_init(struct dma_buf *dmabuf)
+ 
+ 	mutex_init(&obj->lock);
+ 	atomic_set(&obj->shared_cnt, 1);
++	INIT_LIST_HEAD(&obj->syncs);
+ 
+ 	init_waitqueue_head(&obj->poll_wait);
+ }
+@@ -112,29 +179,29 @@ static inline void dmabuf_sync_reservation_fini(struct dma_buf *dmabuf)
+ 	kfree(obj);
+ }
+ 
+-extern bool is_dmabuf_sync_supported(void);
++bool dmabuf_sync_is_supported(void);
+ 
+-extern struct dmabuf_sync *dmabuf_sync_init(const char *name,
++struct dmabuf_sync *dmabuf_sync_init(const char *name,
+ 					struct dmabuf_sync_priv_ops *ops,
+ 					void *priv);
+ 
+-extern void dmabuf_sync_fini(struct dmabuf_sync *sync);
++void dmabuf_sync_fini(struct dmabuf_sync *sync);
+ 
+-extern int dmabuf_sync_lock(struct dmabuf_sync *sync);
++int dmabuf_sync_lock(struct dmabuf_sync *sync);
+ 
+-extern int dmabuf_sync_unlock(struct dmabuf_sync *sync);
++int dmabuf_sync_unlock(struct dmabuf_sync *sync);
+ 
+ int dmabuf_sync_single_lock(struct dma_buf *dmabuf, unsigned int type,
+ 				bool wait);
+ 
+ void dmabuf_sync_single_unlock(struct dma_buf *dmabuf);
+ 
+-extern int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf,
++int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf,
+ 				unsigned int type);
+ 
+-extern void dmabuf_sync_put(struct dmabuf_sync *sync, struct dma_buf *dmabuf);
++void dmabuf_sync_put(struct dmabuf_sync *sync, struct dma_buf *dmabuf);
+ 
+-extern void dmabuf_sync_put_all(struct dmabuf_sync *sync);
++void dmabuf_sync_put_all(struct dmabuf_sync *sync);
+ 
+ #else
+ 
+@@ -142,7 +209,7 @@ static inline void dmabuf_sync_reservation_init(struct dma_buf *dmabuf) { }
+ 
+ static inline void dmabuf_sync_reservation_fini(struct dma_buf *dmabuf) { }
+ 
+-static inline bool is_dmabuf_sync_supported(void) { return false; }
++static inline bool dmabuf_sync_is_supported(void) { return false; }
+ 
+ static inline  struct dmabuf_sync *dmabuf_sync_init(const char *name,
+ 					struct dmabuf_sync_priv_ops *ops,
+-- 
+1.8.3.2
+

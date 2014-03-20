@@ -1,0 +1,33 @@
+From c015593300e5f8f31bd21b625b70ac1de1eb46a5 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 8 Nov 2013 10:51:00 +0900
+Subject: [PATCH 1016/1302] cpufreq : M0: Allow sailable frequency up to 1.4Ghz
+ @ M0
+
+Signed-off-by : Jonghwa Lee <jonghwa3.lee@samsung.com>
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-m0.dts | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+index 4ec07fc..4bf6677 100644
+--- a/arch/arm/boot/dts/exynos4412-m0.dts
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -216,6 +216,12 @@
+ 		};
+ 	};
+ 
++	cpufreq {
++		freq_table = <1400000 1300000 1200000 1100000 1000000
++			     900000 800000 700000 600000 500000 400000 300000
++			     200000>;
++	};
++
+ 	thermistor-ap@0 {
+ 		compatible = "ntc,ncp03wb473";
+ 		status = "ok";
+-- 
+1.8.3.2
+

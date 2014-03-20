@@ -1,0 +1,66 @@
+From 83c699a919e970620472a4479002deebc744f56b Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 20 Aug 2013 15:15:13 +0200
+Subject: [PATCH 0092/1302] ARM: dts: exynos4412-redwood: Enable MFC and CMA
+
+This patch adds device tree nodes for MFC and its CMA memory regions
+to enable MFC/DRM/MALI support on Redwood board.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts | 33 ++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index 78e763a..ac6ef14 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -24,6 +24,27 @@
+ 			0x50000000 0x10000000
+ 			0x60000000 0x10000000
+ 			0x70000000 0x10000000>;
++
++		reserved-memory {
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			contig_mem: region@71000000 {
++				compatible = "linux,contiguous-memory-region";
++				reg = <0x71000000 0x0c000000>;
++				linux,default-contiguous-region;
++			};
++
++			mfc_l_mem: mfc_l_region@43000000 {
++				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
++				reg = <0x43000000 0x1000000>;
++			};
++
++			mfc_r_mem: mfc_r_region@51000000 {
++				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
++				reg = <0x51000000 0x1000000>;
++			};
++		};
+ 	};
+ 
+ 	chosen {
+@@ -492,4 +513,16 @@
+ 		vusb_d-supply = <&ldo15_reg>;
+ 		vusb_a-supply = <&ldo12_reg>;
+ 	};
++
++	mfc: codec@13400000 {
++		status = "okay";
++
++		memport@0 {
++			memory-region = <&mfc_l_mem>;
++		};
++
++		memport@1 {
++			memory-region = <&mfc_r_mem>;
++		};
++	};
+ };
+-- 
+1.8.3.2
+

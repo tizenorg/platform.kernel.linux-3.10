@@ -1,0 +1,30 @@
+From fb6d3fd14b7aae523a27f1ec53386aa05d97cbcb Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 1 Mar 2013 16:03:00 +0100
+Subject: [PATCH 0154/1302] ARM: dts: exynos4412-redwood: Add physical display
+ size properties
+
+This patch adds physical size properties to panel node.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index 5df54e8..475889a 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -456,6 +456,8 @@
+ 		video-source = <&dsi_0>;
+ 		flip-horizontal;
+ 		flip-vertical;
++		samsung,panel-width-mm = <59>; /* FIXME */
++		samsung,panel-height-mm = <105>; /* FIXME */
+ 
+ 		display-timings {
+ 			native-mode = <&timing0>;
+-- 
+1.8.3.2
+

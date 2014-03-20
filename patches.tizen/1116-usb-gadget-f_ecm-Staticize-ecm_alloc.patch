@@ -1,0 +1,30 @@
+From 82656ff98b6babda9920286aa72e2bc204c0455f Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Mon, 16 Sep 2013 11:44:45 +0530
+Subject: [PATCH 1116/1302] usb: gadget: f_ecm: Staticize ecm_alloc
+
+'ecm_alloc' is local to this file. Make it static.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_ecm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_ecm.c b/drivers/usb/gadget/f_ecm.c
+index edab45d..8d9e6f7 100644
+--- a/drivers/usb/gadget/f_ecm.c
++++ b/drivers/usb/gadget/f_ecm.c
+@@ -995,7 +995,7 @@ static void ecm_unbind(struct usb_configuration *c, struct usb_function *f)
+ 	usb_ep_free_request(ecm->notify, ecm->notify_req);
+ }
+ 
+-struct usb_function *ecm_alloc(struct usb_function_instance *fi)
++static struct usb_function *ecm_alloc(struct usb_function_instance *fi)
+ {
+ 	struct f_ecm	*ecm;
+ 	struct f_ecm_opts *opts;
+-- 
+1.8.3.2
+

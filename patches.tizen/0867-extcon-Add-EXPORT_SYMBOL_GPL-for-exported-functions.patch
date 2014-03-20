@@ -1,0 +1,43 @@
+From 2a18ff1323135edc46067e56ea80ea0a2d47fd5a Mon Sep 17 00:00:00 2001
+From: Kishon Vijay Abraham I <kishon@ti.com>
+Date: Tue, 4 Jun 2013 01:13:38 +0900
+Subject: [PATCH 0867/1302] extcon: Add EXPORT_SYMBOL_GPL for exported
+ functions
+
+Added EXPORT_SYMBOL_GPL() for extcon_register_interest and
+extcon_register_notifier in order to avoid undefined reference
+error when building the consumer modules of extcon as _modules_.
+
+Signed-off-by: Kishon Vijay Abraham I <kishon@ti.com>
+Signed-off-by: Lokesh Vutla <lokeshvutla@ti.com>
+Signed-off-by: Chanwoo Choi <cw00.choi@samsung.com>
+Signed-off-by: Myungjoo Ham <myungjoo.ham@samsung.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/extcon/extcon-class.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/extcon/extcon-class.c b/drivers/extcon/extcon-class.c
+index 972b157..77fcac5 100644
+--- a/drivers/extcon/extcon-class.c
++++ b/drivers/extcon/extcon-class.c
+@@ -507,6 +507,7 @@ int extcon_register_interest(struct extcon_specific_cable_nb *obj,
+ 		return -ENODEV;
+ 	}
+ }
++EXPORT_SYMBOL_GPL(extcon_register_interest);
+ 
+ /**
+  * extcon_unregister_interest() - Unregister the notifier registered by
+@@ -521,6 +522,7 @@ int extcon_unregister_interest(struct extcon_specific_cable_nb *obj)
+ 
+ 	return raw_notifier_chain_unregister(&obj->edev->nh, &obj->internal_nb);
+ }
++EXPORT_SYMBOL_GPL(extcon_unregister_interest);
+ 
+ /**
+  * extcon_register_notifier() - Register a notifiee to get notified by
+-- 
+1.8.3.2
+

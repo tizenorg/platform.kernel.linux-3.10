@@ -1,0 +1,47 @@
+From 67f415c5868ecfb99ced79a4805cb9cc07c2ce3a Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 7 Jan 2013 20:27:53 +0100
+Subject: [PATCH 0053/1302] ARM: dts: Add pinctrl entries for FIMC-IS
+ peripherals
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12-pinctrl.dtsi | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4x12-pinctrl.dtsi b/arch/arm/boot/dts/exynos4x12-pinctrl.dtsi
+index 950ef30..b4919a6 100644
+--- a/arch/arm/boot/dts/exynos4x12-pinctrl.dtsi
++++ b/arch/arm/boot/dts/exynos4x12-pinctrl.dtsi
+@@ -904,6 +904,27 @@
+ 			samsung,pin-pud = <0>;
+ 			samsung,pin-drv = <0>;
+ 		};
++
++		fimc_is_i2c0: fimc-is-i2c0 {
++			samsung,pins = "gpm4-0", "gpm4-1";
++			samsung,pin-function = <2>;
++			samsung,pin-pud = <0>;
++			samsung,pin-drv = <0>;
++		};
++
++		fimc_is_i2c1: fimc-is-i2c1 {
++			samsung,pins = "gpm4-2", "gpm4-3";
++			samsung,pin-function = <2>;
++			samsung,pin-pud = <0>;
++			samsung,pin-drv = <0>;
++		};
++
++		fimc_is_uart: fimc-is-uart {
++			samsung,pins = "gpm3-5", "gpm3-7";
++			samsung,pin-function = <3>;
++			samsung,pin-pud = <0>;
++			samsung,pin-drv = <0>;
++		};
+ 	};
+ 
+ 	pinctrl@03860000 {
+-- 
+1.8.3.2
+

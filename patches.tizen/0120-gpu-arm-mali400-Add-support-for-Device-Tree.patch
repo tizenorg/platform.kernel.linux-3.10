@@ -1,0 +1,94 @@
+From 0df75c6aa113af5ccef7f0fd2d6e9074739da3ab Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 10 May 2013 19:10:17 +0200
+Subject: [PATCH 0120/1302] gpu: arm: mali400: Add support for Device Tree
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/arm/mali400/mali/Kbuild                    |  1 -
+ drivers/gpu/arm/mali400/mali/Makefile                  |  1 -
+ drivers/gpu/arm/mali400/mali/linux/mali_kernel_linux.c | 15 ++++++++++-----
+ 3 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/arm/mali400/mali/Kbuild b/drivers/gpu/arm/mali400/mali/Kbuild
+index 8c6e1f0..b7ff03c 100644
+--- a/drivers/gpu/arm/mali400/mali/Kbuild
++++ b/drivers/gpu/arm/mali400/mali/Kbuild
+@@ -25,7 +25,6 @@ MALI_UPPER_HALF_SCHEDULING ?= 1
+ TARGET_PLATFORM=redwood
+ include $(src)/MALI_CONFIGURATION
+ MALI_PLATFORM = $(MALI_PLATFORM-$(TARGET_PLATFORM))
+-EXTRA_DEFINES += -DMALI_FAKE_PLATFORM_DEVICE=1
+ MALI_PLATFORM_FILES = $(subst $(src)/,,$(wildcard $(src)/platform/$(MALI_PLATFORM)/*.c))
+ 
+ # For customer releases the Linux Device Drivers will be provided as ARM proprietary and GPL releases:
+diff --git a/drivers/gpu/arm/mali400/mali/Makefile b/drivers/gpu/arm/mali400/mali/Makefile
+index 9cdfd44..0a47c9f 100644
+--- a/drivers/gpu/arm/mali400/mali/Makefile
++++ b/drivers/gpu/arm/mali400/mali/Makefile
+@@ -93,7 +93,6 @@ endif
+ export CONFIG_MALI400=m
+ 
+ ifneq ($(MALI_PLATFORM),)
+-export EXTRA_DEFINES += -DMALI_FAKE_PLATFORM_DEVICE=1
+ export MALI_PLATFORM_FILES = $(wildcard platform/$(MALI_PLATFORM)/*.c)
+ endif
+ 
+diff --git a/drivers/gpu/arm/mali400/mali/linux/mali_kernel_linux.c b/drivers/gpu/arm/mali400/mali/linux/mali_kernel_linux.c
+index adaaf9a..8bd4ca8 100644
+--- a/drivers/gpu/arm/mali400/mali/linux/mali_kernel_linux.c
++++ b/drivers/gpu/arm/mali400/mali/linux/mali_kernel_linux.c
+@@ -17,6 +17,7 @@
+ #include <linux/cdev.h>     /* character device definitions */
+ #include <linux/mm.h>       /* memory manager definitions */
+ #include <linux/mali/mali_utgard_ioctl.h>
++#include <linux/of.h>
+ #include <linux/version.h>
+ #include <linux/device.h>
+ #include "mali_kernel_license.h"
+@@ -95,11 +96,6 @@ MODULE_PARM_DESC(mali_max_pp_cores_group_2, "Limit the number of PP cores to use
+ EXPORT_SYMBOL(mali_set_user_setting);
+ EXPORT_SYMBOL(mali_get_user_setting);
+ #if CONFIG_MALI_DVFS
+-/* MALI_SEC */
+-extern int mali_dvfs_control;
+-module_param(mali_dvfs_control, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP| S_IROTH); /* rw-rw-r-- */
+-MODULE_PARM_DESC(mali_dvfs_control, "Mali Current DVFS");
+-
+ #if 0
+ extern int mali_gpu_clk;
+ module_param(mali_gpu_clk, int, S_IRUSR | S_IRGRP | S_IROTH); /* r--r--r-- */
+@@ -195,6 +191,7 @@ static struct platform_driver mali_platform_driver =
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29))
+ 		.pm = &mali_dev_pm_ops,
+ #endif
++		.of_match_table = of_match_ptr(mali_of_matches),
+ 	},
+ };
+ 
+@@ -302,6 +299,13 @@ static int mali_probe(struct platform_device *pdev)
+ 
+ 	mali_platform_device = pdev;
+ 
++	if (mali_platform_init() != _MALI_OSK_ERR_OK)
++	{
++		/* Platform-specific initialization failed, return error */
++		MALI_PRINT_ERROR(("mali_probe(): mali_platform_init() failed."));
++		return -EFAULT;
++	}
++
+ 	if (_MALI_OSK_ERR_OK == _mali_osk_wq_init())
+ 	{
+ 		/* Initialize the Mali GPU HW specified by pdev */
+@@ -348,6 +352,7 @@ static int mali_remove(struct platform_device *pdev)
+ 	mali_miscdevice_unregister();
+ 	mali_terminate_subsystems();
+ 	_mali_osk_wq_term();
++	mali_platform_deinit();
+ 	mali_platform_device = NULL;
+ 	return 0;
+ }
+-- 
+1.8.3.2
+

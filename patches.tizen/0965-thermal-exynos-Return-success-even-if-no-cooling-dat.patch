@@ -1,0 +1,44 @@
+From 0d7c5cef9f3d3bea953854e79713fb427e638224 Mon Sep 17 00:00:00 2001
+From: Amit Daniel Kachhap <amit.daniel@samsung.com>
+Date: Mon, 24 Jun 2013 16:20:36 +0530
+Subject: [PATCH 0965/1302] thermal: exynos: Return success even if no cooling
+ data supplied
+
+This patch removes the error return in the bind/unbind routine
+as the platform may not register any cpufreq cooling data.
+
+Acked-by: Kukjin Kim <kgene.kim@samsung.com>
+Acked-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Acked-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: Amit Daniel Kachhap <amit.daniel@samsung.com>
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/samsung/exynos_thermal_common.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/thermal/samsung/exynos_thermal_common.c b/drivers/thermal/samsung/exynos_thermal_common.c
+index c6eab8c..99318e5 100644
+--- a/drivers/thermal/samsung/exynos_thermal_common.c
++++ b/drivers/thermal/samsung/exynos_thermal_common.c
+@@ -132,7 +132,7 @@ static int exynos_bind(struct thermal_zone_device *thermal,
+ 	tab_size = data->cooling_data.freq_clip_count;
+ 
+ 	if (tab_ptr == NULL || tab_size == 0)
+-		return -EINVAL;
++		return 0;
+ 
+ 	/* find the cooling device registered*/
+ 	for (i = 0; i < th_zone->cool_dev_size; i++)
+@@ -181,7 +181,7 @@ static int exynos_unbind(struct thermal_zone_device *thermal,
+ 	tab_size = data->cooling_data.freq_clip_count;
+ 
+ 	if (tab_size == 0)
+-		return -EINVAL;
++		return 0;
+ 
+ 	/* find the cooling device registered*/
+ 	for (i = 0; i < th_zone->cool_dev_size; i++)
+-- 
+1.8.3.2
+

@@ -1,0 +1,603 @@
+From dd66ad0a046b89e20f69f5635175321da57bccb7 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Thu, 23 May 2013 09:22:03 +0200
+Subject: [PATCH 0605/1302] usb: gadget: u_ether: convert into module
+
+u_ether.c has been #include'd by all gadgets which implement
+USB Ethernet functions. In order to add configfs support,
+the f_ecm.c, f_eem.c, f_ncm.c, f_subset.c, f_rndis.c need to be
+converted into modules and must not be #include'd. Consequently,
+the u_ether.c needs to be a module too, in a manner similar
+to u_serial.c. The resulting module should not take any parameters,
+so they are pushed to the current users of it, that is ether.c,
+g_ffs.c, multi.c, ncm.c, nokia.c.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/Kconfig   | 10 ++++++++++
+ drivers/usb/gadget/Makefile  |  1 +
+ drivers/usb/gadget/cdc2.c    | 10 ++++++----
+ drivers/usb/gadget/ether.c   | 14 ++++++++------
+ drivers/usb/gadget/g_ffs.c   | 13 ++++++++-----
+ drivers/usb/gadget/multi.c   | 13 ++++++++-----
+ drivers/usb/gadget/ncm.c     | 10 ++++++----
+ drivers/usb/gadget/nokia.c   | 11 +++++++----
+ drivers/usb/gadget/u_ether.c | 38 ++++++++++++++++++--------------------
+ drivers/usb/gadget/u_ether.h | 30 ++++++++++++++++++++++++++----
+ 10 files changed, 98 insertions(+), 52 deletions(-)
+
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index cefb5d6..751b472 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -507,6 +507,9 @@ config USB_F_SS_LB
+ config USB_U_SERIAL
+ 	tristate
+ 
++config USB_U_ETHER
++	tristate
++
+ config USB_F_SERIAL
+ 	tristate
+ 
+@@ -603,6 +606,7 @@ config USB_ETH
+ 	tristate "Ethernet Gadget (with CDC Ethernet support)"
+ 	depends on NET
+ 	select USB_LIBCOMPOSITE
++	select USB_U_ETHER
+ 	select CRC32
+ 	help
+ 	  This driver implements Ethernet style communication, in one of
+@@ -675,6 +679,7 @@ config USB_G_NCM
+ 	tristate "Network Control Model (NCM) support"
+ 	depends on NET
+ 	select USB_LIBCOMPOSITE
++	select USB_U_ETHER
+ 	select CRC32
+ 	help
+ 	  This driver implements USB CDC NCM subclass standard. NCM is
+@@ -718,6 +723,7 @@ config USB_FUNCTIONFS
+ config USB_FUNCTIONFS_ETH
+ 	bool "Include configuration with CDC ECM (Ethernet)"
+ 	depends on USB_FUNCTIONFS && NET
++	select USB_U_ETHER
+ 	help
+ 	  Include a configuration with CDC ECM function (Ethernet) and the
+ 	  Function Filesystem.
+@@ -725,6 +731,7 @@ config USB_FUNCTIONFS_ETH
+ config USB_FUNCTIONFS_RNDIS
+ 	bool "Include configuration with RNDIS (Ethernet)"
+ 	depends on USB_FUNCTIONFS && NET
++	select USB_U_ETHER
+ 	help
+ 	  Include a configuration with RNDIS function (Ethernet) and the Filesystem.
+ 
+@@ -825,6 +832,7 @@ config USB_CDC_COMPOSITE
+ 	depends on NET
+ 	select USB_LIBCOMPOSITE
+ 	select USB_U_SERIAL
++	select USB_U_ETHER
+ 	select USB_F_ACM
+ 	help
+ 	  This driver provides two functions in one configuration:
+@@ -842,6 +850,7 @@ config USB_G_NOKIA
+ 	depends on PHONET
+ 	select USB_LIBCOMPOSITE
+ 	select USB_U_SERIAL
++	select USB_U_ETHER
+ 	select USB_F_ACM
+ 	help
+ 	  The Nokia composite gadget provides support for acm, obex
+@@ -869,6 +878,7 @@ config USB_G_MULTI
+ 	select USB_G_MULTI_CDC if !USB_G_MULTI_RNDIS
+ 	select USB_LIBCOMPOSITE
+ 	select USB_U_SERIAL
++	select USB_U_ETHER
+ 	select USB_F_ACM
+ 	help
+ 	  The Multifunction Composite Gadget provides Ethernet (RNDIS
+diff --git a/drivers/usb/gadget/Makefile b/drivers/usb/gadget/Makefile
+index 6afd166..b6c2bf7 100644
+--- a/drivers/usb/gadget/Makefile
++++ b/drivers/usb/gadget/Makefile
+@@ -45,6 +45,7 @@ usb_f_serial-y			:= f_serial.o
+ obj-$(CONFIG_USB_F_SERIAL)	+= usb_f_serial.o
+ usb_f_obex-y			:= f_obex.o
+ obj-$(CONFIG_USB_F_OBEX)	+= usb_f_obex.o
++obj-$(CONFIG_USB_U_ETHER)	+= u_ether.o
+ 
+ #
+ # USB gadget drivers
+diff --git a/drivers/usb/gadget/cdc2.c b/drivers/usb/gadget/cdc2.c
+index 2c52551..bffa997 100644
+--- a/drivers/usb/gadget/cdc2.c
++++ b/drivers/usb/gadget/cdc2.c
+@@ -35,6 +35,8 @@
+ /*-------------------------------------------------------------------------*/
+ USB_GADGET_COMPOSITE_OPTIONS();
+ 
++USB_ETHERNET_MODULE_PARAMETERS();
++
+ /*
+  * Kbuild is not very cooperative with respect to linking separately
+  * compiled library objects into one module.  So for now we won't use
+@@ -43,7 +45,6 @@ USB_GADGET_COMPOSITE_OPTIONS();
+  * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
+  */
+ #include "f_ecm.c"
+-#include "u_ether.c"
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+@@ -102,7 +103,7 @@ static struct usb_gadget_strings *dev_strings[] = {
+ 	NULL,
+ };
+ 
+-static u8 hostaddr[ETH_ALEN];
++static u8 host_mac[ETH_ALEN];
+ static struct eth_dev *the_dev;
+ /*-------------------------------------------------------------------------*/
+ static struct usb_function *f_acm;
+@@ -120,7 +121,7 @@ static int __init cdc_do_config(struct usb_configuration *c)
+ 		c->bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+ 	}
+ 
+-	status = ecm_bind_config(c, hostaddr, the_dev);
++	status = ecm_bind_config(c, host_mac, the_dev);
+ 	if (status < 0)
+ 		return status;
+ 
+@@ -166,7 +167,8 @@ static int __init cdc_bind(struct usb_composite_dev *cdev)
+ 	}
+ 
+ 	/* set up network link layer */
+-	the_dev = gether_setup(cdev->gadget, hostaddr);
++	the_dev = gether_setup(cdev->gadget, dev_addr, host_addr, host_mac,
++			       qmult);
+ 	if (IS_ERR(the_dev))
+ 		return PTR_ERR(the_dev);
+ 
+diff --git a/drivers/usb/gadget/ether.c b/drivers/usb/gadget/ether.c
+index 56c8eca..75418c7 100644
+--- a/drivers/usb/gadget/ether.c
++++ b/drivers/usb/gadget/ether.c
+@@ -107,11 +107,12 @@ static inline bool has_rndis(void)
+ #include "rndis.c"
+ #endif
+ #include "f_eem.c"
+-#include "u_ether.c"
+ 
+ /*-------------------------------------------------------------------------*/
+ USB_GADGET_COMPOSITE_OPTIONS();
+ 
++USB_ETHERNET_MODULE_PARAMETERS();
++
+ /* DO NOT REUSE THESE IDs with a protocol-incompatible driver!!  Ever!!
+  * Instead:  allocate your own, using normal USB-IF procedures.
+  */
+@@ -206,7 +207,7 @@ static struct usb_gadget_strings *dev_strings[] = {
+ 	NULL,
+ };
+ 
+-static u8 hostaddr[ETH_ALEN];
++static u8 host_mac[ETH_ALEN];
+ static struct eth_dev *the_dev;
+ /*-------------------------------------------------------------------------*/
+ 
+@@ -224,7 +225,7 @@ static int __init rndis_do_config(struct usb_configuration *c)
+ 		c->bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+ 	}
+ 
+-	return rndis_bind_config(c, hostaddr, the_dev);
++	return rndis_bind_config(c, host_mac, the_dev);
+ }
+ 
+ static struct usb_configuration rndis_config_driver = {
+@@ -259,9 +260,9 @@ static int __init eth_do_config(struct usb_configuration *c)
+ 	if (use_eem)
+ 		return eem_bind_config(c, the_dev);
+ 	else if (can_support_ecm(c->cdev->gadget))
+-		return ecm_bind_config(c, hostaddr, the_dev);
++		return ecm_bind_config(c, host_mac, the_dev);
+ 	else
+-		return geth_bind_config(c, hostaddr, the_dev);
++		return geth_bind_config(c, host_mac, the_dev);
+ }
+ 
+ static struct usb_configuration eth_config_driver = {
+@@ -279,7 +280,8 @@ static int __init eth_bind(struct usb_composite_dev *cdev)
+ 	int			status;
+ 
+ 	/* set up network link layer */
+-	the_dev = gether_setup(cdev->gadget, hostaddr);
++	the_dev = gether_setup(cdev->gadget, dev_addr, host_addr, host_mac,
++			       qmult);
+ 	if (IS_ERR(the_dev))
+ 		return PTR_ERR(the_dev);
+ 
+diff --git a/drivers/usb/gadget/g_ffs.c b/drivers/usb/gadget/g_ffs.c
+index 787a78e..45f26be 100644
+--- a/drivers/usb/gadget/g_ffs.c
++++ b/drivers/usb/gadget/g_ffs.c
+@@ -34,9 +34,9 @@
+ #    include "f_rndis.c"
+ #    include "rndis.c"
+ #  endif
+-#  include "u_ether.c"
++#  include "u_ether.h"
+ 
+-static u8 gfs_hostaddr[ETH_ALEN];
++static u8 gfs_host_mac[ETH_ALEN];
+ static struct eth_dev *the_dev;
+ #  ifdef CONFIG_USB_FUNCTIONFS_ETH
+ static int eth_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+@@ -45,7 +45,7 @@ static int eth_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+ #else
+ #  define the_dev	NULL
+ #  define gether_cleanup(dev) do { } while (0)
+-#  define gfs_hostaddr NULL
++#  define gfs_host_mac NULL
+ struct eth_dev;
+ #endif
+ 
+@@ -73,6 +73,8 @@ struct gfs_ffs_obj {
+ 
+ USB_GADGET_COMPOSITE_OPTIONS();
+ 
++USB_ETHERNET_MODULE_PARAMETERS();
++
+ static struct usb_device_descriptor gfs_dev_desc = {
+ 	.bLength		= sizeof gfs_dev_desc,
+ 	.bDescriptorType	= USB_DT_DEVICE,
+@@ -350,7 +352,8 @@ static int gfs_bind(struct usb_composite_dev *cdev)
+ 	if (missing_funcs)
+ 		return -ENODEV;
+ #if defined CONFIG_USB_FUNCTIONFS_ETH || defined CONFIG_USB_FUNCTIONFS_RNDIS
+-	the_dev = gether_setup(cdev->gadget, gfs_hostaddr);
++	the_dev = gether_setup(cdev->gadget, dev_addr, host_addr, gfs_host_mac,
++			       qmult);
+ #endif
+ 	if (IS_ERR(the_dev)) {
+ 		ret = PTR_ERR(the_dev);
+@@ -446,7 +449,7 @@ static int gfs_do_config(struct usb_configuration *c)
+ 	}
+ 
+ 	if (gc->eth) {
+-		ret = gc->eth(c, gfs_hostaddr, the_dev);
++		ret = gc->eth(c, gfs_host_mac, the_dev);
+ 		if (unlikely(ret < 0))
+ 			return ret;
+ 	}
+diff --git a/drivers/usb/gadget/multi.c b/drivers/usb/gadget/multi.c
+index 4a45e80..cdb8dbf 100644
+--- a/drivers/usb/gadget/multi.c
++++ b/drivers/usb/gadget/multi.c
+@@ -49,10 +49,12 @@ MODULE_LICENSE("GPL");
+ #  include "f_rndis.c"
+ #  include "rndis.c"
+ #endif
+-#include "u_ether.c"
++#include "u_ether.h"
+ 
+ USB_GADGET_COMPOSITE_OPTIONS();
+ 
++USB_ETHERNET_MODULE_PARAMETERS();
++
+ /***************************** Device Descriptor ****************************/
+ 
+ #define MULTI_VENDOR_NUM	0x1d6b	/* Linux Foundation */
+@@ -133,7 +135,7 @@ FSG_MODULE_PARAMETERS(/* no prefix */, fsg_mod_data);
+ 
+ static struct fsg_common fsg_common;
+ 
+-static u8 hostaddr[ETH_ALEN];
++static u8 host_mac[ETH_ALEN];
+ 
+ static struct usb_function_instance *fi_acm;
+ static struct eth_dev *the_dev;
+@@ -152,7 +154,7 @@ static __init int rndis_do_config(struct usb_configuration *c)
+ 		c->bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+ 	}
+ 
+-	ret = rndis_bind_config(c, hostaddr, the_dev);
++	ret = rndis_bind_config(c, host_mac, the_dev);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -216,7 +218,7 @@ static __init int cdc_do_config(struct usb_configuration *c)
+ 		c->bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+ 	}
+ 
+-	ret = ecm_bind_config(c, hostaddr, the_dev);
++	ret = ecm_bind_config(c, host_mac, the_dev);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -280,7 +282,8 @@ static int __ref multi_bind(struct usb_composite_dev *cdev)
+ 	}
+ 
+ 	/* set up network link layer */
+-	the_dev = gether_setup(cdev->gadget, hostaddr);
++	the_dev = gether_setup(cdev->gadget, dev_addr, host_addr, host_mac,
++			       qmult);
+ 	if (IS_ERR(the_dev))
+ 		return PTR_ERR(the_dev);
+ 
+diff --git a/drivers/usb/gadget/ncm.c b/drivers/usb/gadget/ncm.c
+index 3b02fd4..e411135 100644
+--- a/drivers/usb/gadget/ncm.c
++++ b/drivers/usb/gadget/ncm.c
+@@ -37,7 +37,6 @@
+  * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
+  */
+ #include "f_ncm.c"
+-#include "u_ether.c"
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+@@ -54,6 +53,8 @@
+ /*-------------------------------------------------------------------------*/
+ USB_GADGET_COMPOSITE_OPTIONS();
+ 
++USB_ETHERNET_MODULE_PARAMETERS();
++
+ static struct usb_device_descriptor device_desc = {
+ 	.bLength =		sizeof device_desc,
+ 	.bDescriptorType =	USB_DT_DEVICE,
+@@ -112,7 +113,7 @@ static struct usb_gadget_strings *dev_strings[] = {
+ };
+ 
+ struct eth_dev *the_dev;
+-static u8 hostaddr[ETH_ALEN];
++static u8 host_mac[ETH_ALEN];
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+@@ -125,7 +126,7 @@ static int __init ncm_do_config(struct usb_configuration *c)
+ 		c->bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+ 	}
+ 
+-	return ncm_bind_config(c, hostaddr, the_dev);
++	return ncm_bind_config(c, host_mac, the_dev);
+ }
+ 
+ static struct usb_configuration ncm_config_driver = {
+@@ -144,7 +145,8 @@ static int __init gncm_bind(struct usb_composite_dev *cdev)
+ 	int			status;
+ 
+ 	/* set up network link layer */
+-	the_dev = gether_setup(cdev->gadget, hostaddr);
++	the_dev = gether_setup(cdev->gadget, dev_addr, host_addr, host_mac,
++			       qmult);
+ 	if (IS_ERR(the_dev))
+ 		return PTR_ERR(the_dev);
+ 
+diff --git a/drivers/usb/gadget/nokia.c b/drivers/usb/gadget/nokia.c
+index 3b344b4..39f6cb5 100644
+--- a/drivers/usb/gadget/nokia.c
++++ b/drivers/usb/gadget/nokia.c
+@@ -41,11 +41,13 @@
+ #include "f_ecm.c"
+ #include "f_obex.c"
+ #include "f_phonet.c"
+-#include "u_ether.c"
++#include "u_ether.h"
+ 
+ /*-------------------------------------------------------------------------*/
+ USB_GADGET_COMPOSITE_OPTIONS();
+ 
++USB_ETHERNET_MODULE_PARAMETERS();
++
+ #define NOKIA_VENDOR_ID			0x0421	/* Nokia */
+ #define NOKIA_PRODUCT_ID		0x01c8	/* Nokia Gadget */
+ 
+@@ -98,7 +100,7 @@ MODULE_LICENSE("GPL");
+ /*-------------------------------------------------------------------------*/
+ static struct usb_function *f_acm_cfg1;
+ static struct usb_function *f_acm_cfg2;
+-static u8 hostaddr[ETH_ALEN];
++static u8 host_mac[ETH_ALEN];
+ static struct eth_dev *the_dev;
+ 
+ enum {
+@@ -152,7 +154,7 @@ static int __init nokia_bind_config(struct usb_configuration *c)
+ 	if (status)
+ 		goto err_conf;
+ 
+-	status = ecm_bind_config(c, hostaddr, the_dev);
++	status = ecm_bind_config(c, host_mac, the_dev);
+ 	if (status) {
+ 		pr_debug("could not bind ecm config %d\n", status);
+ 		goto err_ecm;
+@@ -186,7 +188,8 @@ static int __init nokia_bind(struct usb_composite_dev *cdev)
+ 			goto err_ether;
+ 	}
+ 
+-	the_dev = gether_setup(cdev->gadget, hostaddr);
++	the_dev = gether_setup(cdev->gadget, dev_addr, host_addr, host_mac,
++			       qmult);
+ 	if (IS_ERR(the_dev)) {
+ 		status = PTR_ERR(the_dev);
+ 		goto err_ether;
+diff --git a/drivers/usb/gadget/u_ether.c b/drivers/usb/gadget/u_ether.c
+index 4b76124..5f9dacf 100644
+--- a/drivers/usb/gadget/u_ether.c
++++ b/drivers/usb/gadget/u_ether.c
+@@ -63,6 +63,8 @@ struct eth_dev {
+ 
+ 	struct sk_buff_head	rx_frames;
+ 
++	unsigned		qmult;
++
+ 	unsigned		header_len;
+ 	struct sk_buff		*(*wrap)(struct gether *, struct sk_buff *skb);
+ 	int			(*unwrap)(struct gether *,
+@@ -84,12 +86,8 @@ struct eth_dev {
+ 
+ #define DEFAULT_QLEN	2	/* double buffering by default */
+ 
+-static unsigned qmult = 5;
+-module_param(qmult, uint, S_IRUGO|S_IWUSR);
+-MODULE_PARM_DESC(qmult, "queue length multiplier at high/super speed");
+-
+ /* for dual-speed hardware, use deeper queues at high/super speed */
+-static inline int qlen(struct usb_gadget *gadget)
++static inline int qlen(struct usb_gadget *gadget, unsigned qmult)
+ {
+ 	if (gadget_is_dualspeed(gadget) && (gadget->speed == USB_SPEED_HIGH ||
+ 					    gadget->speed == USB_SPEED_SUPER))
+@@ -588,7 +586,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
+ 	if (gadget_is_dualspeed(dev->gadget))
+ 		req->no_interrupt = (dev->gadget->speed == USB_SPEED_HIGH ||
+ 				     dev->gadget->speed == USB_SPEED_SUPER)
+-			? ((atomic_read(&dev->tx_qlen) % qmult) != 0)
++			? ((atomic_read(&dev->tx_qlen) % dev->qmult) != 0)
+ 			: 0;
+ 
+ 	retval = usb_ep_queue(in, req, GFP_ATOMIC);
+@@ -697,16 +695,6 @@ static int eth_stop(struct net_device *net)
+ 
+ /*-------------------------------------------------------------------------*/
+ 
+-/* initial value, changed by "ifconfig usb0 hw ether xx:xx:xx:xx:xx:xx" */
+-static char *dev_addr;
+-module_param(dev_addr, charp, S_IRUGO);
+-MODULE_PARM_DESC(dev_addr, "Device Ethernet Address");
+-
+-/* this address is invisible to ifconfig */
+-static char *host_addr;
+-module_param(host_addr, charp, S_IRUGO);
+-MODULE_PARM_DESC(host_addr, "Host Ethernet Address");
+-
+ static int get_ether_addr(const char *str, u8 *dev_addr)
+ {
+ 	if (str) {
+@@ -755,8 +743,9 @@ static struct device_type gadget_type = {
+  *
+  * Returns negative errno, or zero on success
+  */
+-struct eth_dev *gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
+-		const char *netname)
++struct eth_dev *gether_setup_name(struct usb_gadget *g,
++		const char *dev_addr, const char *host_addr,
++		u8 ethaddr[ETH_ALEN], unsigned qmult, const char *netname)
+ {
+ 	struct eth_dev		*dev;
+ 	struct net_device	*net;
+@@ -777,6 +766,7 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
+ 
+ 	/* network device setup */
+ 	dev->net = net;
++	dev->qmult = qmult;
+ 	snprintf(net->name, sizeof(net->name), "%s%%d", netname);
+ 
+ 	if (get_ether_addr(dev_addr, net->dev_addr))
+@@ -815,6 +805,7 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
+ 
+ 	return dev;
+ }
++EXPORT_SYMBOL(gether_setup_name);
+ 
+ /**
+  * gether_cleanup - remove Ethernet-over-USB device
+@@ -831,6 +822,7 @@ void gether_cleanup(struct eth_dev *dev)
+ 	flush_work(&dev->work);
+ 	free_netdev(dev->net);
+ }
++EXPORT_SYMBOL(gether_cleanup);
+ 
+ /**
+  * gether_connect - notify network layer that USB link is active
+@@ -873,11 +865,12 @@ struct net_device *gether_connect(struct gether *link)
+ 	}
+ 
+ 	if (result == 0)
+-		result = alloc_requests(dev, link, qlen(dev->gadget));
++		result = alloc_requests(dev, link, qlen(dev->gadget,
++					dev->qmult));
+ 
+ 	if (result == 0) {
+ 		dev->zlp = link->is_zlp_ok;
+-		DBG(dev, "qlen %d\n", qlen(dev->gadget));
++		DBG(dev, "qlen %d\n", qlen(dev->gadget, dev->qmult));
+ 
+ 		dev->header_len = link->header_len;
+ 		dev->unwrap = link->unwrap;
+@@ -910,6 +903,7 @@ fail0:
+ 		return ERR_PTR(result);
+ 	return dev->net;
+ }
++EXPORT_SYMBOL(gether_connect);
+ 
+ /**
+  * gether_disconnect - notify network layer that USB link is inactive
+@@ -980,3 +974,7 @@ void gether_disconnect(struct gether *link)
+ 	dev->port_usb = NULL;
+ 	spin_unlock(&dev->lock);
+ }
++EXPORT_SYMBOL(gether_disconnect);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("David Brownell");
+diff --git a/drivers/usb/gadget/u_ether.h b/drivers/usb/gadget/u_ether.h
+index 0252233..02f58ac 100644
+--- a/drivers/usb/gadget/u_ether.h
++++ b/drivers/usb/gadget/u_ether.h
+@@ -21,6 +21,26 @@
+ 
+ #include "gadget_chips.h"
+ 
++#define QMULT_DEFAULT 5
++
++/*
++ * dev_addr: initial value
++ * changed by "ifconfig usb0 hw ether xx:xx:xx:xx:xx:xx"
++ * host_addr: this address is invisible to ifconfig
++ */
++#define USB_ETHERNET_MODULE_PARAMETERS() \
++	static unsigned qmult = QMULT_DEFAULT;				\
++	module_param(qmult, uint, S_IRUGO|S_IWUSR);			\
++	MODULE_PARM_DESC(qmult, "queue length multiplier at high/super speed");\
++									\
++	static char *dev_addr;						\
++	module_param(dev_addr, charp, S_IRUGO);				\
++	MODULE_PARM_DESC(dev_addr, "Device Ethernet Address");		\
++									\
++	static char *host_addr;						\
++	module_param(host_addr, charp, S_IRUGO);			\
++	MODULE_PARM_DESC(host_addr, "Host Ethernet Address")
++
+ struct eth_dev;
+ 
+ /*
+@@ -71,8 +91,9 @@ struct gether {
+ 			|USB_CDC_PACKET_TYPE_DIRECTED)
+ 
+ /* variant of gether_setup that allows customizing network device name */
+-struct eth_dev *gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
+-		const char *netname);
++struct eth_dev *gether_setup_name(struct usb_gadget *g,
++		const char *dev_addr, const char *host_addr,
++		u8 ethaddr[ETH_ALEN], unsigned qmult, const char *netname);
+ 
+ /* netdev setup/teardown as directed by the gadget driver */
+ /* gether_setup - initialize one ethernet-over-usb link
+@@ -88,9 +109,10 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
+  * Returns negative errno, or zero on success
+  */
+ static inline struct eth_dev *gether_setup(struct usb_gadget *g,
+-		u8 ethaddr[ETH_ALEN])
++		const char *dev_addr, const char *host_addr,
++		u8 ethaddr[ETH_ALEN], unsigned qmult)
+ {
+-	return gether_setup_name(g, ethaddr, "usb");
++	return gether_setup_name(g, dev_addr, host_addr, ethaddr, qmult, "usb");
+ }
+ 
+ void gether_cleanup(struct eth_dev *dev);
+-- 
+1.8.3.2
+

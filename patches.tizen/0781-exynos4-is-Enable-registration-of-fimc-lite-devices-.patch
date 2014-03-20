@@ -1,0 +1,50 @@
+From 8dae642d639aa6bf5e87c1238ab1b677b78218cc Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 12 Sep 2013 18:57:41 +0200
+Subject: [PATCH 0781/1302] exynos4-is: Enable registration of fimc-lite
+ devices as children of fimc-is
+
+This allows registration of FIMC-LITE devices also when they are
+specified in device tree as fimc-is subnodes.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/media-dev.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/exynos4-is/media-dev.c b/drivers/media/platform/exynos4-is/media-dev.c
+index 7125411..55a0900 100644
+--- a/drivers/media/platform/exynos4-is/media-dev.c
++++ b/drivers/media/platform/exynos4-is/media-dev.c
+@@ -783,7 +783,7 @@ static int fimc_md_pdev_match(struct device *dev, void *data)
+ static int fimc_md_register_of_platform_entities(struct fimc_md *fmd,
+ 						 struct device_node *parent)
+ {
+-	struct device_node *node;
++	struct device_node *node, *fimc_is_node = NULL;
+ 	int ret = 0;
+ 
+ 	for_each_available_child_of_node(parent, node) {
+@@ -810,10 +810,16 @@ static int fimc_md_register_of_platform_entities(struct fimc_md *fmd,
+ 							plat_entity);
+ 		put_device(&pdev->dev);
+ 		if (ret < 0)
+-			break;
++			return ret;
++
++		if (plat_entity == IDX_IS_ISP)
++			fimc_is_node = node;
+ 	}
+ 
+-	return ret;
++	if (!fimc_is_node)
++		return 0;
++
++	return fimc_md_register_of_platform_entities(fmd, fimc_is_node);
+ }
+ #else
+ #define fimc_md_register_of_platform_entities(fmd, node) (-ENOSYS)
+-- 
+1.8.3.2
+

@@ -1,0 +1,76 @@
+From 11b507b7e86967ce345240b5df9c7891f2c0f784 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 15 Oct 2013 08:33:12 +0200
+Subject: [PATCH 1147/1302] usb: gadget: storage_common: use strtobool instead
+ of kstrtouint
+
+strtobool is more flexible for the user and is more appropriate in the
+context.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/storage_common.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/usb/gadget/storage_common.c b/drivers/usb/gadget/storage_common.c
+index c7b78a1..8bd5f2d 100644
+--- a/drivers/usb/gadget/storage_common.c
++++ b/drivers/usb/gadget/storage_common.c
+@@ -375,9 +375,9 @@ ssize_t fsg_store_ro(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		     const char *buf, size_t count)
+ {
+ 	ssize_t		rc;
+-	unsigned	ro;
++	bool		ro;
+ 
+-	rc = kstrtouint(buf, 2, &ro);
++	rc = strtobool(buf, &ro);
+ 	if (rc)
+ 		return rc;
+ 
+@@ -402,10 +402,10 @@ EXPORT_SYMBOL(fsg_store_ro);
+ 
+ ssize_t fsg_store_nofua(struct fsg_lun *curlun, const char *buf, size_t count)
+ {
+-	unsigned	nofua;
++	bool		nofua;
+ 	int		ret;
+ 
+-	ret = kstrtouint(buf, 2, &nofua);
++	ret = strtobool(buf, &nofua);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -452,10 +452,10 @@ EXPORT_SYMBOL(fsg_store_file);
+ 
+ ssize_t fsg_store_cdrom(struct fsg_lun *curlun, const char *buf, size_t count)
+ {
+-	unsigned	cdrom;
++	bool		cdrom;
+ 	int		ret;
+ 
+-	ret = kstrtouint(buf, 2, &cdrom);
++	ret = strtobool(buf, &cdrom);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -468,10 +468,10 @@ EXPORT_SYMBOL(fsg_store_cdrom);
+ ssize_t fsg_store_removable(struct fsg_lun *curlun, const char *buf,
+ 			    size_t count)
+ {
+-	unsigned	removable;
++	bool		removable;
+ 	int		ret;
+ 
+-	ret = kstrtouint(buf, 2, &removable);
++	ret = strtobool(buf, &removable);
+ 	if (ret)
+ 		return ret;
+ 
+-- 
+1.8.3.2
+

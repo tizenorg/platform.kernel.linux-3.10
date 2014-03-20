@@ -1,0 +1,44 @@
+From 621cbe7aa8240161604086d4d7494fff713bdd08 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Wed, 26 Feb 2014 13:12:36 +0100
+Subject: [PATCH 1282/1302] cpufreq:LAB:dts:trats2: Add attributes necessary
+ for correct LAB operation
+
+Two extra attributes have been added. The "lab-num-of-states" describes how
+many ranges will be used during LAB operation. Now the span of it equals to
+20 (100 / 5).
+The lab-ctrl-freq attribute maps number of idle CPUs and workload (from
+scheduler) to LAB operations.
+
+It is possible to specify exact freq (e.g. 1300000), enable boost
+(e.g. 0xFFFFFFFF), set frequency to minimum (0xFFFFFFFE) or rely on
+ONDEMAND governor to find suitable frequency.
+
+Change-Id: I0ea6ffd8626aded5bed34166c59b9d34278feef2
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-trats2.dts | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-trats2.dts b/arch/arm/boot/dts/exynos4412-trats2.dts
+index 7068328..f25a37f 100644
+--- a/arch/arm/boot/dts/exynos4412-trats2.dts
++++ b/arch/arm/boot/dts/exynos4412-trats2.dts
+@@ -1349,6 +1349,13 @@
+ 			     900000 800000 700000 600000 500000 400000 300000
+ 			     200000>;
+ 		boost_freq = <1500000>;
++		lab-num-of-states = <5>;
++		lab-ctrl-freq = < 0          0          0          1300000    1200000
++				  0          0          0          0          1300000
++				  0          0          0          0          0xFFFFFFFF
++				  0          0          0          0xFFFFFFFF 0xFFFFFFFF
++				  0xFFFFFFFE 0xFFFFFFFE 0xFFFFFFFE 0xFFFFFFFE 0xFFFFFFFE
++				>;
+ 		vdd_arm-supply = <&buck2_reg>;
+ 		status = "okay";
+ 	};
+-- 
+1.8.3.2
+

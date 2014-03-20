@@ -1,0 +1,41 @@
+From f9dab37467eb7d84572d836d9664e30e49a1c35d Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 12 Aug 2013 22:50:22 +0900
+Subject: [PATCH 0602/1302] ARM: dts: Add rotator node for exynos5250
+
+This patch adds a rotator node for exynos5250. It has different align value of
+image size compared with any other chips. So, we should define new compatible
+for the exynos5250.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Cc: Thomas Abraham <thomas.abraham@linaro.org>
+Cc: Kukjin Kim <kgene.kim@samsung.com>
+Cc: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos5250.dtsi | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos5250.dtsi b/arch/arm/boot/dts/exynos5250.dtsi
+index c49d73e..236de09 100644
+--- a/arch/arm/boot/dts/exynos5250.dtsi
++++ b/arch/arm/boot/dts/exynos5250.dtsi
+@@ -588,6 +588,14 @@
+ 		};
+ 	};
+ 
++	rotator@11C00000 {
++		compatible = "samsung,exynos5250-rotator";
++		reg = <0x11C00000 0x1000>;
++		interrupts = <0 84 0>;
++		clocks = <&clock 269>;
++		clock-names = "rotator";
++	};
++
+ 	gsc_0:  gsc@0x13e00000 {
+ 		compatible = "samsung,exynos5-gsc";
+ 		reg = <0x13e00000 0x1000>;
+-- 
+1.8.3.2
+

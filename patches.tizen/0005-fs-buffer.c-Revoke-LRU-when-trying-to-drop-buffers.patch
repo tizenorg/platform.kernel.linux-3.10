@@ -1,0 +1,95 @@
+From e2154558e6cea6a813e53e8b1c1f346d9b050d5b Mon Sep 17 00:00:00 2001
+From: Laura Abbott <lauraa@codeaurora.org>
+Date: Wed, 12 Sep 2012 09:36:16 +0200
+Subject: [PATCH 0005/1302] fs/buffer.c: Revoke LRU when trying to drop buffers
+
+When a buffer is added to the LRU list, a reference is taken which is
+not dropped until the buffer is evicted from the LRU list. This is the
+correct behavior, however this LRU reference will prevent the buffer
+from being dropped. This means that the buffer can't actually be dropped
+until it is selected for eviction. There's no bound on the time spent
+on the LRU list, which means that the buffer may be undroppable for
+very long periods of time. Given that migration involves dropping
+buffers, the associated page is now unmigratible for long periods of
+time as well. CMA relies on being able to migrate a specific range
+of pages, so these these types of failures make CMA significantly
+less reliable, especially under high filesystem usage.
+
+Rather than waiting for the LRU algorithm to eventually kick out
+the buffer, explicitly remove the buffer from the LRU list when trying
+to drop it. There is still the possibility that the buffer
+could be added back on the list, but that indicates the buffer is
+still in use and would probably have other 'in use' indicates to
+prevent dropping.
+
+Signed-off-by: Laura Abbott <lauraa@codeaurora.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ fs/buffer.c | 38 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/fs/buffer.c b/fs/buffer.c
+index d2a4d1b..087816b 100644
+--- a/fs/buffer.c
++++ b/fs/buffer.c
+@@ -1413,12 +1413,49 @@ static bool has_bh_in_lru(int cpu, void *dummy)
+ 	return 0;
+ }
+ 
++static void __evict_bh_lru(void *arg)
++{
++	struct bh_lru *b = &get_cpu_var(bh_lrus);
++	struct buffer_head *bh = arg;
++	int i;
++
++	for (i = 0; i < BH_LRU_SIZE; i++) {
++		if (b->bhs[i] == bh) {
++			brelse(b->bhs[i]);
++			b->bhs[i] = NULL;
++			goto out;
++		}
++	}
++out:
++	put_cpu_var(bh_lrus);
++}
++
++static bool bh_exists_in_lru(int cpu, void *arg)
++{
++	struct bh_lru *b = per_cpu_ptr(&bh_lrus, cpu);
++	struct buffer_head *bh = arg;
++	int i;
++
++	for (i = 0; i < BH_LRU_SIZE; i++) {
++		if (b->bhs[i] == bh)
++			return 1;
++	}
++
++	return 0;
++
++}
+ void invalidate_bh_lrus(void)
+ {
+ 	on_each_cpu_cond(has_bh_in_lru, invalidate_bh_lru, NULL, 1, GFP_KERNEL);
+ }
+ EXPORT_SYMBOL_GPL(invalidate_bh_lrus);
+ 
++void evict_bh_lrus(struct buffer_head *bh)
++{
++	on_each_cpu_cond(bh_exists_in_lru, __evict_bh_lru, bh, 1, GFP_ATOMIC);
++}
++EXPORT_SYMBOL_GPL(evict_bh_lrus);
++
+ void set_bh_page(struct buffer_head *bh,
+ 		struct page *page, unsigned long offset)
+ {
+@@ -3140,6 +3177,7 @@ drop_buffers(struct page *page, struct buffer_head **buffers_to_free)
+ 
+ 	bh = head;
+ 	do {
++		evict_bh_lrus(bh);
+ 		if (buffer_write_io_error(bh) && page->mapping)
+ 			set_bit(AS_EIO, &page->mapping->flags);
+ 		if (buffer_busy(bh))
+-- 
+1.8.3.2
+

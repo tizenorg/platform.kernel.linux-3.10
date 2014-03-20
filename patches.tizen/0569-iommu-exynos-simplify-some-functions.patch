@@ -1,0 +1,93 @@
+From 33cc03857e3394ac791f1c0b44537167cd84c845 Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Wed, 7 Aug 2013 09:33:26 +0200
+Subject: [PATCH 0569/1302] iommu/exynos: simplify some functions
+
+Some functions are now called directly with all data structures available
+at caller, so simplify them and remove code extracting private structures.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/iommu/exynos-iommu.c | 27 ++++++++-------------------
+ 1 file changed, 8 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/iommu/exynos-iommu.c b/drivers/iommu/exynos-iommu.c
+index 1af5496..8b0471d 100644
+--- a/drivers/iommu/exynos-iommu.c
++++ b/drivers/iommu/exynos-iommu.c
+@@ -515,39 +515,28 @@ int exynos_sysmmu_enable(struct device *dev, unsigned long pgtable)
+ 	return ret;
+ }
+ 
+-static bool exynos_sysmmu_disable(struct device *dev)
++static bool exynos_sysmmu_disable(struct sysmmu_drvdata *data)
+ {
+-	struct device *sysmmu = dev->archdata.iommu;
+-	struct sysmmu_drvdata *data;
+-	bool disabled = true;
+-
+-	if (WARN_ON(!sysmmu))
+-		return -ENODEV;
++	bool disabled = __sysmmu_disable(data);
+ 
+-	data = dev_get_drvdata(sysmmu);
+-
+-	disabled = __sysmmu_disable(data);
+ 	if (disabled)
+ 		data->master = NULL;
+ 
+ 	return disabled;
+ }
+ 
+-static void sysmmu_tlb_invalidate_entry(struct device *dev, unsigned long iova)
++static void sysmmu_tlb_invalidate_entry(struct sysmmu_drvdata *data,
++					unsigned long iova)
+ {
+-	struct device *sysmmu = dev->archdata.iommu;
+-	struct sysmmu_drvdata *data;
+ 	unsigned long flags;
+ 
+-	data = dev_get_drvdata(sysmmu);
+-
+ 	spin_lock_irqsave(&data->lock, flags);
+ 	if (is_sysmmu_active(data) && data->runtime_active) {
+ 		clk_enable(data->clk_master);
+ 		__sysmmu_tlb_invalidate_entry(data->sfrbase, iova);
+ 		clk_disable(data->clk_master);
+ 	} else {
+-		dev_dbg(dev,
++		dev_dbg(data->master,
+ 			"disabled. Skipping TLB invalidation @ %#lx\n", iova);
+ 	}
+ 	spin_unlock_irqrestore(&data->lock, flags);
+@@ -755,7 +744,7 @@ static void exynos_iommu_domain_destroy(struct iommu_domain *domain)
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 
+ 	list_for_each_entry(data, &priv->clients, node) {
+-		while (!exynos_sysmmu_disable(data->master))
++		while (!exynos_sysmmu_disable(data))
+ 			; /* until System MMU is actually disabled */
+ 	}
+ 
+@@ -814,7 +803,7 @@ static void exynos_iommu_detach_device(struct iommu_domain *domain,
+ 
+ 	list_for_each_entry(data, &priv->clients, node) {
+ 		if (data->sysmmu == dev->archdata.iommu) {
+-			if (exynos_sysmmu_disable(dev))
++			if (exynos_sysmmu_disable(data))
+ 				list_del_init(&data->node);
+ 			break;
+ 		}
+@@ -1010,7 +999,7 @@ done:
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 	list_for_each_entry(data, &priv->clients, node)
+-		sysmmu_tlb_invalidate_entry(data->master, iova);
++		sysmmu_tlb_invalidate_entry(data, iova);
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ 
+ 	return size;
+-- 
+1.8.3.2
+

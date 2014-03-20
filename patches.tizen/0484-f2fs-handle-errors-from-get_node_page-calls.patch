@@ -1,0 +1,40 @@
+From b9c3637e0a67966cd51745630ee3431f30b8dbfb Mon Sep 17 00:00:00 2001
+From: Jason Hrycay <jhrycay@gmail.com>
+Date: Fri, 31 May 2013 12:45:11 -0500
+Subject: [PATCH 0484/1302] f2fs: handle errors from get_node_page calls
+
+Add check for error pointers returned from get_node_page in order to
+avoid dereferencing a bad address on the next use.
+
+Signed-off-by: Jason Hrycay <jason.hrycay@motorola.com>
+Signed-off-by: Jaegeuk Kim <jaegeuk.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ fs/f2fs/xattr.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/fs/f2fs/xattr.c b/fs/f2fs/xattr.c
+index 0b02dce..ae61f35 100644
+--- a/fs/f2fs/xattr.c
++++ b/fs/f2fs/xattr.c
+@@ -218,6 +218,8 @@ int f2fs_getxattr(struct inode *inode, int name_index, const char *name,
+ 		return -ENODATA;
+ 
+ 	page = get_node_page(sbi, fi->i_xattr_nid);
++	if (IS_ERR(page))
++		return PTR_ERR(page);
+ 	base_addr = page_address(page);
+ 
+ 	list_for_each_xattr(entry, base_addr) {
+@@ -268,6 +270,8 @@ ssize_t f2fs_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size)
+ 		return 0;
+ 
+ 	page = get_node_page(sbi, fi->i_xattr_nid);
++	if (IS_ERR(page))
++		return PTR_ERR(page);
+ 	base_addr = page_address(page);
+ 
+ 	list_for_each_xattr(entry, base_addr) {
+-- 
+1.8.3.2
+

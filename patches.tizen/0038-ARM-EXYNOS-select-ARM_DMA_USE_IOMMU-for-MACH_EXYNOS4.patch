@@ -1,0 +1,31 @@
+From 98aa4c80a62ac52748d81a6457e5ae0fa1e256b1 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Thu, 3 Jan 2013 19:01:41 +0900
+Subject: [PATCH 0038/1302] ARM: EXYNOS: select ARM_DMA_USE_IOMMU for
+ MACH_EXYNOS4_DT
+
+if EXYNOS_IOMMU is enabled then ARM_DMA_USE_IOMMU
+will be enabled also.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/mach-exynos/Kconfig b/arch/arm/mach-exynos/Kconfig
+index ff18fc2..0020f87 100644
+--- a/arch/arm/mach-exynos/Kconfig
++++ b/arch/arm/mach-exynos/Kconfig
+@@ -417,6 +417,7 @@ config MACH_EXYNOS4_DT
+ 	select PINCTRL_EXYNOS
+ 	select S5P_DEV_MFC
+ 	select USE_OF
++	select ARM_DMA_USE_IOMMU if EXYNOS_IOMMU
+ 	help
+ 	  Machine support for Samsung Exynos4 machine with device tree enabled.
+ 	  Select this if a fdt blob is available for the Exynos4 SoC based board.
+-- 
+1.8.3.2
+

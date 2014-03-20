@@ -1,0 +1,28 @@
+From 98d6d2ec0a2217c908e92b8440793b61fcd3ce55 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 3 Jan 2013 17:53:55 +0100
+Subject: [PATCH 0035/1302] ARM: dts: exynos4210-trats: Fix vdd_arm regulator
+ name
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index 39fcc8a..c49ec79 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -244,7 +244,7 @@
+ 				};
+ 
+ 				varm_breg: BUCK1 {
+-				     regulator-name = "VARM_1.2V_C210";
++				     regulator-name = "vdd_arm";
+ 				     regulator-min-microvolt = <900000>;
+ 				     regulator-max-microvolt = <1350000>;
+ 				     regulator-always-on;
+-- 
+1.8.3.2
+

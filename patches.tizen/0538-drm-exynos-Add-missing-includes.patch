@@ -1,0 +1,148 @@
+From f526e2e46a0e12c89626730989afe7a16864893e Mon Sep 17 00:00:00 2001
+From: Mark Brown <broonie@linaro.org>
+Date: Tue, 13 Aug 2013 00:46:40 +0100
+Subject: [PATCH 0538/1302] drm/exynos: Add missing includes
+
+Ensure that all externally accessed functions are correctly prototyped
+when defined in each file by making sure the headers with the protoypes
+are included in the file with the definition.
+
+Signed-off-by: Mark Brown <broonie@linaro.org>
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_connector.c | 1 +
+ drivers/gpu/drm/exynos/exynos_drm_crtc.c      | 1 +
+ drivers/gpu/drm/exynos/exynos_drm_dmabuf.c    | 1 +
+ drivers/gpu/drm/exynos/exynos_drm_fbdev.c     | 1 +
+ drivers/gpu/drm/exynos/exynos_drm_fimc.c      | 1 +
+ drivers/gpu/drm/exynos/exynos_drm_g2d.c       | 1 +
+ drivers/gpu/drm/exynos/exynos_drm_gsc.c       | 1 +
+ drivers/gpu/drm/exynos/exynos_drm_plane.c     | 1 +
+ drivers/gpu/drm/exynos/exynos_drm_rotator.c   | 1 +
+ drivers/gpu/drm/exynos/exynos_drm_vidi.c      | 1 +
+ 10 files changed, 10 insertions(+)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_connector.c b/drivers/gpu/drm/exynos/exynos_drm_connector.c
+index e5c1a01..902e0be 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_connector.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_connector.c
+@@ -17,6 +17,7 @@
+ #include <drm/exynos_drm.h>
+ #include "exynos_drm_drv.h"
+ #include "exynos_drm_encoder.h"
++#include "exynos_drm_connector.h"
+ 
+ #define to_exynos_connector(x)	container_of(x, struct exynos_drm_connector,\
+ 				drm_connector)
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_crtc.c b/drivers/gpu/drm/exynos/exynos_drm_crtc.c
+index c200e4d..9bafae7 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_crtc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_crtc.c
+@@ -15,6 +15,7 @@
+ #include <drm/drmP.h>
+ #include <drm/drm_crtc_helper.h>
+ 
++#include "exynos_drm_crtc.h"
+ #include "exynos_drm_drv.h"
+ #include "exynos_drm_encoder.h"
+ #include "exynos_drm_plane.h"
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c b/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
+index 99ff8dc..0fe74e1 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_dmabuf.c
+@@ -11,6 +11,7 @@
+ 
+ #include <drm/drmP.h>
+ #include <drm/exynos_drm.h>
++#include "exynos_drm_dmabuf.h"
+ #include "exynos_drm_drv.h"
+ #include "exynos_drm_gem.h"
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fbdev.c b/drivers/gpu/drm/exynos/exynos_drm_fbdev.c
+index 8f007aa..45b6cb3 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fbdev.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fbdev.c
+@@ -19,6 +19,7 @@
+ 
+ #include "exynos_drm_drv.h"
+ #include "exynos_drm_fb.h"
++#include "exynos_drm_fbdev.h"
+ #include "exynos_drm_gem.h"
+ #include "exynos_drm_iommu.h"
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimc.c b/drivers/gpu/drm/exynos/exynos_drm_fimc.c
+index 4a1616a..a83e664 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimc.c
+@@ -22,6 +22,7 @@
+ #include <drm/drmP.h>
+ #include <drm/exynos_drm.h>
+ #include "regs-fimc.h"
++#include "exynos_drm_drv.h"
+ #include "exynos_drm_ipp.h"
+ #include "exynos_drm_fimc.h"
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_g2d.c b/drivers/gpu/drm/exynos/exynos_drm_g2d.c
+index 115940b..ae81551 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_g2d.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_g2d.c
+@@ -24,6 +24,7 @@
+ #include <drm/drmP.h>
+ #include <drm/exynos_drm.h>
+ #include "exynos_drm_drv.h"
++#include "exynos_drm_g2d.h"
+ #include "exynos_drm_gem.h"
+ #include "exynos_drm_iommu.h"
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_gsc.c b/drivers/gpu/drm/exynos/exynos_drm_gsc.c
+index 762f40d..4683251 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_gsc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_gsc.c
+@@ -21,6 +21,7 @@
+ #include <drm/drmP.h>
+ #include <drm/exynos_drm.h>
+ #include "regs-gsc.h"
++#include "exynos_drm_drv.h"
+ #include "exynos_drm_ipp.h"
+ #include "exynos_drm_gsc.h"
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_plane.c b/drivers/gpu/drm/exynos/exynos_drm_plane.c
+index 83efc66..63ebeeb 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_plane.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_plane.c
+@@ -16,6 +16,7 @@
+ #include "exynos_drm_encoder.h"
+ #include "exynos_drm_fb.h"
+ #include "exynos_drm_gem.h"
++#include "exynos_drm_plane.h"
+ 
+ #define to_exynos_plane(x)	container_of(x, struct exynos_plane, base)
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_rotator.c b/drivers/gpu/drm/exynos/exynos_drm_rotator.c
+index 3d38a91..185306e 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_rotator.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_rotator.c
+@@ -22,6 +22,7 @@
+ #include <drm/exynos_drm.h>
+ #include "regs-rotator.h"
+ #include "exynos_drm.h"
++#include "exynos_drm_drv.h"
+ #include "exynos_drm_ipp.h"
+ 
+ /*
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_vidi.c b/drivers/gpu/drm/exynos/exynos_drm_vidi.c
+index 3b2aa26..bb73949 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_vidi.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_vidi.c
+@@ -24,6 +24,7 @@
+ #include "exynos_drm_drv.h"
+ #include "exynos_drm_crtc.h"
+ #include "exynos_drm_encoder.h"
++#include "exynos_drm_vidi.h"
+ 
+ /* vidi has totally three virtual windows. */
+ #define WINDOWS_NR		3
+-- 
+1.8.3.2
+

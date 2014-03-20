@@ -1,0 +1,35 @@
+From 6a203ad7678af13bae3191b96e533be2e53c191a Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Tue, 19 Mar 2013 15:25:52 +0100
+Subject: [PATCH 0100/1302] ARM: dts: exynos4x12-slp_pq: Add cpufreq node
+
+This patch adds cpufreq node with board-specific parameters to enable
+CPU frequency scaling on SLP PQ board.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 966e071..69a6184 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -704,4 +704,13 @@
+ 			memory-region = <&mfc_r_mem>;
+ 		};
+ 	};
++
++	cpufreq {
++		/* 4294967295 is a ~0 representation with u32 */
++		freq_table = <4294967295 4294967295 4294967295 1100000 1000000
++			     900000 800000 700000 600000 500000 400000 300000
++			     200000>;
++		vdd_arm-supply = <&buck2_reg>;
++		status = "okay";
++	};
+ };
+-- 
+1.8.3.2
+

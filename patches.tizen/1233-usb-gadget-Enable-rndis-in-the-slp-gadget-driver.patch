@@ -1,0 +1,32 @@
+From 887a1becf23f74a5882426a449da3c4595fa1e4d Mon Sep 17 00:00:00 2001
+From: Jacek Bukarewicz <j.bukarewicz@samsung.com>
+Date: Fri, 14 Feb 2014 15:22:16 +0100
+Subject: [PATCH 1233/1302] usb: gadget: Enable rndis in the slp gadget driver
+
+Rndis was disabled temporarily in commit 7ca93af to fix build break.
+It can be enabled now as commit 65c9d04 adapted slp driver to the new interface
+of rndis.
+
+Change-Id: Id28413de771818cf1a358664d637aa989615fe26
+Signed-off-by: Jacek Bukarewicz <j.bukarewicz@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/slp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/slp.c b/drivers/usb/gadget/slp.c
+index 70b7d2f..bc96492 100644
+--- a/drivers/usb/gadget/slp.c
++++ b/drivers/usb/gadget/slp.c
+@@ -154,7 +154,7 @@ struct slp_multi_dev {
+ };
+ 
+ /* TODO: only enabled 'rndis' and 'sdb'. need to verify more functions */
+-static const char *default_funcs[] = {"sdb"};
++static const char *default_funcs[] = {"rndis", "sdb"};
+ static unsigned slp_multi_nluns;
+ static struct class *slp_multi_class;
+ static struct slp_multi_dev *_slp_multi_dev;
+-- 
+1.8.3.2
+

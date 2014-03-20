@@ -1,0 +1,31 @@
+From c9155202b93727bac60ac0179885b37043f13d0e Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Wed, 2 Oct 2013 08:51:25 +0200
+Subject: [PATCH 0813/1302] ARM: dts: Correct audio clock number in
+ exynos4412-slp_pq.dts
+
+Audio block should use mout_clkout (396) as parent clock instead of
+incorrect aclk400_mcuisp clokc (395).
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index e041769..7b912dd 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -1208,7 +1208,7 @@
+ 
+ 	sound {
+ 		compatible = "samsung,exynos4-wm1811";
+-		clocks = <&clock 2>, <&clock 395>, <&clock 21>, <&clock 6>;
++		clocks = <&clock 2>, <&clock 396>, <&clock 21>, <&clock 6>;
+ 		clock-names = "parent", "out-mux", "out", "pll" /* EPLL */;
+ 		samsung,i2s-controller = <&i2s0>;
+ 		samsung,audio-codec = <&wm1811>;
+-- 
+1.8.3.2
+

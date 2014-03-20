@@ -1,0 +1,48 @@
+From 49744cf0958a7e924b009ef0f3d6c44a838558ba Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 1 Mar 2013 18:10:53 +0100
+Subject: [PATCH 0104/1302] cpufreq: exynos4210: Use device-based lookup for
+ clocks
+
+This patch adds device-based lookup of clocks to allow lookup using
+Device Tree.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/exynos4210-cpufreq.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/cpufreq/exynos4210-cpufreq.c b/drivers/cpufreq/exynos4210-cpufreq.c
+index add7fbe..7e4c886 100644
+--- a/drivers/cpufreq/exynos4210-cpufreq.c
++++ b/drivers/cpufreq/exynos4210-cpufreq.c
+@@ -169,21 +169,21 @@ int exynos4210_cpufreq_init(struct exynos_dvfs_info *info)
+ {
+ 	unsigned long rate;
+ 
+-	cpu_clk = clk_get(NULL, "armclk");
++	cpu_clk = clk_get(info->dev, "armclk");
+ 	if (IS_ERR(cpu_clk))
+ 		return PTR_ERR(cpu_clk);
+ 
+-	moutcore = clk_get(NULL, "moutcore");
++	moutcore = clk_get(info->dev, "moutcore");
+ 	if (IS_ERR(moutcore))
+ 		goto err_moutcore;
+ 
+-	mout_mpll = clk_get(NULL, "mout_mpll");
++	mout_mpll = clk_get(info->dev, "mout_mpll");
+ 	if (IS_ERR(mout_mpll))
+ 		goto err_mout_mpll;
+ 
+ 	rate = clk_get_rate(mout_mpll) / 1000;
+ 
+-	mout_apll = clk_get(NULL, "mout_apll");
++	mout_apll = clk_get(info->dev, "mout_apll");
+ 	if (IS_ERR(mout_apll))
+ 		goto err_mout_apll;
+ 
+-- 
+1.8.3.2
+

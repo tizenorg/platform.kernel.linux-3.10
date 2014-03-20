@@ -1,0 +1,40 @@
+From 5a1bf75048a47ec0330c77a9e6fd8553480a3ca1 Mon Sep 17 00:00:00 2001
+From: David Ahern <dsahern@gmail.com>
+Date: Sat, 25 May 2013 18:24:48 -0600
+Subject: [PATCH 0387/1302] perf stats: Fix divide by 0 in variance
+
+Number of samples needs to be greater 1 to have a variance.
+
+Fixes nan% in perf-kvm-live output.
+
+Signed-off-by: David Ahern <dsahern@gmail.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Jiri Olsa <jolsa@redhat.com>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Runzhen Wang <runzhen@linux.vnet.ibm.com>
+Cc: Xiao Guangrong <xiaoguangrong@linux.vnet.ibm.com>
+Link: http://lkml.kernel.org/r/1369527896-3650-9-git-send-email-dsahern@gmail.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/util/stat.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/perf/util/stat.c b/tools/perf/util/stat.c
+index 2374212..7c59c28 100644
+--- a/tools/perf/util/stat.c
++++ b/tools/perf/util/stat.c
+@@ -37,7 +37,7 @@ double stddev_stats(struct stats *stats)
+ {
+ 	double variance, variance_mean;
+ 
+-	if (!stats->n)
++	if (stats->n < 2)
+ 		return 0.0;
+ 
+ 	variance = stats->M2 / (stats->n - 1);
+-- 
+1.8.3.2
+

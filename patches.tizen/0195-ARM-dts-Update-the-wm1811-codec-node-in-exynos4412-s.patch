@@ -1,0 +1,83 @@
+From d20c867d7a2a8130fb5614a08767fbb5e6b14149 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 11 Apr 2013 17:32:41 +0200
+Subject: [PATCH 0195/1302] ARM: dts: Update the wm1811 codec node in
+ exynos4412-slp_pq.dts
+
+Add required properties for the wm1811 codec node according
+to the DT binding.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 38 ++++++++++-----------------------
+ 1 file changed, 11 insertions(+), 27 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 54213ca..062b204 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -229,21 +229,26 @@
+ 		wm1811: wm1811@1a {
+ 			compatible = "wlf,wm1811";
+ 			reg = <0x1a>;
+-			gpios = <&gpj0 4 0>; /* Temporary, LDO_EN */
+ 			interrupt-parent = <&gpx3>;
+ 			interrupts = <6 4>;
+ 
++			wlf,gpio-cfg = <0x3 0x0 0x0 0x0 0x0 0x0
++					0x0 0x8000 0x0 0x0 0x0>;
++			wlf,micbias-cfg = <0x2f 0x2b>;
++
++			wlf,lineout2-feedback;
++			wlf,lineout1-se;
++			wlf,lineout2-se;
++
++			AVDD2-supply = <&vbatt_reg>;
+ 			DBVDD1-supply = <&ldo3_reg>;
+ 			DBVDD2-supply = <&vbatt_reg>;
+ 			DBVDD3-supply = <&vbatt_reg>;
+-			DCVDD-supply = <&vbatt_reg>;
+-			AVDD1-supply = <&vbatt_reg>;
+-			AVDD2-supply = <&vbatt_reg>;
+-			AVDD3-supply = <&vbatt_reg>;
+ 			CPVDD-supply = <&vbatt_reg>;
+ 			SPKVDD1-supply = <&vbatt_reg>;
+ 			SPKVDD2-supply = <&vbatt_reg>;
+-			LDO1VDD-supply = <&vbatt_reg>;
++
++			wlf,ldo1ena = <&gpj0 4 0>;
+ 		};
+ 	};
+ 
+@@ -629,27 +634,6 @@
+ 		regulator-always-on;
+ 	};
+ 
+-	wm1811_regulator {
+-		compatible = "wlf,wm8994-ldo";
+-		status = "disabled";
+-		voltage-regulators {
+-			wm1811_ldo1_reg: ldo@1 {
+-				regulator-compatible = "LDO1";
+-				regulator-name = "WM1811_LDO1";
+-				regulator-min-microvolt = <2400000>;
+-				regulator-max-microvolt = <2400000>;
+-			};
+-
+-			wm1811_ldo2_reg: ldo@2 {
+-				regulator-compatible = "LDO2";
+-				regulator-name = "WM1811_LDO2";
+-				regulator-min-microvolt = <1200000>;
+-				regulator-max-microvolt = <1200000>;
+-				regulator-always-on;
+-			};
+-		};
+-	};
+-
+ 	fimd0_lcd: panel {
+ 		compatible = "samsung,s6e8aa0";
+ 		reset-gpio = <&gpy4 5 0>;
+-- 
+1.8.3.2
+

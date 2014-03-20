@@ -1,0 +1,42 @@
+From fc51f62e7f40bb89a6b070055386464e63b3183e Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 4 Mar 2014 12:28:51 +0100
+Subject: [PATCH 1286/1302] ARM: dts: odroidx2: add mali gpu and cpu freq
+
+Add nodes to enable MALI gpu and CPU freq drivers.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: Id1cc80e7b4278698603422da8e8a7a07fca38904
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-odroidx2.dts | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-odroidx2.dts b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+index 9aa7f34..063243d 100644
+--- a/arch/arm/boot/dts/exynos4412-odroidx2.dts
++++ b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+@@ -513,6 +513,20 @@
+ 		};
+ 	};
+ 
++	gpu@13000000 {
++		status = "okay";
++		vdd_g3d-supply = <&buck4_reg>;
++	};
++
++	cpufreq {
++		freq_table = <1400000 1300000 1200000 1100000 1000000
++			     900000 800000 700000 600000 500000 400000 300000
++			     200000>;
++		boost_freq = <1500000>;
++		vdd_arm-supply = <&buck2_reg>;
++		status = "okay";
++	};
++
+ 	hdmi@12D00000 {
+ 		hpd-gpio = <&gpx3 7 0>;
+ 		pinctrl-names = "default";
+-- 
+1.8.3.2
+

@@ -1,0 +1,32 @@
+From 9339e05cb68065e49e538d3c6d06a01f284994a2 Mon Sep 17 00:00:00 2001
+From: Hyungwon Hwang <human.hwang@samsung.com>
+Date: Wed, 5 Mar 2014 15:37:26 +0900
+Subject: [PATCH 1289/1302] ARM: odroidx2: update defconfig to fix the number
+ of cores
+
+The processor on Odroid X2 is Exynos4412 which has 4 processing cores.
+The number of cores on the config file was 2, not 4.
+
+Change-Id: Ia153c28e5c00a7a8cec2cda9ee0d24caa0d0c1ba
+Signed-off-by: Hyungwon Hwang <human.hwang@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_odroidx2_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/tizen_odroidx2_defconfig b/arch/arm/configs/tizen_odroidx2_defconfig
+index 5de4ff2..0a8cce0 100644
+--- a/arch/arm/configs/tizen_odroidx2_defconfig
++++ b/arch/arm/configs/tizen_odroidx2_defconfig
+@@ -447,7 +447,7 @@ CONFIG_VMSPLIT_3G=y
+ # CONFIG_VMSPLIT_2G is not set
+ # CONFIG_VMSPLIT_1G is not set
+ CONFIG_PAGE_OFFSET=0xC0000000
+-CONFIG_NR_CPUS=2
++CONFIG_NR_CPUS=4
+ CONFIG_HOTPLUG_CPU=y
+ # CONFIG_ARM_PSCI is not set
+ CONFIG_LOCAL_TIMERS=y
+-- 
+1.8.3.2
+

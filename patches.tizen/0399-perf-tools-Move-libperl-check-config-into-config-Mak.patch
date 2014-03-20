@@ -1,0 +1,89 @@
+From f67af54c64883825d17164a8e0cd1511d8e912be Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 18 Mar 2013 00:19:44 +0100
+Subject: [PATCH 0399/1302] perf tools: Move libperl check config into
+ config/Makefile
+
+Moving libperl check config into config/Makefile.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-12-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        | 20 +++-----------------
+ tools/perf/config/Makefile | 21 +++++++++++++++++++++
+ 2 files changed, 24 insertions(+), 17 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index 8e59a4d..f856bb5 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -530,23 +530,9 @@ ifndef NO_GTK2
+ 	LIB_OBJS += $(OUTPUT)ui/gtk/annotate.o
+ endif
+ 
+-ifdef NO_LIBPERL
+-	BASIC_CFLAGS += -DNO_LIBPERL
+-else
+-       PERL_EMBED_LDOPTS = $(shell perl -MExtUtils::Embed -e ldopts 2>/dev/null)
+-       PERL_EMBED_LDFLAGS = $(call strip-libs,$(PERL_EMBED_LDOPTS))
+-       PERL_EMBED_LIBADD = $(call grep-libs,$(PERL_EMBED_LDOPTS))
+-	PERL_EMBED_CCOPTS = `perl -MExtUtils::Embed -e ccopts 2>/dev/null`
+-	FLAGS_PERL_EMBED=$(PERL_EMBED_CCOPTS) $(PERL_EMBED_LDOPTS)
+-
+-	ifneq ($(call try-cc,$(SOURCE_PERL_EMBED),$(FLAGS_PERL_EMBED),perl),y)
+-		BASIC_CFLAGS += -DNO_LIBPERL
+-	else
+-               ALL_LDFLAGS += $(PERL_EMBED_LDFLAGS)
+-               EXTLIBS += $(PERL_EMBED_LIBADD)
+-		LIB_OBJS += $(OUTPUT)util/scripting-engines/trace-event-perl.o
+-		LIB_OBJS += $(OUTPUT)scripts/perl/Perf-Trace-Util/Context.o
+-	endif
++ifndef NO_LIBPERL
++	LIB_OBJS += $(OUTPUT)util/scripting-engines/trace-event-perl.o
++	LIB_OBJS += $(OUTPUT)scripts/perl/Perf-Trace-Util/Context.o
+ endif
+ 
+ disable-python = $(eval $(disable-python_code))
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index 8cf0958..a42c7b8 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -240,3 +240,24 @@ ifndef NO_GTK2
+ 		EXTLIBS += $(shell pkg-config --libs gtk+-2.0 2>/dev/null)
+ 	endif
+ endif
++
++grep-libs  = $(filter -l%,$(1))
++strip-libs = $(filter-out -l%,$(1))
++
++ifdef NO_LIBPERL
++	BASIC_CFLAGS += -DNO_LIBPERL
++else
++	PERL_EMBED_LDOPTS = $(shell perl -MExtUtils::Embed -e ldopts 2>/dev/null)
++	PERL_EMBED_LDFLAGS = $(call strip-libs,$(PERL_EMBED_LDOPTS))
++	PERL_EMBED_LIBADD = $(call grep-libs,$(PERL_EMBED_LDOPTS))
++	PERL_EMBED_CCOPTS = `perl -MExtUtils::Embed -e ccopts 2>/dev/null`
++	FLAGS_PERL_EMBED=$(PERL_EMBED_CCOPTS) $(PERL_EMBED_LDOPTS)
++
++	ifneq ($(call try-cc,$(SOURCE_PERL_EMBED),$(FLAGS_PERL_EMBED),perl),y)
++		BASIC_CFLAGS += -DNO_LIBPERL
++		NO_LIBPERL := 1
++	else
++		ALL_LDFLAGS += $(PERL_EMBED_LDFLAGS)
++		EXTLIBS += $(PERL_EMBED_LIBADD)
++	endif
++endif
+-- 
+1.8.3.2
+

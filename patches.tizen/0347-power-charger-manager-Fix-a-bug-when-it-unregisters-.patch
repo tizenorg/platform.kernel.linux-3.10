@@ -1,0 +1,38 @@
+From 3c898d2db18fd37887c70d0882af65e9d15d9d28 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Tue, 16 Jul 2013 17:22:29 +0900
+Subject: [PATCH 0347/1302] power: charger-manager: Fix a bug when it
+ unregisters notifier block of extcon.
+
+This patch prevents NULL pointer error cauesed by unregistering unregistered
+exton notifier block. At the probing time of charger manager, it tries to
+remove extcon notifier block when it fails to initialize them. It has to be
+applied for only registered one. Otherwise, it'd make kernel panic. To make it
+work right, it checks extcon_specific_cable_nb's extcon_dev node. If extcon
+cable notifier block was registered successfully, it has proper extcon_dev
+pointer if not so it has NULL pointer.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/power/charger-manager.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/power/charger-manager.c b/drivers/power/charger-manager.c
+index 4092bd8..7946b8a 100644
+--- a/drivers/power/charger-manager.c
++++ b/drivers/power/charger-manager.c
+@@ -1800,7 +1800,9 @@ err_reg_extcon:
+ 		charger = &desc->charger_regulators[i];
+ 		for (j = 0; j < charger->num_cables; j++) {
+ 			struct charger_cable *cable = &charger->cables[j];
+-			extcon_unregister_interest(&cable->extcon_dev);
++			/* Remove notifier block if only edev exists */
++			if (cable->extcon_dev.edev)
++				extcon_unregister_interest(&cable->extcon_dev);
+ 		}
+ 
+ 		regulator_put(desc->charger_regulators[i].consumer);
+-- 
+1.8.3.2
+

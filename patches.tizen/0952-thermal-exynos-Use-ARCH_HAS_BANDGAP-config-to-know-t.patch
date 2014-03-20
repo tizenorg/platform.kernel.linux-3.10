@@ -1,0 +1,36 @@
+From 8d56050ad01cbcaad806666ac3bea73565b7c95c Mon Sep 17 00:00:00 2001
+From: Amit Daniel Kachhap <amit.daniel@samsung.com>
+Date: Mon, 24 Jun 2013 16:20:23 +0530
+Subject: [PATCH 0952/1302] thermal: exynos: Use ARCH_HAS_BANDGAP config to
+ know the supported soc's
+
+This patch uses the recently added config sybmol ARCH_HAS_BANDGAP to enable
+the TMU driver. This will allow adding support for new soc easily as now it
+is the platform responsibility to enable this config symbol for a particular
+soc.
+
+Acked-by: Kukjin Kim <kgene.kim@samsung.com>
+Acked-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Acked-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: Amit Daniel Kachhap <amit.daniel@samsung.com>
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/samsung/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/thermal/samsung/Kconfig b/drivers/thermal/samsung/Kconfig
+index 2d3d9dc..883a8a8 100644
+--- a/drivers/thermal/samsung/Kconfig
++++ b/drivers/thermal/samsung/Kconfig
+@@ -1,6 +1,6 @@
+ config EXYNOS_THERMAL
+ 	tristate "Temperature sensor on Samsung EXYNOS"
+-	depends on (ARCH_EXYNOS4 || ARCH_EXYNOS5)
++	depends on ARCH_HAS_BANDGAP
+ 	depends on CPU_THERMAL
+ 	help
+ 	  If you say yes here you get support for TMU (Thermal Management
+-- 
+1.8.3.2
+

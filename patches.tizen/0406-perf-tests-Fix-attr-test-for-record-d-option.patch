@@ -1,0 +1,41 @@
+From 2d12b16cd370476c7380b6430c4b2f4674d63558 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Fri, 24 May 2013 13:16:37 +0200
+Subject: [PATCH 0406/1302] perf tests: Fix attr test for record -d option
+
+The sample type for '-d' option is changed, because of the memory
+profiling patches from Stephane. The '-d' now adds PERF_SAMPLE_DATA_SRC
+sample_type.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: David Ahern <dsahern@gmail.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369394201-20044-2-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/tests/attr/test-record-data | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/tools/perf/tests/attr/test-record-data b/tools/perf/tests/attr/test-record-data
+index 6627c3e..716e143 100644
+--- a/tools/perf/tests/attr/test-record-data
++++ b/tools/perf/tests/attr/test-record-data
+@@ -4,5 +4,8 @@ args    = -d kill >/dev/null 2>&1
+ 
+ [event:base-record]
+ sample_period=4000
+-sample_type=271
++
++# sample_type = PERF_SAMPLE_IP | PERF_SAMPLE_TID | PERF_SAMPLE_TIME |
++# PERF_SAMPLE_ADDR | PERF_SAMPLE_PERIOD | PERF_SAMPLE_DATA_SRC
++sample_type=33039
+ mmap_data=1
+-- 
+1.8.3.2
+

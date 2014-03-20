@@ -1,0 +1,28 @@
+From 6bd3967d3eccabb347db6b3508ee3d7a1e5c30ab Mon Sep 17 00:00:00 2001
+From: Beomho Seo <beomho.seo@samsung.com>
+Date: Mon, 12 Aug 2013 21:49:36 +0900
+Subject: [PATCH 0526/1302] ARM: tizen_defconfig: enable mcs_touchkey config 
+ enable mcs_touchkey configuration
+
+Signed-off-by: Beomho Seo <beomho.seo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index 481ffe7..e36edb1 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -1426,7 +1426,7 @@ CONFIG_KEYBOARD_GPIO=y
+ # CONFIG_KEYBOARD_LM8323 is not set
+ # CONFIG_KEYBOARD_LM8333 is not set
+ # CONFIG_KEYBOARD_MAX7359 is not set
+-# CONFIG_KEYBOARD_MCS is not set
++CONFIG_KEYBOARD_MCS=y
+ # CONFIG_KEYBOARD_MPR121 is not set
+ # CONFIG_KEYBOARD_NEWTON is not set
+ # CONFIG_KEYBOARD_OPENCORES is not set
+-- 
+1.8.3.2
+

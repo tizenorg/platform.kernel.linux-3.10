@@ -1,0 +1,141 @@
+From e931410b74f7a4e1dab28c4f9c39e0f19512719d Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 3 Dec 2013 15:15:31 +0100
+Subject: [PATCH 1170/1302] usb: gadget: FunctionFS: create utility file
+
+A header file to be used by f_fs.c and g_ffs.c will be required when
+f_fs.c is converted into a module.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c  |  1 +
+ drivers/usb/gadget/g_ffs.c | 19 ++++++-------------
+ drivers/usb/gadget/u_fs.h  | 28 ++++++++++++++++++++++++++++
+ 3 files changed, 35 insertions(+), 13 deletions(-)
+ create mode 100644 drivers/usb/gadget/u_fs.h
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index 609ed50..b955cf3 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -27,6 +27,7 @@
+ #include <linux/usb/composite.h>
+ #include <linux/usb/functionfs.h>
+ 
++#include "u_fs.h"
+ 
+ #define FUNCTIONFS_MAGIC	0xa647361 /* Chosen by a honest dice roll ;) */
+ 
+diff --git a/drivers/usb/gadget/g_ffs.c b/drivers/usb/gadget/g_ffs.c
+index 7099a11..1aaa103 100644
+--- a/drivers/usb/gadget/g_ffs.c
++++ b/drivers/usb/gadget/g_ffs.c
+@@ -69,13 +69,6 @@ MODULE_LICENSE("GPL");
+ 
+ #define GFS_MAX_DEVS	10
+ 
+-struct gfs_ffs_obj {
+-	const char *name;
+-	bool mounted;
+-	bool desc_ready;
+-	struct ffs_data *ffs_data;
+-};
+-
+ USB_GADGET_COMPOSITE_OPTIONS();
+ 
+ static struct usb_device_descriptor gfs_dev_desc = {
+@@ -181,7 +174,7 @@ static DEFINE_MUTEX(gfs_lock);
+ static unsigned int missing_funcs;
+ static bool gfs_registered;
+ static bool gfs_single_func;
+-static struct gfs_ffs_obj *ffs_tab;
++static struct ffs_dev *ffs_tab;
+ 
+ static int __init gfs_init(void)
+ {
+@@ -224,7 +217,7 @@ static void __exit gfs_exit(void)
+ }
+ module_exit(gfs_exit);
+ 
+-static struct gfs_ffs_obj *gfs_find_dev(const char *dev_name)
++static struct ffs_dev *gfs_find_dev(const char *dev_name)
+ {
+ 	int i;
+ 
+@@ -242,7 +235,7 @@ static struct gfs_ffs_obj *gfs_find_dev(const char *dev_name)
+ 
+ static int functionfs_ready_callback(struct ffs_data *ffs)
+ {
+-	struct gfs_ffs_obj *ffs_obj;
++	struct ffs_dev *ffs_obj;
+ 	int ret;
+ 
+ 	ENTER();
+@@ -283,7 +276,7 @@ done:
+ 
+ static void functionfs_closed_callback(struct ffs_data *ffs)
+ {
+-	struct gfs_ffs_obj *ffs_obj;
++	struct ffs_dev *ffs_obj;
+ 
+ 	ENTER();
+ 	mutex_lock(&gfs_lock);
+@@ -305,7 +298,7 @@ done:
+ 
+ static void *functionfs_acquire_dev_callback(const char *dev_name)
+ {
+-	struct gfs_ffs_obj *ffs_dev;
++	struct ffs_dev *ffs_dev;
+ 
+ 	ENTER();
+ 	mutex_lock(&gfs_lock);
+@@ -329,7 +322,7 @@ done:
+ 
+ static void functionfs_release_dev_callback(struct ffs_data *ffs_data)
+ {
+-	struct gfs_ffs_obj *ffs_dev;
++	struct ffs_dev *ffs_dev;
+ 
+ 	ENTER();
+ 	mutex_lock(&gfs_lock);
+diff --git a/drivers/usb/gadget/u_fs.h b/drivers/usb/gadget/u_fs.h
+new file mode 100644
+index 0000000..5d9229a
+--- /dev/null
++++ b/drivers/usb/gadget/u_fs.h
+@@ -0,0 +1,28 @@
++/*
++ * u_fs.h
++ *
++ * Utility definitions for the FunctionFS
++ *
++ * Copyright (c) 2013 Samsung Electronics Co., Ltd.
++ *		http://www.samsung.com
++ *
++ * Author: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#ifndef U_FFS_H
++#define U_FFS_H
++
++#include <linux/usb/composite.h>
++
++struct ffs_dev {
++	const char *name;
++	bool mounted;
++	bool desc_ready;
++	struct ffs_data *ffs_data;
++};
++
++#endif /* U_FFS_H */
+-- 
+1.8.3.2
+

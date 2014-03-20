@@ -1,0 +1,52 @@
+From 8ba0bbc3e968d9430db2228df87f43fe3b624f61 Mon Sep 17 00:00:00 2001
+From: Eduardo Valentin <eduardo.valentin@ti.com>
+Date: Thu, 15 Aug 2013 11:34:17 -0400
+Subject: [PATCH 0991/1302] drivers: thermal: make usage of
+ CONFIG_THERMAL_HWMON optional
+
+When registering a new thermal_device, the thermal framework
+will always add a hwmon sysfs interface.
+
+This patch adds a flag to make this behavior optional. Now
+when registering a new thermal device, the caller can
+optionally inform if hwmon interface is desirable. This can
+be done by means of passing a thermal_zone_params.no_hwmon == true.
+
+In order to keep same behavior as of today, all current
+calls will by default create the hwmon interface.
+
+Cc: David Woodhouse <dwmw2@infradead.org>
+Cc: linux-acpi@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-pm@vger.kernel.org
+Cc: Zhang Rui <rui.zhang@intel.com>
+Suggested-by: Wei Ni <wni@nvidia.com>
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/thermal_core.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/thermal/thermal_core.c b/drivers/thermal/thermal_core.c
+index 2c1ef1b..7e62cc4 100644
+--- a/drivers/thermal/thermal_core.c
++++ b/drivers/thermal/thermal_core.c
+@@ -1517,9 +1517,11 @@ struct thermal_zone_device *thermal_zone_device_register(const char *type,
+ 
+ 	mutex_unlock(&thermal_governor_lock);
+ 
+-	result = thermal_add_hwmon_sysfs(tz);
+-	if (result)
+-		goto unregister;
++	if (!tz->tzp || !tz->tzp->no_hwmon) {
++		result = thermal_add_hwmon_sysfs(tz);
++		if (result)
++			goto unregister;
++	}
+ 
+ 	mutex_lock(&thermal_list_lock);
+ 	list_add_tail(&tz->node, &thermal_tz_list);
+-- 
+1.8.3.2
+

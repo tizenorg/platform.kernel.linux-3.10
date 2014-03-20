@@ -1,0 +1,60 @@
+From 3612c4874088158e07376048d0f680b2f1cf69ee Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 24 Apr 2013 18:58:06 +0200
+Subject: [PATCH 0333/1302] regulator: Handle suspend and resume of regulators
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/regulator/core.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/drivers/regulator/core.c b/drivers/regulator/core.c
+index 815d6df..1ab233b 100644
+--- a/drivers/regulator/core.c
++++ b/drivers/regulator/core.c
+@@ -3946,6 +3946,32 @@ static const struct file_operations supply_map_fops = {
+ #endif
+ };
+ 
++static int regulator_pm_notify(struct notifier_block *nb,
++						unsigned long event, void *ptr)
++{
++	int ret;
++
++	switch (event) {
++	case PM_SUSPEND_PREPARE:
++		ret = regulator_suspend_prepare(PM_SUSPEND_MEM);
++		break;
++	case PM_HIBERNATION_PREPARE:
++		ret = regulator_suspend_prepare(PM_SUSPEND_MAX);
++		break;
++	case PM_POST_SUSPEND:
++	case PM_POST_HIBERNATION:
++		ret = regulator_suspend_finish();
++		break;
++	default:
++		return NOTIFY_DONE;
++	}
++
++	if (ret)
++		return NOTIFY_BAD;
++
++	return NOTIFY_OK;
++}
++
+ static int __init regulator_init(void)
+ {
+ 	int ret;
+@@ -3961,6 +3987,8 @@ static int __init regulator_init(void)
+ 
+ 	regulator_dummy_init();
+ 
++	pm_notifier(regulator_pm_notify, 0);
++
+ 	return ret;
+ }
+ 
+-- 
+1.8.3.2
+

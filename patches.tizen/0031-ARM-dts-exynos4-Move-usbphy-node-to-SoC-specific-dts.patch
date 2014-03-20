@@ -1,0 +1,92 @@
+From bd8c4646ef517e146f6c58cfc7a23962fc9b815c Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Mon, 7 Jan 2013 15:52:58 +0100
+Subject: [PATCH 0031/1302] ARM: dts: exynos4: Move usbphy node to SoC-specific
+ dts files
+
+USB PHY of Exynos4210 and Exynos4x12 require different compatible
+strings, making usbphy node SoC-specific.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi    | 13 -------------
+ arch/arm/boot/dts/exynos4210.dtsi | 15 +++++++++++++++
+ arch/arm/boot/dts/exynos4x12.dtsi | 15 +++++++++++++++
+ 3 files changed, 30 insertions(+), 13 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 9ef9926..77ac4af 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -351,19 +351,6 @@
+ 		status = "disabled";
+ 	};
+ 
+-	usbphy@125B0000 {
+-		compatible = "samsung,exynos4210-usbphy";
+-		reg = <0x125B0000 0x100>;
+-		ranges;
+-		#address-cells = <1>;
+-		#size-cells = <1>;
+-		status = "disabled";
+-
+-		usbphy-sys {
+-			reg = <0x10020704 0x8>;
+-		};
+-	};
+-
+ 	hsotg@12480000 {
+ 		compatible = "samsung,s3c-hsotg";
+ 		reg = <0x12480000 0x20000>;
+diff --git a/arch/arm/boot/dts/exynos4210.dtsi b/arch/arm/boot/dts/exynos4210.dtsi
+index 7ab619e..501708a 100644
+--- a/arch/arm/boot/dts/exynos4210.dtsi
++++ b/arch/arm/boot/dts/exynos4210.dtsi
+@@ -149,4 +149,19 @@
+ 		samsung,power-domain = <&pd_lcd1>;
+ 		status = "ok";
+ 	};
++
++	usbphy@125B0000 {
++		compatible = "samsung,exynos4210-usb2phy";
++		reg = <0x125B0000 0x100>;
++		ranges;
++		#address-cells = <1>;
++		#size-cells = <1>;
++		clocks = <&clock 305>;
++		clock-names = "otg";
++		status = "disabled";
++
++		usbphy-sys {
++			reg = <0x10020704 0x8>;
++		};
++	};
+ };
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 3bf2d09..6aca431 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -159,4 +159,19 @@
+ 		clocks = <&clock 365>;
+ 		status = "ok";
+ 	};
++
++	usbphy@125B0000 {
++		compatible = "samsung,exynos4x12-usb2phy";
++		reg = <0x125B0000 0x100>;
++		ranges;
++		#address-cells = <1>;
++		#size-cells = <1>;
++		clocks = <&clock 305>;
++		clock-names = "otg";
++		status = "disabled";
++
++		usbphy-sys {
++			reg = <0x10020704 0x8>;
++		};
++	};
+ };
+-- 
+1.8.3.2
+

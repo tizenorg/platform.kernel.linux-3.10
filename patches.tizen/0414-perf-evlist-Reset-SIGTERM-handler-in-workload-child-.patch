@@ -1,0 +1,49 @@
+From cc38e17ec4d4f39fe23709f0e979a2c932f7a22b Mon Sep 17 00:00:00 2001
+From: David Ahern <dsahern@gmail.com>
+Date: Sat, 25 May 2013 17:50:39 -0600
+Subject: [PATCH 0414/1302] perf evlist: Reset SIGTERM handler in workload
+ child process
+
+Jiri reported hanging perf tests on latest acme's perf/core and bisected
+it to 87f303a9f:
+
+[jolsa@krava2 perf]$ cat /proc/sys/kernel/perf_event_paranoid
+1
+[jolsa@krava2 perf]$ ./perf record -C 0 kill
+Error:
+You may not have permission to collect %sstats.
+Consider tweaking /proc/sys/kernel/perf_event_paranoid:
+ -1 - Not paranoid at all
+  0 - Disallow raw tracepoint access for unpriv
+  1 - Disallow cpu events for unpriv
+  2 - Disallow kernel profiling for unpriv
+
+Need to let default handling kickin for workload process.
+
+Reported-by: Jiri Olsa <jolsa@redhat.com>
+Signed-off-by: David Ahern <dsahern@gmail.com>
+Acked-by: Jiri Olsa <jolsa@redhat.com>
+Tested-by: Jiri Olsa <jolsa@redhat.com>
+Link: http://lkml.kernel.org/r/1369525839-1261-1-git-send-email-dsahern@gmail.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/util/evlist.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/tools/perf/util/evlist.c b/tools/perf/util/evlist.c
+index f7c7278..99b43dd 100644
+--- a/tools/perf/util/evlist.c
++++ b/tools/perf/util/evlist.c
+@@ -776,6 +776,8 @@ int perf_evlist__prepare_workload(struct perf_evlist *evlist,
+ 		if (pipe_output)
+ 			dup2(2, 1);
+ 
++		signal(SIGTERM, SIG_DFL);
++
+ 		close(child_ready_pipe[0]);
+ 		close(go_pipe[1]);
+ 		fcntl(go_pipe[0], F_SETFD, FD_CLOEXEC);
+-- 
+1.8.3.2
+

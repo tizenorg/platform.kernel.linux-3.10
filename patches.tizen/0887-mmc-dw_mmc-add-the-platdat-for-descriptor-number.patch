@@ -1,0 +1,76 @@
+From 222d16846fc95234e1edbd62423ef2f9e9f86f28 Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Thu, 24 Oct 2013 22:35:36 +0900
+Subject: [PATCH 0887/1302] mmc: dw_mmc: add the platdat for descriptor number.
+
+This platdata is related with buffer size.
+It's increaed the performance.
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/dw_mmc.c  | 10 ++++++++--
+ include/linux/mmc/dw_mmc.h |  4 ++++
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/mmc/host/dw_mmc.c b/drivers/mmc/host/dw_mmc.c
+index c6deb2b..95e6ba8 100644
+--- a/drivers/mmc/host/dw_mmc.c
++++ b/drivers/mmc/host/dw_mmc.c
+@@ -446,7 +446,7 @@ static int dw_mci_idmac_init(struct dw_mci *host)
+ 	int i;
+ 
+ 	/* Number of descriptors in the ring buffer */
+-	host->ring_size = PAGE_SIZE / sizeof(struct idmac_desc);
++	host->ring_size = host->buf_size / sizeof(struct idmac_desc);
+ 
+ 	/* Forward link the descriptor list */
+ 	for (i = 0, p = host->sg_cpu; i < host->ring_size - 1; i++, p++)
+@@ -2078,8 +2078,13 @@ static void dw_mci_cleanup_slot(struct dw_mci_slot *slot, unsigned int id)
+ 
+ static void dw_mci_init_dma(struct dw_mci *host)
+ {
++	if (host->pdata->desc_num)
++		host->buf_size = host->pdata->desc_num * PAGE_SIZE;
++	else
++		host->buf_size = PAGE_SIZE;
++
+ 	/* Alloc memory for sg translation */
+-	host->sg_cpu = dmam_alloc_coherent(host->dev, PAGE_SIZE,
++	host->sg_cpu = dmam_alloc_coherent(host->dev, host->buf_size,
+ 					  &host->sg_dma, GFP_KERNEL);
+ 	if (!host->sg_cpu) {
+ 		dev_err(host->dev, "%s: could not alloc DMA memory\n",
+@@ -2185,6 +2190,7 @@ static struct dw_mci_board *dw_mci_parse_dt(struct dw_mci *host)
+ 				"value of FIFOTH register as default\n");
+ 
+ 	of_property_read_u32(np, "card-detect-delay", &pdata->detect_delay_ms);
++	of_property_read_u32(np, "desc-num", &pdata->desc_num);
+ 
+ 	if (!of_property_read_u32(np, "clock-frequency", &clock_frequency))
+ 		pdata->bus_hz = clock_frequency;
+diff --git a/include/linux/mmc/dw_mmc.h b/include/linux/mmc/dw_mmc.h
+index 198f0fa..ae031e1 100644
+--- a/include/linux/mmc/dw_mmc.h
++++ b/include/linux/mmc/dw_mmc.h
+@@ -138,6 +138,7 @@ struct dw_mci {
+ 	dma_addr_t		sg_dma;
+ 	void			*sg_cpu;
+ 	const struct dw_mci_dma_ops	*dma_ops;
++	unsigned int		buf_size;
+ #ifdef CONFIG_MMC_DW_IDMAC
+ 	unsigned int		ring_size;
+ #else
+@@ -241,6 +242,9 @@ struct dw_mci_board {
+ 	 */
+ 	unsigned int fifo_depth;
+ 
++	/* Numer of descriptor */
++	unsigned int desc_num;
++
+ 	/* delay in mS before detecting cards after interrupt */
+ 	u32 detect_delay_ms;
+ 
+-- 
+1.8.3.2
+

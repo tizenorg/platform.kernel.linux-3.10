@@ -1,0 +1,46 @@
+From e50f95c025680f791d67967e1c0447415f67fbf6 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 9 May 2013 08:29:33 -0300
+Subject: [PATCH 0205/1302] [media] V4L: Remove all links of the media entity
+ when unregistering subdev
+
+Remove all links of the subdev's media entity after internal_ops
+'unregistered' call and right before unregistering the entity from
+a media device.
+It is assumed here that an unregistered (orphan) media entity cannot
+have links to other entities registered to a media device.
+It is also assumed the media links should be created/removed with
+the media graph's mutex held.
+The above implies that the caller of v4l2_device_unregister_subdev()
+must not hold the graph's mutex.
+
+Reviewed-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Sakari Ailus <sakari.ailus@iki.fi>
+Acked-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/v4l2-core/v4l2-device.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/v4l2-core/v4l2-device.c b/drivers/media/v4l2-core/v4l2-device.c
+index 8ed5da2..2dbfebc0 100644
+--- a/drivers/media/v4l2-core/v4l2-device.c
++++ b/drivers/media/v4l2-core/v4l2-device.c
+@@ -269,8 +269,10 @@ void v4l2_device_unregister_subdev(struct v4l2_subdev *sd)
+ 	sd->v4l2_dev = NULL;
+ 
+ #if defined(CONFIG_MEDIA_CONTROLLER)
+-	if (v4l2_dev->mdev)
++	if (v4l2_dev->mdev) {
++		media_entity_remove_links(&sd->entity);
+ 		media_device_unregister_entity(&sd->entity);
++	}
+ #endif
+ 	video_unregister_device(sd->devnode);
+ 	module_put(sd->owner);
+-- 
+1.8.3.2
+

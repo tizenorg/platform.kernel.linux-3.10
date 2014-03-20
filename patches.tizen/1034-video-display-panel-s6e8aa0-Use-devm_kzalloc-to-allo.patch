@@ -1,0 +1,57 @@
+From ecdcadcc78238b072705a4dd3d796265e78981ed Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Mon, 4 Nov 2013 16:38:47 +0100
+Subject: [PATCH 1034/1302] video: display: panel-s6e8aa0: Use devm_kzalloc to
+ allocate driver data
+
+This fixes memory leak on probe error path.
+
+Change-Id: Ibea51282dee8139a85764f39e7c894a94036f0cf
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/video/display/panel-s6e8aa0.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/video/display/panel-s6e8aa0.c b/drivers/video/display/panel-s6e8aa0.c
+index 66c08f6..1bfa30f 100644
+--- a/drivers/video/display/panel-s6e8aa0.c
++++ b/drivers/video/display/panel-s6e8aa0.c
+@@ -1291,7 +1291,6 @@ static void s6e8aa0_release(struct display_entity *entity)
+ 	struct s6e8aa0 *panel = to_panel(entity);
+ 
+ 	regulator_bulk_free(ARRAY_SIZE(panel->supplies), panel->supplies);
+-	kfree(panel);
+ }
+ 
+ static int s6e8aa0_probe(struct platform_device *pdev)
+@@ -1299,7 +1298,7 @@ static int s6e8aa0_probe(struct platform_device *pdev)
+ 	struct s6e8aa0 *lcd;
+ 	int ret;
+ 
+-	lcd = kzalloc(sizeof(struct s6e8aa0), GFP_KERNEL);
++	lcd = devm_kzalloc(&pdev->dev, sizeof(struct s6e8aa0), GFP_KERNEL);
+ 	if (!lcd) {
+ 		dev_err(&pdev->dev, "failed to allocate s6e8aa0 structure.\n");
+ 		return -ENOMEM;
+@@ -1322,7 +1321,7 @@ static int s6e8aa0_probe(struct platform_device *pdev)
+ 				ARRAY_SIZE(lcd->supplies), lcd->supplies);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "Failed to get regulators: %d\n", ret);
+-		goto err_regulator_bulk_get;
++		return ret;
+ 	}
+ 
+ 	lcd->ld = lcd_device_register("s6e8aa0", &pdev->dev, lcd,
+@@ -1370,8 +1369,6 @@ err_backlight_register:
+ 	lcd_device_unregister(lcd->ld);
+ err_lcd_register:
+ 	regulator_bulk_free(ARRAY_SIZE(lcd->supplies), lcd->supplies);
+-err_regulator_bulk_get:
+-	kfree(lcd);
+ 
+ 	return ret;
+ }
+-- 
+1.8.3.2
+

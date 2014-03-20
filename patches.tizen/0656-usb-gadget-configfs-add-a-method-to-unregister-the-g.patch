@@ -1,0 +1,54 @@
+From 9ab9743e480a3ac334abda56702d3effa2ba7dd2 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Fri, 21 Jun 2013 10:25:27 +0200
+Subject: [PATCH 0656/1302] usb/gadget: configfs: add a method to unregister
+ the gadget
+
+Add a method to unregister the gadget using its config_item.
+
+There can be functions (e.g. mass storage), which in some circumstances
+need the gadget stopped. Add a method of stopping the gadget.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/configfs.c | 8 ++++++++
+ drivers/usb/gadget/configfs.h | 6 ++++++
+ 2 files changed, 14 insertions(+)
+ create mode 100644 drivers/usb/gadget/configfs.h
+
+diff --git a/drivers/usb/gadget/configfs.c b/drivers/usb/gadget/configfs.c
+index 8f0d614..37e475b 100644
+--- a/drivers/usb/gadget/configfs.c
++++ b/drivers/usb/gadget/configfs.c
+@@ -991,6 +991,14 @@ static struct configfs_subsystem gadget_subsys = {
+ 	.su_mutex = __MUTEX_INITIALIZER(gadget_subsys.su_mutex),
+ };
+ 
++void unregister_gadget_item(struct config_item *item)
++{
++	struct gadget_info *gi = to_gadget_info(item);
++
++	unregister_gadget(gi);
++}
++EXPORT_SYMBOL(unregister_gadget_item);
++
+ static int __init gadget_cfs_init(void)
+ {
+ 	int ret;
+diff --git a/drivers/usb/gadget/configfs.h b/drivers/usb/gadget/configfs.h
+new file mode 100644
+index 0000000..a7b564a
+--- /dev/null
++++ b/drivers/usb/gadget/configfs.h
+@@ -0,0 +1,6 @@
++#ifndef USB__GADGET__CONFIGFS__H
++#define USB__GADGET__CONFIGFS__H
++
++void unregister_gadget_item(struct config_item *item);
++
++#endif /*  USB__GADGET__CONFIGFS__H */
+-- 
+1.8.3.2
+

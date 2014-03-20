@@ -1,0 +1,38 @@
+From 6b93a7d91f1211ca19f6617e8208a1e4c2b5fdb8 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 4 Jun 2013 15:27:54 +0200
+Subject: [PATCH 0644/1302] usb: gadget: f_mass_storage: fix default product
+ name
+
+If cfg->product name is not set, a default name is chosen depending
+on the common->luns->cdrom flag. If the flag is set the name should
+be "File-CD Gadget", and if the flag is not set the name should be
+"File-Stor Gadget".
+
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index c35a9ec..56f1fd1 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -2747,8 +2747,8 @@ buffhds_first_it:
+ 		 "%-8s%-16s%04x", cfg->vendor_name ?: "Linux",
+ 		 /* Assume product name dependent on the first LUN */
+ 		 cfg->product_name ?: (common->luns->cdrom
+-				     ? "File-Stor Gadget"
+-				     : "File-CD Gadget"),
++				     ? "File-CD Gadget"
++				     : "File-Stor Gadget"),
+ 		 i);
+ 
+ 	/*
+-- 
+1.8.3.2
+

@@ -1,0 +1,28 @@
+From 1969de1ca1f2d134f527043777ac06d77808af23 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 10 Jun 2013 13:58:29 +0900
+Subject: [PATCH 0251/1302] ARM: dts: usbphy: add SYSREG reg info for
+ exynos4x12
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 30da6ca..be4adc2 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -194,7 +194,7 @@
+ 		status = "disabled";
+ 
+ 		usbphy-sys {
+-			reg = <0x10020704 0x8>;
++			reg = <0x10020704 0x8>, <0x1001021C 0x4>;
+ 		};
+ 	};
+ 
+-- 
+1.8.3.2
+

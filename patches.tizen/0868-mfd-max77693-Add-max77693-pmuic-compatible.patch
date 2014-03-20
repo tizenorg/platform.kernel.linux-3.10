@@ -1,0 +1,29 @@
+From 4269b3fa9264432e9aff991c74c54568ca282bc0 Mon Sep 17 00:00:00 2001
+From: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Date: Thu, 18 Jul 2013 13:58:43 +0200
+Subject: [PATCH 0868/1302] mfd: max77693: Add max77693-pmuic compatible
+
+This patch adds of_compatible field for max7763-pmuic - mfd device
+
+Signed-off-by: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mfd/max77693.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/mfd/max77693.c b/drivers/mfd/max77693.c
+index 0f925af..d2a6841 100644
+--- a/drivers/mfd/max77693.c
++++ b/drivers/mfd/max77693.c
+@@ -44,7 +44,7 @@ static struct mfd_cell max77693_devs[] = {
+ 	{ .name = "max77693-pmic", },
+ 	{ .name = "max77693-charger", },
+ 	{ .name = "max77693-flash", },
+-	{ .name = "max77693-muic", },
++	{ .name = "max77693-muic", .of_compatible = "maxim,max77693-muic" },
+ 	{ .name = "max77693-haptic", },
+ };
+ 
+-- 
+1.8.3.2
+

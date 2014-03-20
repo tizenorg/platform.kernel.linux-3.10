@@ -1,0 +1,35 @@
+From 4fa42afbfefd6a94ff6517ba0c81dbd236918a61 Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Tue, 30 Jul 2013 17:05:28 +0900
+Subject: [PATCH 1260/1302] usb: misc: usb3503: use dev_get_platdata()
+
+Use the wrapper function for retrieving the platform data instead of
+accessing dev->platform_data directly.
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+[mszyprow: mainline commit b977a3068a284b2ad4612cdb8ca326cbd2a7ffc9]
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: Ib977a3068a284b2ad4612cdb8ca326cbd2a7ffc9
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/misc/usb3503.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/misc/usb3503.c b/drivers/usb/misc/usb3503.c
+index c357839..cbb6b78 100644
+--- a/drivers/usb/misc/usb3503.c
++++ b/drivers/usb/misc/usb3503.c
+@@ -179,7 +179,7 @@ err_hubmode:
+ 
+ static int usb3503_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
+ {
+-	struct usb3503_platform_data *pdata = i2c->dev.platform_data;
++	struct usb3503_platform_data *pdata = dev_get_platdata(&i2c->dev);
+ 	struct device_node *np = i2c->dev.of_node;
+ 	struct usb3503 *hub;
+ 	int err = -ENOMEM;
+-- 
+1.8.3.2
+

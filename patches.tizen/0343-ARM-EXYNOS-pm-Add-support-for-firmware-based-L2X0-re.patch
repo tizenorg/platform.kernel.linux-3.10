@@ -1,0 +1,37 @@
+From bc020f7885f58b656b584902fe59cde2eb24a7ab Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 5 Jun 2013 17:40:11 +0200
+Subject: [PATCH 0343/1302] ARM: EXYNOS: pm: Add support for firmware-based
+ L2X0 resume
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/pm.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/mach-exynos/pm.c b/arch/arm/mach-exynos/pm.c
+index e46ac76..d5bac0d 100644
+--- a/arch/arm/mach-exynos/pm.c
++++ b/arch/arm/mach-exynos/pm.c
+@@ -21,6 +21,7 @@
+ #include <linux/clk.h>
+ 
+ #include <asm/cacheflush.h>
++#include <asm/firmware.h>
+ #include <asm/hardware/cache-l2x0.h>
+ #include <asm/smp_scu.h>
+ 
+@@ -273,7 +274,8 @@ static void exynos_pm_resume(void)
+ {
+ 	unsigned long tmp;
+ #ifdef CONFIG_CACHE_L2X0
+-	outer_resume();
++	if (call_firmware_op(l2x0_resume) < 0)
++		outer_resume();
+ #endif
+ 	/*
+ 	 * If PMU failed while entering sleep mode, WFI will be
+-- 
+1.8.3.2
+

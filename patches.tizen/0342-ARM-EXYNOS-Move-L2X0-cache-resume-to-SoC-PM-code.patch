@@ -1,0 +1,134 @@
+From b9bc6744377a2962e77f08daa4d6cf3cf86d1ed6 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 5 Jun 2013 17:39:33 +0200
+Subject: [PATCH 0342/1302] ARM: EXYNOS: Move L2X0 cache resume to SoC PM code
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/common.c     |  5 -----
+ arch/arm/mach-exynos/common.h     |  1 -
+ arch/arm/mach-exynos/pm.c         |  4 +++-
+ arch/arm/plat-samsung/s5p-sleep.S | 43 ---------------------------------------
+ 4 files changed, 3 insertions(+), 50 deletions(-)
+
+diff --git a/arch/arm/mach-exynos/common.c b/arch/arm/mach-exynos/common.c
+index 02fb4a1..a8b62e4 100644
+--- a/arch/arm/mach-exynos/common.c
++++ b/arch/arm/mach-exynos/common.c
+@@ -567,8 +567,6 @@ static int __init exynos4_l2x0_cache_init(void)
+ 		ret = l2x0_of_init(L2_AUX_VAL, L2_AUX_MASK);
+ 		if (ret)
+ 			return ret;
+-		l2x0_regs_phys = virt_to_phys(&l2x0_saved_regs);
+-		clean_dcache_area(&l2x0_regs_phys, sizeof(unsigned long));
+ 		return 0;
+ 	}
+ 
+@@ -586,8 +584,6 @@ static int __init exynos4_l2x0_cache_init(void)
+ 		l2x0_saved_regs.pwr_ctrl =
+ 			(L2X0_DYNAMIC_CLK_GATING_EN | L2X0_STNDBY_MODE_EN);
+ 
+-		l2x0_regs_phys = virt_to_phys(&l2x0_saved_regs);
+-
+ 		__raw_writel(l2x0_saved_regs.tag_latency,
+ 				S5P_VA_L2CC + L2X0_TAG_LATENCY_CTRL);
+ 		__raw_writel(l2x0_saved_regs.data_latency,
+@@ -601,7 +597,6 @@ static int __init exynos4_l2x0_cache_init(void)
+ 		__raw_writel(l2x0_saved_regs.pwr_ctrl,
+ 				S5P_VA_L2CC + L2X0_POWER_CTRL);
+ 
+-		clean_dcache_area(&l2x0_regs_phys, sizeof(unsigned long));
+ 		clean_dcache_area(&l2x0_saved_regs, sizeof(struct l2x0_regs));
+ 	}
+ 
+diff --git a/arch/arm/mach-exynos/common.h b/arch/arm/mach-exynos/common.h
+index 11fc1e2..eeed0c5 100644
+--- a/arch/arm/mach-exynos/common.h
++++ b/arch/arm/mach-exynos/common.h
+@@ -91,7 +91,6 @@ enum sys_powerdown {
+ 	NUM_SYS_POWERDOWN,
+ };
+ 
+-extern unsigned long l2x0_regs_phys;
+ struct exynos_pmu_conf {
+ 	void __iomem *reg;
+ 	unsigned int val[NUM_SYS_POWERDOWN];
+diff --git a/arch/arm/mach-exynos/pm.c b/arch/arm/mach-exynos/pm.c
+index e195e3e..e46ac76 100644
+--- a/arch/arm/mach-exynos/pm.c
++++ b/arch/arm/mach-exynos/pm.c
+@@ -272,7 +272,9 @@ static int exynos_pm_suspend(void)
+ static void exynos_pm_resume(void)
+ {
+ 	unsigned long tmp;
+-
++#ifdef CONFIG_CACHE_L2X0
++	outer_resume();
++#endif
+ 	/*
+ 	 * If PMU failed while entering sleep mode, WFI will be
+ 	 * ignored by PMU and then exiting cpu_do_idle().
+diff --git a/arch/arm/plat-samsung/s5p-sleep.S b/arch/arm/plat-samsung/s5p-sleep.S
+index a030e73..16a0701 100644
+--- a/arch/arm/plat-samsung/s5p-sleep.S
++++ b/arch/arm/plat-samsung/s5p-sleep.S
+@@ -25,17 +25,6 @@
+ #include <asm/asm-offsets.h>
+ #include <asm/hardware/cache-l2x0.h>
+ 
+-#define CPU_MASK	0xff0ffff0
+-#define CPU_CORTEX_A9	0x410fc090
+-
+-/*
+- *	 The following code is located into the .data section. This is to
+- *	 allow l2x0_regs_phys to be accessed with a relative load while we
+- *	 can't rely on any MMU translation. We could have put l2x0_regs_phys
+- *	 in the .text section as well, but some setups might insist on it to
+- *	 be truly read-only. (Reference from: arch/arm/kernel/sleep.S)
+- */
+-	.data
+ 	.align
+ 
+ 	/*
+@@ -53,37 +42,5 @@
+ 	 */
+ 
+ ENTRY(s3c_cpu_resume)
+-#ifdef CONFIG_CACHE_L2X0
+-	mrc	p15, 0, r0, c0, c0, 0
+-	ldr	r1, =CPU_MASK
+-	and	r0, r0, r1
+-	ldr	r1, =CPU_CORTEX_A9
+-	cmp	r0, r1
+-	bne	resume_l2on
+-	adr	r0, l2x0_regs_phys
+-	ldr	r0, [r0]
+-	ldr	r1, [r0, #L2X0_R_PHY_BASE]
+-	ldr	r2, [r1, #L2X0_CTRL]
+-	tst	r2, #0x1
+-	bne	resume_l2on
+-	ldr	r2, [r0, #L2X0_R_AUX_CTRL]
+-	str	r2, [r1, #L2X0_AUX_CTRL]
+-	ldr	r2, [r0, #L2X0_R_TAG_LATENCY]
+-	str	r2, [r1, #L2X0_TAG_LATENCY_CTRL]
+-	ldr	r2, [r0, #L2X0_R_DATA_LATENCY]
+-	str	r2, [r1, #L2X0_DATA_LATENCY_CTRL]
+-	ldr	r2, [r0, #L2X0_R_PREFETCH_CTRL]
+-	str	r2, [r1, #L2X0_PREFETCH_CTRL]
+-	ldr	r2, [r0, #L2X0_R_PWR_CTRL]
+-	str	r2, [r1, #L2X0_POWER_CTRL]
+-	mov	r2, #1
+-	str	r2, [r1, #L2X0_CTRL]
+-resume_l2on:
+-#endif
+ 	b	cpu_resume
+ ENDPROC(s3c_cpu_resume)
+-#ifdef CONFIG_CACHE_L2X0
+-	.globl l2x0_regs_phys
+-l2x0_regs_phys:
+-	.long	0
+-#endif
+-- 
+1.8.3.2
+

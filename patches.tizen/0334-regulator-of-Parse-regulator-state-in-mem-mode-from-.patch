@@ -1,0 +1,46 @@
+From 66a65cb6865d14a4f4e7f2e8f7a8c1c06bc31472 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 24 Apr 2013 19:01:42 +0200
+Subject: [PATCH 0334/1302] regulator: of: Parse regulator state in mem mode
+ from DT
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/regulator/of_regulator.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/regulator/of_regulator.c b/drivers/regulator/of_regulator.c
+index 66ca769..cf2d6bf 100644
+--- a/drivers/regulator/of_regulator.c
++++ b/drivers/regulator/of_regulator.c
+@@ -64,6 +64,26 @@ static void of_get_regulation_constraints(struct device_node *np,
+ 	ramp_delay = of_get_property(np, "regulator-ramp-delay", NULL);
+ 	if (ramp_delay)
+ 		constraints->ramp_delay = be32_to_cpu(*ramp_delay);
++
++	if (of_find_property(np, "regulator-mem-fast", NULL)) {
++		constraints->state_mem.enabled = true;
++		constraints->state_mem.mode = REGULATOR_MODE_FAST;
++	}
++
++	if (of_find_property(np, "regulator-mem-on", NULL)) {
++		constraints->state_mem.enabled = true;
++		constraints->state_mem.mode = REGULATOR_MODE_NORMAL;
++	}
++
++	if (of_find_property(np, "regulator-mem-idle", NULL)) {
++		constraints->state_mem.disabled = true;
++		constraints->state_mem.mode = REGULATOR_MODE_IDLE;
++	}
++
++	if (of_find_property(np, "regulator-mem-off", NULL)) {
++		constraints->state_mem.disabled = true;
++		constraints->state_mem.mode = REGULATOR_MODE_STANDBY;
++	}
+ }
+ 
+ /**
+-- 
+1.8.3.2
+

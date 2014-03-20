@@ -1,0 +1,37 @@
+From bf929decc5d2e46337fa7b1a5e427c92834a3924 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Tue, 16 Jul 2013 17:19:13 +0900
+Subject: [PATCH 0346/1302] power: charger-manager: regulator_get() never
+ returns NULL.
+
+This patch fixes return value checking of regulator_get() in charger-manager
+driver. The API, regulator_get(), returns ERR_PTR() when it fails to get
+regulator with given name, not NULL.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/power/charger-manager.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/power/charger-manager.c b/drivers/power/charger-manager.c
+index 3264fd8..4092bd8 100644
+--- a/drivers/power/charger-manager.c
++++ b/drivers/power/charger-manager.c
+@@ -1243,11 +1243,10 @@ static int charger_manager_register_extcon(struct charger_manager *cm)
+ 
+ 		charger->consumer = regulator_get(cm->dev,
+ 					charger->regulator_name);
+-		if (charger->consumer == NULL) {
++		if (IS_ERR(charger->consumer)) {
+ 			dev_err(cm->dev, "Cannot find charger(%s)n",
+ 					charger->regulator_name);
+-			ret = -EINVAL;
+-			goto err;
++			return PTR_ERR(charger->consumer);
+ 		}
+ 		charger->cm = cm;
+ 
+-- 
+1.8.3.2
+

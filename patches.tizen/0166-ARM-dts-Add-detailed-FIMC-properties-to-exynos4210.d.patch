@@ -1,0 +1,54 @@
+From b1cc84d6d4cff839589c27089580a5a753add7d1 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 14 Mar 2013 19:28:27 +0100
+Subject: [PATCH 0166/1302] ARM: dts: Add detailed FIMC properties to
+ exynos4210.dtsi
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210.dtsi | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210.dtsi b/arch/arm/boot/dts/exynos4210.dtsi
+index fe5aa7a..0fa11d3 100644
+--- a/arch/arm/boot/dts/exynos4210.dtsi
++++ b/arch/arm/boot/dts/exynos4210.dtsi
+@@ -174,21 +174,34 @@
+ 		fimc_0: fimc@11800000 {
+ 			clocks = <&clock 256>, <&clock 128>, <&clock 384>, <&clock 9>;
+ 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
++			samsung,pix-limits = <4224 8192 1920 4224>;
++			samsung,mainscaler-ext;
++			samsung,cam-if;
+ 		};
+ 
+ 		fimc_1: fimc@11810000 {
+ 			clocks = <&clock 257>, <&clock 129>, <&clock 385>, <&clock 9>;
+ 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
++			samsung,pix-limits = <4224 8192 1920 4224>;
++			samsung,mainscaler-ext;
++			samsung,cam-if;
+ 		};
+ 
+ 		fimc_2: fimc@11820000 {
+ 			clocks = <&clock 258>, <&clock 130>, <&clock 386>, <&clock 9>;
+ 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
++			samsung,pix-limits = <4224 8192 1920 4224>;
++			samsung,mainscaler-ext;
++			samsung,lcd-wb;
+ 		};
+ 
+ 		fimc_3: fimc@11830000 {
+ 			clocks = <&clock 259>, <&clock 131>, <&clock 387>, <&clock 9>;
+ 			clock-names = "fimc", "sclk_fimc", "mux", "parent";
++			samsung,pix-limits = <1920 8192 1366 1920>;
++			samsung,rotators = <0>;
++			samsung,mainscaler-ext;
++			samsung,lcd-wb;
+ 		};
+ 
+ 		csis_0: csis@11880000 {
+-- 
+1.8.3.2
+

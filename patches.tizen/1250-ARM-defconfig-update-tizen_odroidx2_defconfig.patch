@@ -1,0 +1,40 @@
+From 4bcb05501656f358b9c730bb7393adbc8a9bbb6a Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Thu, 27 Feb 2014 11:40:41 +0100
+Subject: [PATCH 1250/1302] ARM: defconfig: update tizen_odroidx2_defconfig
+
+Add missing USB3503 HSIC chip driver (enables host usb support) and
+disable UART debug.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-id: I5ba5ef112a0fb02c8a38673a3bf3dfcefa28f696
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_odroidx2_defconfig | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/configs/tizen_odroidx2_defconfig b/arch/arm/configs/tizen_odroidx2_defconfig
+index d209f19..97272e1 100644
+--- a/arch/arm/configs/tizen_odroidx2_defconfig
++++ b/arch/arm/configs/tizen_odroidx2_defconfig
+@@ -1171,7 +1171,7 @@ CONFIG_SERIAL_8250_RUNTIME_UARTS=4
+ CONFIG_SERIAL_SAMSUNG=y
+ CONFIG_SERIAL_SAMSUNG_UARTS_4=y
+ CONFIG_SERIAL_SAMSUNG_UARTS=4
+-CONFIG_SERIAL_SAMSUNG_DEBUG=y
++# CONFIG_SERIAL_SAMSUNG_DEBUG is not set
+ CONFIG_SERIAL_SAMSUNG_CONSOLE=y
+ # CONFIG_SERIAL_MAX3100 is not set
+ # CONFIG_SERIAL_MAX310X is not set
+@@ -1945,7 +1945,7 @@ CONFIG_USB_STORAGE=y
+ # CONFIG_USB_ISIGHTFW is not set
+ # CONFIG_USB_YUREX is not set
+ # CONFIG_USB_EZUSB_FX2 is not set
+-# CONFIG_USB_HSIC_USB3503 is not set
++CONFIG_USB_HSIC_USB3503=y
+ CONFIG_USB_PHY=y
+ # CONFIG_NOP_USB_XCEIV is not set
+ # CONFIG_OMAP_CONTROL_USB is not set
+-- 
+1.8.3.2
+

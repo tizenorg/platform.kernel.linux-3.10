@@ -1,0 +1,135 @@
+From ae053e0f8ffeb64f36bf220eb5d54cef4b734543 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 21 Mar 2013 18:48:45 +0100
+Subject: [PATCH 0330/1302] ARM: EXYNOS: Add support for firmware-assisted
+ suspend/resume
+
+This patch adds firmware ops related to system suspend/resume that
+allows suspend/resume of systems with secure firmware.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/include/asm/firmware.h | 12 ++++++++++++
+ arch/arm/mach-exynos/firmware.c | 28 ++++++++++++++++++++++++++++
+ arch/arm/mach-exynos/pm.c       |  9 +++++++--
+ 3 files changed, 47 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/include/asm/firmware.h b/arch/arm/include/asm/firmware.h
+index 1563130..f459d25 100644
+--- a/arch/arm/include/asm/firmware.h
++++ b/arch/arm/include/asm/firmware.h
+@@ -37,6 +37,18 @@ struct firmware_ops {
+ 	 * Initializes L2 cache
+ 	 */
+ 	int (*l2x0_init)(void);
++	/*
++	 * Suspends the system
++	 */
++	int (*suspend)(unsigned long resume_addr);
++	/*
++	 * Acknowledges system resume
++	 */
++	int (*resume)(void);
++	/*
++	 * Restores coprocessor 15 registers
++	 */
++	int (*c15resume)(u32 *regs);
+ };
+ 
+ /* Global pointer for current firmware_ops structure, can't be NULL. */
+diff --git a/arch/arm/mach-exynos/firmware.c b/arch/arm/mach-exynos/firmware.c
+index da5fb26..3f98bf7 100644
+--- a/arch/arm/mach-exynos/firmware.c
++++ b/arch/arm/mach-exynos/firmware.c
+@@ -20,6 +20,8 @@
+ 
+ #include "smc.h"
+ 
++#define EXYNOS_SLEEP_MAGIC	0x00000BAD
++
+ static int exynos_do_idle(void)
+ {
+ 	exynos_smc(SMC_CMD_SLEEP, 0, 0, 0);
+@@ -47,11 +49,37 @@ static int exynos_l2x0_init(void)
+ 	return 0;
+ }
+ 
++static int exynos_suspend(unsigned long resume_addr)
++{
++	writel(EXYNOS_SLEEP_MAGIC, S5P_VA_SYSRAM_NS + 0xC);
++	writel(resume_addr, S5P_VA_SYSRAM_NS + 0x8);
++	exynos_smc(SMC_CMD_SLEEP, 0, 0, 0);
++
++	return 0;
++}
++
++static int exynos_resume(void)
++{
++	writel(0, S5P_VA_SYSRAM_NS + 0xC);
++
++	return 0;
++}
++
++static int exynos_c15resume(u32 *regs)
++{
++	exynos_smc(SMC_CMD_C15RESUME, regs[0], regs[1], 0);
++
++	return 0;
++}
++
+ static const struct firmware_ops exynos_firmware_ops = {
+ 	.do_idle		= exynos_do_idle,
+ 	.set_cpu_boot_addr	= exynos_set_cpu_boot_addr,
+ 	.cpu_boot		= exynos_cpu_boot,
+ 	.l2x0_init	= exynos_l2x0_init,
++	.suspend	= exynos_suspend,
++	.resume		= exynos_resume,
++	.c15resume	= exynos_c15resume,
+ };
+ 
+ void __init exynos_firmware_init(void)
+diff --git a/arch/arm/mach-exynos/pm.c b/arch/arm/mach-exynos/pm.c
+index 83c4999..e195e3e 100644
+--- a/arch/arm/mach-exynos/pm.c
++++ b/arch/arm/mach-exynos/pm.c
+@@ -36,6 +36,7 @@
+ #include <mach/pm-core.h>
+ 
+ #include "common.h"
++#include "smc.h"
+ 
+ static struct sleep_save exynos4_set_clksrc[] = {
+ 	{ .reg = EXYNOS4_CLKSRC_MASK_TOP		, .val = 0x00000001, },
+@@ -88,7 +89,8 @@ static int exynos_cpu_suspend(unsigned long arg)
+ #endif
+ 
+ 	/* issue the standby signal into the pm unit. */
+-	cpu_do_idle();
++	if (call_firmware_op(suspend, virt_to_phys(s3c_cpu_resume)) == -ENOSYS)
++		cpu_do_idle();
+ 
+ 	pr_info("Failed to suspend the system\n");
+ 	return 1; /* Aborting suspend */
+@@ -286,7 +288,9 @@ static void exynos_pm_resume(void)
+ 		/* No need to perform below restore code */
+ 		goto early_wakeup;
+ 	}
+-	if (!soc_is_exynos5250()) {
++	if (!soc_is_exynos5250()
++	    && call_firmware_op(c15resume, save_arm_register) == -ENOSYS)
++	{
+ 		/* Restore Power control register */
+ 		tmp = save_arm_register[0];
+ 		asm volatile ("mcr p15, 0, %0, c15, c0, 0"
+@@ -328,6 +332,7 @@ early_wakeup:
+ 
+ 	/* Clear SLEEP mode set in INFORM1 */
+ 	__raw_writel(0x0, S5P_INFORM1);
++	call_firmware_op(resume);
+ 
+ 	return;
+ }
+-- 
+1.8.3.2
+

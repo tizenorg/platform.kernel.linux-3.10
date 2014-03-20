@@ -1,0 +1,40 @@
+From 68b626c695df4dd054a40b1b9ffa71b55c912279 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 21 Aug 2013 15:28:44 +0200
+Subject: [PATCH 0574/1302] ARM: dts: Add missing aliases for I2C bus
+ controllers in exynos4412-m0.dts
+
+When an I2C bus controller is added without a corresponding entry in
+the aliases node the I2C core uses firs available number as the bus ID
+which may be one of already reserved IDs for other controllers. E.g.
+0...7 are reserved for hardware I2C bus controllers I2C0.I2C7.
+Missing aliases were causing I2C0 bus adapter initialization to fail
+due to bus ID 0 being assigned to one of the i2c-gpio controllers.
+
+Fix this regression by adding corresponding node aliases.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-m0.dts | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+index 12c7078..ba9168b 100644
+--- a/arch/arm/boot/dts/exynos4412-m0.dts
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -18,7 +18,10 @@
+ 	model = "Samsung M0 based on Exynos4412";
+ 	compatible = "samsung,m0", "samsung,exynos4412";
+ 
+-	/* Nothing to override here yet. */
++	aliases {
++		i2c20 = &i2c_touch_key;
++		i2c21 = &i2c_cm36651;
++	};
+ 
+ 	pinctrl@11400000 {
+ 		vt_cam_id: vt-cam-id {
+-- 
+1.8.3.2
+

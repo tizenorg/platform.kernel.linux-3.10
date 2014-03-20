@@ -1,0 +1,76 @@
+From 63895a467fe8fc7754c188ffd819038eea56e878 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Thu, 1 Aug 2013 16:04:34 +0200
+Subject: [PATCH 0654/1302] usb/gadget: cdc2: fix conversion to new interface
+ of f_ecm
+
+This fixes commit a38a275030086d95306555e544fc7c0e65ccd00e
+(usb: gadget: cdc2: convert to new interface of f_ecm)
+
+The invocation of usb_get_function_instance() is in cdc_bind()
+and should not be repeated in cdc_do_config().
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/cdc2.c | 19 +------------------
+ 1 file changed, 1 insertion(+), 18 deletions(-)
+
+diff --git a/drivers/usb/gadget/cdc2.c b/drivers/usb/gadget/cdc2.c
+index 5a5acf2..e126b6b 100644
+--- a/drivers/usb/gadget/cdc2.c
++++ b/drivers/usb/gadget/cdc2.c
+@@ -113,12 +113,6 @@ static int __init cdc_do_config(struct usb_configuration *c)
+ 		c->bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+ 	}
+ 
+-	fi_ecm = usb_get_function_instance("ecm");
+-	if (IS_ERR(fi_ecm)) {
+-		status = PTR_ERR(fi_ecm);
+-		goto err_func_ecm;
+-	}
+-
+ 	f_ecm = usb_get_function(fi_ecm);
+ 	if (IS_ERR(f_ecm)) {
+ 		status = PTR_ERR(f_ecm);
+@@ -129,35 +123,24 @@ static int __init cdc_do_config(struct usb_configuration *c)
+ 	if (status)
+ 		goto err_add_ecm;
+ 
+-	fi_serial = usb_get_function_instance("acm");
+-	if (IS_ERR(fi_serial)) {
+-		status = PTR_ERR(fi_serial);
+-		goto err_get_acm;
+-	}
+-
+ 	f_acm = usb_get_function(fi_serial);
+ 	if (IS_ERR(f_acm)) {
+ 		status = PTR_ERR(f_acm);
+-		goto err_func_acm;
++		goto err_get_acm;
+ 	}
+ 
+ 	status = usb_add_function(c, f_acm);
+ 	if (status)
+ 		goto err_add_acm;
+-
+ 	return 0;
+ 
+ err_add_acm:
+ 	usb_put_function(f_acm);
+-err_func_acm:
+-	usb_put_function_instance(fi_serial);
+ err_get_acm:
+ 	usb_remove_function(c, f_ecm);
+ err_add_ecm:
+ 	usb_put_function(f_ecm);
+ err_get_ecm:
+-	usb_put_function_instance(fi_ecm);
+-err_func_ecm:
+ 	return status;
+ }
+ 
+-- 
+1.8.3.2
+

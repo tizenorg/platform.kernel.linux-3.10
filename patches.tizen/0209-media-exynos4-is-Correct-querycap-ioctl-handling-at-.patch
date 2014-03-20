@@ -1,0 +1,57 @@
+From 4b4b5b8b5831489744648a1bc49040a5f37ef267 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Tue, 30 Apr 2013 09:27:53 -0300
+Subject: [PATCH 0209/1302] [media] exynos4-is: Correct querycap ioctl handling
+ at fimc-lite driver
+
+Fill in properly bus_info and card fields and set device_caps.
+The querycap ioctl handler is renamed for consistency with the
+other ioctls.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-lite.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-lite.c b/drivers/media/platform/exynos4-is/fimc-lite.c
+index d770f33..5634799 100644
+--- a/drivers/media/platform/exynos4-is/fimc-lite.c
++++ b/drivers/media/platform/exynos4-is/fimc-lite.c
+@@ -637,13 +637,18 @@ static void fimc_lite_try_compose(struct fimc_lite *fimc, struct v4l2_rect *r)
+ /*
+  * Video node ioctl operations
+  */
+-static int fimc_vidioc_querycap_capture(struct file *file, void *priv,
++static int fimc_lite_querycap(struct file *file, void *priv,
+ 					struct v4l2_capability *cap)
+ {
++	struct fimc_lite *fimc = video_drvdata(file);
++
+ 	strlcpy(cap->driver, FIMC_LITE_DRV_NAME, sizeof(cap->driver));
+-	cap->bus_info[0] = 0;
+-	cap->card[0] = 0;
+-	cap->capabilities = V4L2_CAP_STREAMING;
++	strlcpy(cap->card, FIMC_LITE_DRV_NAME, sizeof(cap->card));
++	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
++					dev_name(&fimc->pdev->dev));
++
++	cap->device_caps = V4L2_CAP_STREAMING;
++	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
+ 	return 0;
+ }
+ 
+@@ -938,7 +943,7 @@ static int fimc_lite_s_selection(struct file *file, void *fh,
+ }
+ 
+ static const struct v4l2_ioctl_ops fimc_lite_ioctl_ops = {
+-	.vidioc_querycap		= fimc_vidioc_querycap_capture,
++	.vidioc_querycap		= fimc_lite_querycap,
+ 	.vidioc_enum_fmt_vid_cap_mplane	= fimc_lite_enum_fmt_mplane,
+ 	.vidioc_try_fmt_vid_cap_mplane	= fimc_lite_try_fmt_mplane,
+ 	.vidioc_s_fmt_vid_cap_mplane	= fimc_lite_s_fmt_mplane,
+-- 
+1.8.3.2
+

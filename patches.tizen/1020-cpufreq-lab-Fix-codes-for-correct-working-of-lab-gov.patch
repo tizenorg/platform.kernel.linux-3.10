@@ -1,0 +1,129 @@
+From 2683734d07e2fa27ebdbbdc716966891a550cc08 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Mon, 11 Nov 2013 17:29:24 +0900
+Subject: [PATCH 1020/1302] cpufreq: lab: Fix codes for correct working of lab
+ governor.
+
+- Modify typo in lab govnernor.
+- Remove deadlock in lab governor which is occured when it enables
+  overclocking
+- Add initialization of LAB's data to cpufreq_governor driver
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+
+Conflicts:
+
+	drivers/cpufreq/cpufreq_governor.c
+
+Resolved-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/cpufreq_governor.c | 11 ++++++++++-
+ drivers/cpufreq/cpufreq_lab.c      | 19 +++++++++++--------
+ 2 files changed, 21 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/cpufreq/cpufreq_governor.c b/drivers/cpufreq/cpufreq_governor.c
+index 86a3816..f45f6a4 100644
+--- a/drivers/cpufreq/cpufreq_governor.c
++++ b/drivers/cpufreq/cpufreq_governor.c
+@@ -85,6 +85,7 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
+ 	struct cpu_dbs_common_info *cdbs = dbs_data->cdata->get_cpu_cdbs(cpu);
+ 	struct od_dbs_tuners *od_tuners = dbs_data->tuners;
+ 	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
++	struct lb_dbs_tuners *lb_tuners = dbs_data->tuners;
+ 	struct cpufreq_policy *policy;
+ 	unsigned int max_load = 0;
+ 	unsigned int ignore_nice;
+@@ -92,6 +93,8 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
+ 
+ 	if (dbs_data->cdata->governor == GOV_ONDEMAND)
+ 		ignore_nice = od_tuners->ignore_nice_load;
++	else if (dbs_data->cdata->governor == GOV_LAB)
++		ignore_nice = lb_tuners->ignore_nice;
+ 	else
+ 		ignore_nice = cs_tuners->ignore_nice_load;
+ 
+@@ -143,9 +146,12 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
+ 			idle_time += jiffies_to_usecs(cur_nice_jiffies);
+ 		}
+ 
+-		if (unlikely(!wall_time || wall_time < idle_time))
++		if (unlikely(!wall_time))
+ 			continue;
+ 
++		if (wall_time < idle_time)
++			idle_time = wall_time;
++
+ 		load = 100 * (wall_time - idle_time) / wall_time;
+ 
+ 		if (dbs_data->cdata->governor == GOV_LAB) {
+@@ -230,6 +236,9 @@ static void set_sampling_rate(struct dbs_data *dbs_data,
+ 	if (dbs_data->cdata->governor == GOV_CONSERVATIVE) {
+ 		struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
+ 		cs_tuners->sampling_rate = sampling_rate;
++	} else if(dbs_data->cdata->governor == GOV_LAB) {
++		struct lb_dbs_tuners *lb_tuners = dbs_data->tuners;
++		lb_tuners->sampling_rate = sampling_rate;
+ 	} else {
+ 		struct od_dbs_tuners *od_tuners = dbs_data->tuners;
+ 		od_tuners->sampling_rate = sampling_rate;
+diff --git a/drivers/cpufreq/cpufreq_lab.c b/drivers/cpufreq/cpufreq_lab.c
+index c09e352..28f4932 100644
+--- a/drivers/cpufreq/cpufreq_lab.c
++++ b/drivers/cpufreq/cpufreq_lab.c
+@@ -161,17 +161,20 @@ static void lb_dbs_timer(struct work_struct *work)
+ 	struct lb_dbs_tuners *lb_tuners = dbs_data->tuners;
+ 	int delay;
+ 
+-	mutex_lock(&core_dbs_info->cdbs.timer_mutex);
+-
+ 	/* Enable overclocking always for LAB governor */
+-	if (cpufreq_boost_supported() && unlikely(!cpufreq_boost_enabled()))
++	if (cpufreq_boost_supported() && unlikely(!cpufreq_boost_enabled())) {
++		/* To avoid deadlock, mutex_lock() is called
++		 * after cpufreq_boost_trigger_state().
++		 */
+ 		cpufreq_boost_trigger_state(1);
+-	else
++		mutex_lock(&core_dbs_info->cdbs.timer_mutex);
++	} else {
++		mutex_lock(&core_dbs_info->cdbs.timer_mutex);
+ 		dbs_check_cpu(dbs_data, cpu);
++	}
+ 
+ 	delay = delay_for_sampling_rate(lb_tuners->sampling_rate
+ 						* core_dbs_info->rate_mult);
+-
+ 	gov_queue_work(dbs_data, dbs_info->cdbs.cur_policy, delay, false);
+ 	mutex_unlock(&core_dbs_info->cdbs.timer_mutex);
+ }
+@@ -284,7 +287,7 @@ static int lb_init(struct dbs_data *dbs_data)
+ 	u64 idle_time;
+ 	int cpu;
+ 
+-	tuners = kzalloc(sizeof(struct od_dbs_tuners), GFP_KERNEL);
++	tuners = kzalloc(sizeof(struct lb_dbs_tuners), GFP_KERNEL);
+ 	if (!tuners) {
+ 		pr_err("%s: kzalloc failed\n", __func__);
+ 		return -ENOMEM;
+@@ -329,7 +332,7 @@ static void lb_exit(struct dbs_data *dbs_data)
+ 
+ define_get_cpu_dbs_routines(lb_cpu_dbs_info);
+ 
+-static struct common_dbs_data lb_dbs_data = {
++static struct common_dbs_data lb_dbs_cdata = {
+ 	.governor = GOV_LAB,
+ 	.attr_group_gov_sys = &lb_attr_group_gov_sys,
+ 	.attr_group_gov_pol = &lb_attr_group_gov_pol,
+@@ -344,7 +347,7 @@ static struct common_dbs_data lb_dbs_data = {
+ static int lb_cpufreq_governor_dbs(struct cpufreq_policy *policy,
+ 		unsigned int event)
+ {
+-	return cpufreq_governor_dbs(policy, &lb_dbs_data, event);
++	return cpufreq_governor_dbs(policy, &lb_dbs_cdata, event);
+ }
+ 
+ #ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_LAB
+-- 
+1.8.3.2
+

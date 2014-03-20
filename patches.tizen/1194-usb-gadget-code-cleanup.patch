@@ -1,0 +1,29 @@
+From 6b97c82c039d36dd3131eaefa159c557f071a5c0 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Mon, 13 Jan 2014 16:42:02 +0100
+Subject: [PATCH 1194/1302] usb: gadget: code cleanup
+
+Remove trailing whitespace
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index 52fd0c1..075250a 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -2509,7 +2509,7 @@ static int _ffs_name_dev(struct ffs_dev *dev, const char *name)
+ 	existing = _ffs_find_dev(name);
+ 	if (existing)
+ 		return -EBUSY;
+-	
++
+ 	dev->name = name;
+ 
+ 	return 0;
+-- 
+1.8.3.2
+

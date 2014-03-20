@@ -1,0 +1,33 @@
+From b4ebbd1a5e29a3b0b27d684ffd21f1c29c44238c Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 5 Aug 2013 10:35:25 -0300
+Subject: [PATCH 0701/1302] [media] exynos4-is: Initialize the ISP subdev
+ sd->owner field
+
+Set the subdevs owner module so the exynos4_fimc_is module cannot
+be unloaded when the FIMC-IS driver is in use.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-isp.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-isp.c b/drivers/media/platform/exynos4-is/fimc-isp.c
+index 077993c..f2b25e7 100644
+--- a/drivers/media/platform/exynos4-is/fimc-isp.c
++++ b/drivers/media/platform/exynos4-is/fimc-isp.c
+@@ -699,6 +699,8 @@ int fimc_isp_subdev_create(struct fimc_isp *isp)
+ 	mutex_init(&isp->subdev_lock);
+ 
+ 	v4l2_subdev_init(sd, &fimc_is_subdev_ops);
++
++	sd->owner = THIS_MODULE;
+ 	sd->grp_id = GRP_ID_FIMC_IS;
+ 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+ 	snprintf(sd->name, sizeof(sd->name), "FIMC-IS-ISP");
+-- 
+1.8.3.2
+

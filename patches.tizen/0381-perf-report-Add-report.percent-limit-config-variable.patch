@@ -1,0 +1,58 @@
+From 4eb822588353c7fb151657b99875d3232f340f46 Mon Sep 17 00:00:00 2001
+From: Namhyung Kim <namhyung.kim@lge.com>
+Date: Tue, 14 May 2013 11:09:06 +0900
+Subject: [PATCH 0381/1302] perf report: Add report.percent-limit config
+ variable
+
+Now an user can set a default value of --percent-limit option into the
+perfconfig file.
+
+  $ cat ~/.perfconfig
+  [report]
+  percent-limit = 0.1
+
+Signed-off-by: Namhyung Kim <namhyung@kernel.org>
+Acked-by: Pekka Enberg <penberg@kernel.org>
+Cc: Andi Kleen <andi@firstfloor.org>
+Cc: David Ahern <dsahern@gmail.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Jiri Olsa <jolsa@redhat.com>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Pekka Enberg <penberg@kernel.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1368497347-9628-9-git-send-email-namhyung@kernel.org
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/builtin-report.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/tools/perf/builtin-report.c b/tools/perf/builtin-report.c
+index 0a4979b..ca98d34 100644
+--- a/tools/perf/builtin-report.c
++++ b/tools/perf/builtin-report.c
+@@ -62,6 +62,11 @@ static int perf_report_config(const char *var, const char *value, void *cb)
+ 		symbol_conf.event_group = perf_config_bool(var, value);
+ 		return 0;
+ 	}
++	if (!strcmp(var, "report.percent-limit")) {
++		struct perf_report *rep = cb;
++		rep->min_percent = strtof(value, NULL);
++		return 0;
++	}
+ 
+ 	return perf_default_config(var, value, cb);
+ }
+@@ -823,7 +828,7 @@ int cmd_report(int argc, const char **argv, const char *prefix __maybe_unused)
+ 	OPT_END()
+ 	};
+ 
+-	perf_config(perf_report_config, NULL);
++	perf_config(perf_report_config, &report);
+ 
+ 	argc = parse_options(argc, argv, options, report_usage, 0);
+ 
+-- 
+1.8.3.2
+

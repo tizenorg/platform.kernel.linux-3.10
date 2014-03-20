@@ -1,0 +1,108 @@
+From 77cf733457abe33c3184e7780fd4468c97725b73 Mon Sep 17 00:00:00 2001
+From: Donghwa Lee <dh09.lee@samsung.com>
+Date: Tue, 29 Oct 2013 16:40:20 +0900
+Subject: [PATCH 0895/1302] exynos: drm_fimd: support lcdblk system register
+ control
+
+Signed-off-by: Donghwa Lee <dh09.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi           |  1 +
+ drivers/gpu/drm/exynos/exynos_drm_fimd.c | 24 ++++++++++++++++++++++++
+ 2 files changed, 25 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index d9b14b3..64c93e5 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -599,6 +599,7 @@
+ 		samsung,power-domain = <&pd_lcd0>;
+ 		status = "disabled";
+ 		iommu = <&sysmmu_fimd0>;
++		lcdblk-cfg = <&sys_reg>;
+ 	};
+ 
+ 	sysmmu_mfc_l: sysmmu@13620000 {
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimd.c b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+index e3cfa07..f2db91f 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimd.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+@@ -19,6 +19,8 @@
+ #include <linux/of.h>
+ #include <linux/of_device.h>
+ #include <linux/pm_runtime.h>
++#include <linux/mfd/syscon.h>
++#include <linux/regmap.h>
+ 
+ #include <video/of_display_timing.h>
+ #include <video/samsung_fimd.h>
+@@ -64,6 +66,8 @@
+ 
+ struct fimd_driver_data {
+ 	unsigned int timing_base;
++	unsigned int lcdblk_reg;
++	unsigned int lcdblk_fimdbypass;
+ 
+ 	unsigned int has_shadowcon:1;
+ 	unsigned int has_clksel:1;
+@@ -78,11 +82,15 @@ static struct fimd_driver_data s3c64xx_fimd_driver_data = {
+ 
+ static struct fimd_driver_data exynos4_fimd_driver_data = {
+ 	.timing_base = 0x0,
++	.lcdblk_reg = 0x210,
++	.lcdblk_fimdbypass = 1,
+ 	.has_shadowcon = 1,
+ };
+ 
+ static struct fimd_driver_data exynos5_fimd_driver_data = {
+ 	.timing_base = 0x20000,
++	.lcdblk_reg = 0x210,
++	.lcdblk_fimdbypass = 15,
+ 	.has_shadowcon = 1,
+ };
+ 
+@@ -109,6 +117,7 @@ struct fimd_context {
+ 	struct clk			*bus_clk;
+ 	struct clk			*lcd_clk;
+ 	void __iomem			*regs;
++	struct regmap			*sysreg;
+ 	struct fimd_win_data		win_data[WINDOWS_NR];
+ 	unsigned int			clkdiv;
+ 	unsigned int			default_win;
+@@ -227,11 +236,21 @@ static void fimd_commit(struct device *dev)
+ 	struct fb_videomode *timing = &panel->timing;
+ 	struct fimd_driver_data *driver_data;
+ 	u32 val;
++	int ret;
+ 
+ 	driver_data = ctx->driver_data;
+ 	if (ctx->suspended)
+ 		return;
+ 
++	/* enable FIMDBYPASS bit of LCDBLK0 */
++	ret = regmap_update_bits(ctx->sysreg, driver_data->lcdblk_reg,
++			0x1 << driver_data->lcdblk_fimdbypass,
++			0x1 << driver_data->lcdblk_fimdbypass);
++	if (ret < 0) {
++		DRM_ERROR("failed to update sysreg.\n");
++		return;
++	}
++
+ 	/* setup polarity values from machine code. */
+ 	writel(ctx->vidcon1, ctx->regs + driver_data->timing_base + VIDCON1);
+ 
+@@ -1021,6 +1040,11 @@ static int fimd_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
++	ctx->sysreg = syscon_regmap_lookup_by_phandle(dev->of_node,
++			"lcdblk-cfg");
++	if (IS_ERR(ctx->sysreg))
++		return PTR_ERR(ctx->sysreg);
++
+ 	ctx->driver_data = drm_fimd_get_driver_data(pdev);
+ 	ctx->vidcon0 = pdata->vidcon0;
+ 	ctx->vidcon1 = pdata->vidcon1;
+-- 
+1.8.3.2
+

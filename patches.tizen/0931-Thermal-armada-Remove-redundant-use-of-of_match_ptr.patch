@@ -1,0 +1,34 @@
+From d5164cdafd9a6b466d44d406899295756f14a0f1 Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Thu, 16 May 2013 10:28:08 +0000
+Subject: [PATCH 0931/1302] Thermal: armada: Remove redundant use of
+ of_match_ptr
+
+'armada_thermal_id_table' is always compiled in and the driver
+is dependent on OF. Hence use of of_match_ptr is unnecessary.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Acked-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: Zhang Rui <rui.zhang@intel.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/armada_thermal.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/thermal/armada_thermal.c b/drivers/thermal/armada_thermal.c
+index 0491465..5e53212 100644
+--- a/drivers/thermal/armada_thermal.c
++++ b/drivers/thermal/armada_thermal.c
+@@ -210,7 +210,7 @@ static struct platform_driver armada_thermal_driver = {
+ 	.driver = {
+ 		.name = "armada_thermal",
+ 		.owner = THIS_MODULE,
+-		.of_match_table = of_match_ptr(armada_thermal_id_table),
++		.of_match_table = armada_thermal_id_table,
+ 	},
+ };
+ 
+-- 
+1.8.3.2
+

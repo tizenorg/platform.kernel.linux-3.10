@@ -1,0 +1,85 @@
+From e135af1170d1e442989f6e823b6b65749917eee3 Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Wed, 9 Oct 2013 11:45:31 +0200
+Subject: [PATCH 0859/1302] exynos_drm_fimc: rename fimc_handle_irq to
+ fimc_mask_irq
+
+fimc_handle_irq suggests it is IRQ handler but it is
+irq masking function. Additional small code improvement.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_fimc.c | 20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimc.c b/drivers/gpu/drm/exynos/exynos_drm_fimc.c
+index f2debf4..9dbc90d 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimc.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimc.c
+@@ -290,25 +290,21 @@ static void fimc_handle_jpeg(struct fimc_context *ctx, bool enable)
+ 	fimc_write(cfg, EXYNOS_CIGCTRL);
+ }
+ 
+-static void fimc_handle_irq(struct fimc_context *ctx, bool enable,
++static void fimc_mask_irq(struct fimc_context *ctx, bool enable,
+ 		bool overflow, bool level)
+ {
+ 	u32 cfg;
+ 
+-	DRM_DEBUG_KMS("%s:enable[%d]overflow[%d]level[%d]\n", __func__,
+-			enable, overflow, level);
+-
+ 	cfg = fimc_read(EXYNOS_CIGCTRL);
++	cfg &= ~(EXYNOS_CIGCTRL_IRQ_OVFEN | EXYNOS_CIGCTRL_IRQ_ENABLE |
++		EXYNOS_CIGCTRL_IRQ_LEVEL);
+ 	if (enable) {
+-		cfg &= ~(EXYNOS_CIGCTRL_IRQ_OVFEN | EXYNOS_CIGCTRL_IRQ_LEVEL);
+ 		cfg |= EXYNOS_CIGCTRL_IRQ_ENABLE;
+ 		if (overflow)
+ 			cfg |= EXYNOS_CIGCTRL_IRQ_OVFEN;
+ 		if (level)
+ 			cfg |= EXYNOS_CIGCTRL_IRQ_LEVEL;
+-	} else
+-		cfg &= ~(EXYNOS_CIGCTRL_IRQ_OVFEN | EXYNOS_CIGCTRL_IRQ_ENABLE);
+-
++	}
+ 	fimc_write(cfg, EXYNOS_CIGCTRL);
+ }
+ 
+@@ -1183,12 +1179,12 @@ static int fimc_dst_set_buf_seq(struct fimc_context *ctx, u32 buf_id,
+ 	/* interrupt enable */
+ 	if (buf_type == IPP_BUF_ENQUEUE &&
+ 	    fimc_dst_get_buf_seq(ctx) >= FIMC_BUF_START)
+-		fimc_handle_irq(ctx, true, false, true);
++		fimc_mask_irq(ctx, true, false, true);
+ 
+ 	/* interrupt disable */
+ 	if (buf_type == IPP_BUF_DEQUEUE &&
+ 	    fimc_dst_get_buf_seq(ctx) <= FIMC_BUF_STOP)
+-		fimc_handle_irq(ctx, false, false, true);
++		fimc_mask_irq(ctx, false, false, true);
+ 
+ err_unlock:
+ 	mutex_unlock(&ctx->lock);
+@@ -1529,7 +1525,7 @@ static int fimc_ippdrv_start(struct device *dev, enum drm_exynos_ipp_cmd cmd)
+ 
+ 	property = &c_node->property;
+ 
+-	fimc_handle_irq(ctx, true, false, true);
++	fimc_mask_irq(ctx, true, false, true);
+ 
+ 	for_each_ipp_ops(i) {
+ 		config = &property->config[i];
+@@ -1648,7 +1644,7 @@ static void fimc_ippdrv_stop(struct device *dev, enum drm_exynos_ipp_cmd cmd)
+ 		break;
+ 	}
+ 
+-	fimc_handle_irq(ctx, false, false, true);
++	fimc_mask_irq(ctx, false, false, true);
+ 
+ 	/* reset sequence */
+ 	fimc_write(0x0, EXYNOS_CIFCNTSEQ);
+-- 
+1.8.3.2
+

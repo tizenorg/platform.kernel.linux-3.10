@@ -1,0 +1,30 @@
+From 3041318391f663c135214e207f73c82856b2f26b Mon Sep 17 00:00:00 2001
+From: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Date: Thu, 13 Jun 2013 15:42:22 +0200
+Subject: [PATCH 0272/1302] nfc: pn544-i2c: Fix pn544_hci_i2c_write() resend
+ cmd
+
+Driver should always try resend cmd after failed i2c_master_send.
+
+Signed-off-by: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/nfc/pn544/i2c.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/nfc/pn544/i2c.c b/drivers/nfc/pn544/i2c.c
+index 8a848c2..8545623 100644
+--- a/drivers/nfc/pn544/i2c.c
++++ b/drivers/nfc/pn544/i2c.c
+@@ -206,7 +206,7 @@ static int pn544_hci_i2c_write(void *phy_id, struct sk_buff *skb)
+ 
+ 	r = i2c_master_send(client, skb->data, skb->len);
+ 
+-	if (r == -EREMOTEIO) {	/* Retry, chip was in standby */
++	if (r < 0) {	/* Retry, chip was in standby */
+ 		usleep_range(6000, 10000);
+ 		r = i2c_master_send(client, skb->data, skb->len);
+ 	}
+-- 
+1.8.3.2
+

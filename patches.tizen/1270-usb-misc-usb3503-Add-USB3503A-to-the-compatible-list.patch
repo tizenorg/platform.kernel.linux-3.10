@@ -1,0 +1,50 @@
+From 001a91293536afa9edb533b08ce223d553fae397 Mon Sep 17 00:00:00 2001
+From: Mark Brown <broonie@linaro.org>
+Date: Fri, 9 Aug 2013 11:41:56 +0100
+Subject: [PATCH 1270/1302] usb: misc: usb3503: Add USB3503A to the compatible
+ list
+
+There are no software visible differences that I am aware of but in case
+any are discovered allow the DTS to specify exactly which device is
+present.
+
+Signed-off-by: Mark Brown <broonie@linaro.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+[mszyprow: mainline commit 5bdd1f4a1daf398042203b72430891dfc40c0fa6]
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: I5bdd1f4a1daf398042203b72430891dfc40c0fa6
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ Documentation/devicetree/bindings/usb/usb3503.txt | 2 +-
+ drivers/usb/misc/usb3503.c                        | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/usb/usb3503.txt b/Documentation/devicetree/bindings/usb/usb3503.txt
+index 8c5be48..cd60f7e 100644
+--- a/Documentation/devicetree/bindings/usb/usb3503.txt
++++ b/Documentation/devicetree/bindings/usb/usb3503.txt
+@@ -1,7 +1,7 @@
+ SMSC USB3503 High-Speed Hub Controller
+ 
+ Required properties:
+-- compatible: Should be "smsc,usb3503".
++- compatible: Should be "smsc,usb3503" or "smsc,usb3503a".
+ - reg: Specifies the i2c slave address, it should be 0x08.
+ - connect-gpios: Should specify GPIO for connect.
+ - disabled-ports: Should specify the ports unused.
+diff --git a/drivers/usb/misc/usb3503.c b/drivers/usb/misc/usb3503.c
+index 8f5dff2..da45ed9 100644
+--- a/drivers/usb/misc/usb3503.c
++++ b/drivers/usb/misc/usb3503.c
+@@ -272,6 +272,7 @@ MODULE_DEVICE_TABLE(i2c, usb3503_id);
+ #ifdef CONFIG_OF
+ static const struct of_device_id usb3503_of_match[] = {
+ 	{ .compatible = "smsc,usb3503", },
++	{ .compatible = "smsc,usb3503a", },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, usb3503_of_match);
+-- 
+1.8.3.2
+

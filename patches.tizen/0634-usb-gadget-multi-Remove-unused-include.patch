@@ -1,0 +1,30 @@
+From 064d8be47636d57befdd30d4659b823111218128 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 28 May 2013 09:15:52 +0200
+Subject: [PATCH 0634/1302] usb: gadget: multi: Remove unused include
+
+cleanup only, no functional changes.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/multi.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/multi.c b/drivers/usb/gadget/multi.c
+index 6164393..656c999 100644
+--- a/drivers/usb/gadget/multi.c
++++ b/drivers/usb/gadget/multi.c
+@@ -45,7 +45,6 @@ MODULE_LICENSE("GPL");
+ 
+ #define USBF_ECM_INCLUDED
+ #include "f_ecm.c"
+-#include "f_subset.c"
+ #ifdef USB_ETH_RNDIS
+ #  include "f_rndis.c"
+ #  include "rndis.h"
+-- 
+1.8.3.2
+

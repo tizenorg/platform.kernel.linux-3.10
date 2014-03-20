@@ -1,0 +1,30 @@
+From 50a4f8ec1068441a57472d963c63bd7fb93b926d Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 27 May 2013 15:55:54 +0200
+Subject: [PATCH 0242/1302] ARM: dts: Correct aclk400_mcuisp clock index at
+ fimc-is node
+
+Adjust to the upstream clocks definition differences.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 1364030..caaff80 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -284,7 +284,7 @@
+ 				<&clock 357>, <&clock 358>, <&clock 359>,
+ 				<&clock 360>, <&clock 450>,<&clock 451>,
+ 				<&clock 452>, <&clock 453>, <&clock 176>,
+-				<&clock 13>, <&clock 454>, <&clock 396>,
++				<&clock 13>, <&clock 454>, <&clock 395>,
+ 				<&clock 455>;
+ 			clock-names = "lite0", "lite1", "ppmuispx",
+ 				      "ppmuispmx", "sysreg", "mpll",
+-- 
+1.8.3.2
+

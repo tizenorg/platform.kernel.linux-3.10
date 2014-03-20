@@ -1,0 +1,42 @@
+From 74437f33fc34ffb442b70cbfb67002402e43e630 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Mon, 3 Feb 2014 17:31:33 +0900
+Subject: [PATCH 1205/1302] clk: exynos4: Keep 'chipid' clock enabled
+
+During STR, we needed to access CHIP_ID, thus its clock should be online.
+It's better to keep it enabled even in runtime for later suspend.
+
+Change-Id: I057471e0aac3a9343b0ca8a73d4c8abf0ae36812
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/samsung/clk-exynos4.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/samsung/clk-exynos4.c b/drivers/clk/samsung/clk-exynos4.c
+index a9be318..ed29bf5 100644
+--- a/drivers/clk/samsung/clk-exynos4.c
++++ b/drivers/clk/samsung/clk-exynos4.c
+@@ -807,7 +807,8 @@ struct samsung_gate_clock exynos4210_gate_clks[] __initdata = {
+ 	GATE(pcie, "pcie", "aclk133", GATE_IP_FSYS, 14, 0, 0),
+ 	GATE(smmu_pcie, "smmu_pcie", "aclk133", GATE_IP_FSYS, 18, 0, 0),
+ 	GATE(modemif, "modemif", "aclk100", GATE_IP_PERIL, 28, 0, 0),
+-	GATE(chipid, "chipid", "aclk100", E4210_GATE_IP_PERIR, 0, 0, 0),
++	GATE(chipid, "chipid", "aclk100", E4210_GATE_IP_PERIR, 0,
++			CLK_IGNORE_UNUSED, 0),
+ 	GATE(sysreg, "sysreg", "aclk100", E4210_GATE_IP_PERIR, 0,
+ 			CLK_IGNORE_UNUSED, 0),
+ 	GATE(hdmi_cec, "hdmi_cec", "aclk100", E4210_GATE_IP_PERIR, 11, 0, 0),
+@@ -837,7 +838,8 @@ struct samsung_gate_clock exynos4x12_gate_clks[] __initdata = {
+ 	GATE(mdma2, "mdma2", "aclk200", E4X12_GATE_IP_IMAGE, 2, 0, 0),
+ 	GATE(smmu_mdma, "smmu_mdma", "aclk200", E4X12_GATE_IP_IMAGE, 5, 0, 0),
+ 	GATE(mipi_hsi, "mipi_hsi", "aclk133", GATE_IP_FSYS, 10, 0, 0),
+-	GATE(chipid, "chipid", "aclk100", E4X12_GATE_IP_PERIR, 0, 0, 0),
++	GATE(chipid, "chipid", "aclk100", E4X12_GATE_IP_PERIR, 0,
++			CLK_IGNORE_UNUSED, 0),
+ 	GATE(sysreg, "sysreg", "aclk100", E4X12_GATE_IP_PERIR, 1,
+ 			CLK_IGNORE_UNUSED, 0),
+ 	GATE(hdmi_cec, "hdmi_cec", "aclk100", E4X12_GATE_IP_PERIR, 11, 0, 0),
+-- 
+1.8.3.2
+

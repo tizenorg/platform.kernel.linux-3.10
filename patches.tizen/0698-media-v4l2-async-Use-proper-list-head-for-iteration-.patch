@@ -1,0 +1,33 @@
+From 5a844db595f72d539d4926eff3f74feef2588edd Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 31 Jul 2013 13:10:18 -0300
+Subject: [PATCH 0698/1302] [media] v4l2-async: Use proper list head for
+ iteration over registered subdevs
+
+This fixes regression introduced in commit b426b3a660c85faf6e1ca1c92c6d
+[media] V4L: Merge struct v4l2_async_subdev_list with struct v4l2_subdev
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/v4l2-core/v4l2-async.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2-async.c
+index 10bb62c..c85d69d 100644
+--- a/drivers/media/v4l2-core/v4l2-async.c
++++ b/drivers/media/v4l2-core/v4l2-async.c
+@@ -199,7 +199,7 @@ void v4l2_async_notifier_unregister(struct v4l2_async_notifier *notifier)
+ 
+ 	list_del(&notifier->list);
+ 
+-	list_for_each_entry_safe(sd, tmp, &notifier->done, list) {
++	list_for_each_entry_safe(sd, tmp, &notifier->done, async_list) {
+ 		dev[i] = get_device(sd->dev);
+ 
+ 		v4l2_async_cleanup(sd);
+-- 
+1.8.3.2
+

@@ -1,0 +1,58 @@
+From 25f874d38d3982a440dbe93819da785554fc26ec Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Mon, 27 May 2013 13:47:57 +0900
+Subject: [PATCH 0437/1302] mmc: dw_mmc: change the macro name from DTO to DRTO
+
+At Interrupt status register, Bit9 is Data Read Timeout.
+But we used macro name as the DTO. It could be confused with the
+Data Transfer Over(DTO)-Bit[3].
+It's clearly that is changed the DRTO instead of DTO.
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Reviewed-by: James Hogan <james.hogan@imgtec.com>
+Acked-by: Seungwon Jeon <tgih.jun@samsung.com>
+Signed-off-by: Chris Ball <cjb@laptop.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/dw_mmc.c | 4 ++--
+ drivers/mmc/host/dw_mmc.h | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/mmc/host/dw_mmc.c b/drivers/mmc/host/dw_mmc.c
+index b10e5e1..7dca5e9 100644
+--- a/drivers/mmc/host/dw_mmc.c
++++ b/drivers/mmc/host/dw_mmc.c
+@@ -39,7 +39,7 @@
+ #include "dw_mmc.h"
+ 
+ /* Common flag combinations */
+-#define DW_MCI_DATA_ERROR_FLAGS	(SDMMC_INT_DTO | SDMMC_INT_DCRC | \
++#define DW_MCI_DATA_ERROR_FLAGS	(SDMMC_INT_DRTO | SDMMC_INT_DCRC | \
+ 				 SDMMC_INT_HTO | SDMMC_INT_SBE  | \
+ 				 SDMMC_INT_EBE)
+ #define DW_MCI_CMD_ERROR_FLAGS	(SDMMC_INT_RTO | SDMMC_INT_RCRC | \
+@@ -1093,7 +1093,7 @@ static void dw_mci_tasklet_func(unsigned long priv)
+ 			status = host->data_status;
+ 
+ 			if (status & DW_MCI_DATA_ERROR_FLAGS) {
+-				if (status & SDMMC_INT_DTO) {
++				if (status & SDMMC_INT_DRTO) {
+ 					data->error = -ETIMEDOUT;
+ 				} else if (status & SDMMC_INT_DCRC) {
+ 					data->error = -EILSEQ;
+diff --git a/drivers/mmc/host/dw_mmc.h b/drivers/mmc/host/dw_mmc.h
+index 0b74189..2f52c87 100644
+--- a/drivers/mmc/host/dw_mmc.h
++++ b/drivers/mmc/host/dw_mmc.h
+@@ -98,7 +98,7 @@
+ #define SDMMC_INT_HLE			BIT(12)
+ #define SDMMC_INT_FRUN			BIT(11)
+ #define SDMMC_INT_HTO			BIT(10)
+-#define SDMMC_INT_DTO			BIT(9)
++#define SDMMC_INT_DRTO			BIT(9)
+ #define SDMMC_INT_RTO			BIT(8)
+ #define SDMMC_INT_DCRC			BIT(7)
+ #define SDMMC_INT_RCRC			BIT(6)
+-- 
+1.8.3.2
+

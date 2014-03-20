@@ -1,0 +1,28 @@
+From a3da11597a364184fe87c05c3bd188a5a03aa103 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Thu, 7 Feb 2013 15:05:27 +0900
+Subject: [PATCH 0059/1302] regulator: Remove const from declation of reg_desc
+ in regulator_dev.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ include/linux/regulator/driver.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/regulator/driver.h b/include/linux/regulator/driver.h
+index 6700cc9..18e961c 100644
+--- a/include/linux/regulator/driver.h
++++ b/include/linux/regulator/driver.h
+@@ -279,7 +279,7 @@ struct regulator_config {
+  * no other direct access).
+  */
+ struct regulator_dev {
+-	const struct regulator_desc *desc;
++	struct regulator_desc *desc;
+ 	int exclusive;
+ 	u32 use_count;
+ 	u32 open_count;
+-- 
+1.8.3.2
+

@@ -1,0 +1,148 @@
+From 6200c9c382391d590b25ac79c5d2783fe222b54b Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 25 Mar 2013 00:45:08 +0100
+Subject: [PATCH 0393/1302] perf tools: Move libelf check config into
+ config/Makefile
+
+Moving libelf check config into config/Makefile.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-6-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        | 46 ---------------------------------------------
+ tools/perf/config/Makefile | 47 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 47 insertions(+), 46 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index aa6f933..a174c68 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -473,45 +473,6 @@ ifneq ($(MAKECMDGOALS),tags)
+ # because maintaining the nesting to match is a pain.  If
+ # we had "elif" things would have been much nicer...
+ 
+-ifdef NO_LIBELF
+-	NO_DWARF := 1
+-	NO_DEMANGLE := 1
+-	NO_LIBUNWIND := 1
+-else
+-FLAGS_LIBELF=$(ALL_CFLAGS) $(ALL_LDFLAGS) $(EXTLIBS)
+-ifneq ($(call try-cc,$(SOURCE_LIBELF),$(FLAGS_LIBELF),libelf),y)
+-	FLAGS_GLIBC=$(ALL_CFLAGS) $(ALL_LDFLAGS)
+-	ifeq ($(call try-cc,$(SOURCE_GLIBC),$(FLAGS_GLIBC),glibc),y)
+-		LIBC_SUPPORT := 1
+-	endif
+-	ifeq ($(BIONIC),1)
+-		LIBC_SUPPORT := 1
+-	endif
+-	ifeq ($(LIBC_SUPPORT),1)
+-		msg := $(warning No libelf found, disables 'probe' tool, please install elfutils-libelf-devel/libelf-dev);
+-
+-		NO_LIBELF := 1
+-		NO_DWARF := 1
+-		NO_DEMANGLE := 1
+-	else
+-		msg := $(error No gnu/libc-version.h found, please install glibc-dev[el]/glibc-static);
+-	endif
+-else
+-	# for linking with debug library, run like:
+-	# make DEBUG=1 LIBDW_DIR=/opt/libdw/
+-	ifdef LIBDW_DIR
+-		LIBDW_CFLAGS  := -I$(LIBDW_DIR)/include
+-		LIBDW_LDFLAGS := -L$(LIBDW_DIR)/lib
+-	endif
+-
+-	FLAGS_DWARF=$(ALL_CFLAGS) $(LIBDW_CFLAGS) -ldw -lelf $(LIBDW_LDFLAGS) $(ALL_LDFLAGS) $(EXTLIBS)
+-	ifneq ($(call try-cc,$(SOURCE_DWARF),$(FLAGS_DWARF),libdw),y)
+-		msg := $(warning No libdw.h found or old libdw.h found or elfutils is older than 0.138, disables dwarf support. Please install new elfutils-devel/libdw-dev);
+-		NO_DWARF := 1
+-	endif # Dwarf support
+-endif # SOURCE_LIBELF
+-endif # NO_LIBELF
+-
+ # There's only x86 (both 32 and 64) support for CFI unwind so far
+ ifneq ($(ARCH),x86)
+ 	NO_LIBUNWIND := 1
+@@ -553,13 +514,6 @@ BUILTIN_OBJS := $(filter-out $(OUTPUT)builtin-probe.o,$(BUILTIN_OBJS))
+ LIB_OBJS += $(OUTPUT)util/symbol-minimal.o
+ 
+ else # NO_LIBELF
+-BASIC_CFLAGS += -DLIBELF_SUPPORT
+-
+-FLAGS_LIBELF=$(ALL_CFLAGS) $(ALL_LDFLAGS) $(EXTLIBS)
+-ifeq ($(call try-cc,$(SOURCE_ELF_MMAP),$(FLAGS_LIBELF),-DLIBELF_MMAP),y)
+-	BASIC_CFLAGS += -DLIBELF_MMAP
+-endif
+-
+ ifndef NO_DWARF
+ ifeq ($(origin PERF_HAVE_DWARF_REGS), undefined)
+ 	msg := $(warning DWARF register mappings have not been defined for architecture $(ARCH), DWARF support disabled);
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index 8acbcfe..17614b1 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -108,3 +108,50 @@ ifeq ($(call try-cc,$(SOURCE_BIONIC),$(CFLAGS),bionic),y)
+ 	EXTLIBS := $(filter-out -lpthread,$(EXTLIBS))
+ 	BASIC_CFLAGS += -I.
+ endif
++
++ifdef NO_LIBELF
++	NO_DWARF := 1
++	NO_DEMANGLE := 1
++	NO_LIBUNWIND := 1
++else
++FLAGS_LIBELF=$(ALL_CFLAGS) $(ALL_LDFLAGS) $(EXTLIBS)
++ifneq ($(call try-cc,$(SOURCE_LIBELF),$(FLAGS_LIBELF),libelf),y)
++	FLAGS_GLIBC=$(ALL_CFLAGS) $(ALL_LDFLAGS)
++	ifeq ($(call try-cc,$(SOURCE_GLIBC),$(FLAGS_GLIBC),glibc),y)
++		LIBC_SUPPORT := 1
++	endif
++	ifeq ($(BIONIC),1)
++		LIBC_SUPPORT := 1
++	endif
++	ifeq ($(LIBC_SUPPORT),1)
++		msg := $(warning No libelf found, disables 'probe' tool, please install elfutils-libelf-devel/libelf-dev);
++
++		NO_LIBELF := 1
++		NO_DWARF := 1
++		NO_DEMANGLE := 1
++	else
++		msg := $(error No gnu/libc-version.h found, please install glibc-dev[el]/glibc-static);
++	endif
++else
++	# for linking with debug library, run like:
++	# make DEBUG=1 LIBDW_DIR=/opt/libdw/
++	ifdef LIBDW_DIR
++		LIBDW_CFLAGS  := -I$(LIBDW_DIR)/include
++		LIBDW_LDFLAGS := -L$(LIBDW_DIR)/lib
++	endif
++
++	FLAGS_DWARF=$(ALL_CFLAGS) $(LIBDW_CFLAGS) -ldw -lelf $(LIBDW_LDFLAGS) $(ALL_LDFLAGS) $(EXTLIBS)
++	ifneq ($(call try-cc,$(SOURCE_DWARF),$(FLAGS_DWARF),libdw),y)
++		msg := $(warning No libdw.h found or old libdw.h found or elfutils is older than 0.138, disables dwarf support. Please install new elfutils-devel/libdw-dev);
++		NO_DWARF := 1
++	endif # Dwarf support
++endif # SOURCE_LIBELF
++endif # NO_LIBELF
++
++ifndef NO_LIBELF
++BASIC_CFLAGS += -DLIBELF_SUPPORT
++FLAGS_LIBELF=$(ALL_CFLAGS) $(ALL_LDFLAGS) $(EXTLIBS)
++ifeq ($(call try-cc,$(SOURCE_ELF_MMAP),$(FLAGS_LIBELF),-DLIBELF_MMAP),y)
++	BASIC_CFLAGS += -DLIBELF_MMAP
++endif
++endif # NO_LIBELF
+-- 
+1.8.3.2
+

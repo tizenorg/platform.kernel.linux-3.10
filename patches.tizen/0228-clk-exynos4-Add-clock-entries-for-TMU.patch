@@ -1,0 +1,61 @@
+From 1d3cdd41daa1da8e9070f86a3eb2a341c4cff554 Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Mon, 22 Apr 2013 02:55:46 +0000
+Subject: [PATCH 0228/1302] clk: exynos4: Add clock entries for TMU
+
+Added clock entries for thermal management unit (TMU) for
+Exynos4 SoCs.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Cc: Thomas Abraham <thomas.abraham@linaro.org>
+Cc: Mike Turquette <mturquette@linaro.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ Documentation/devicetree/bindings/clock/exynos4-clock.txt | 1 +
+ drivers/clk/samsung/clk-exynos4.c                         | 4 +++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/clock/exynos4-clock.txt b/Documentation/devicetree/bindings/clock/exynos4-clock.txt
+index 9017baa..76feb47 100644
+--- a/Documentation/devicetree/bindings/clock/exynos4-clock.txt
++++ b/Documentation/devicetree/bindings/clock/exynos4-clock.txt
+@@ -236,6 +236,7 @@ Exynos4 SoC and this is specified where applicable.
+   spi0_isp_sclk       380     Exynos4x12
+   spi1_isp_sclk       381     Exynos4x12
+   uart_isp_sclk       382     Exynos4x12
++  tmu_apbif	      383
+ 
+ 		[Mux Clocks]
+ 
+diff --git a/drivers/clk/samsung/clk-exynos4.c b/drivers/clk/samsung/clk-exynos4.c
+index c84247a..be86c98 100644
+--- a/drivers/clk/samsung/clk-exynos4.c
++++ b/drivers/clk/samsung/clk-exynos4.c
+@@ -172,7 +172,7 @@ enum exynos4_clks {
+ 	gicisp, smmu_isp, smmu_drc, smmu_fd, smmu_lite0, smmu_lite1, mcuctl_isp,
+ 	mpwm_isp, i2c0_isp, i2c1_isp, mtcadc_isp, pwm_isp, wdt_isp, uart_isp,
+ 	asyncaxim, smmu_ispcx, spi0_isp, spi1_isp, pwm_isp_sclk, spi0_isp_sclk,
+-	spi1_isp_sclk, uart_isp_sclk,
++	spi1_isp_sclk, uart_isp_sclk, tmu_apbif,
+ 
+ 	/* mux clocks */
+ 	mout_fimc0 = 384, mout_fimc1, mout_fimc2, mout_fimc3, mout_cam0,
+@@ -814,6 +814,7 @@ struct samsung_gate_clock exynos4210_gate_clks[] __initdata = {
+ 	GATE_A(keyif, "keyif", "aclk100", E4210_GATE_IP_PERIR, 16, 0, 0, "keypad"),
+ 	GATE_DA(sclk_fimd1, "exynos4-fb.1", "sclk_fimd1", "div_fimd1",
+ 			E4210_SRC_MASK_LCD1, 0, CLK_SET_RATE_PARENT, 0, "sclk_fimd"),
++	GATE(tmu_apbif, "tmu_apbif", "aclk100", E4210_GATE_IP_PERIR, 17, 0, 0),
+ };
+ 
+ /* list of gate clocks supported in exynos4x12 soc */
+@@ -840,6 +841,7 @@ struct samsung_gate_clock exynos4x12_gate_clks[] __initdata = {
+ 	GATE_A(rtc, "rtc", "aclk100", E4X12_GATE_IP_PERIR, 15, 0, 0, "rtc"),
+ 	GATE_A(keyif, "keyif", "aclk100",
+ 			E4X12_GATE_IP_PERIR, 16, 0, 0, "keypad"),
++	GATE(tmu_apbif, "tmu_apbif", "aclk100", E4X12_GATE_IP_PERIR, 17, 0, 0),
+ 	GATE(sclk_pwm_isp, "sclk_pwm_isp", "div_pwm_isp",
+ 			E4X12_SRC_MASK_ISP, 0, CLK_SET_RATE_PARENT, 0),
+ 	GATE(sclk_spi0_isp, "sclk_spi0_isp", "div_spi0_isp_pre",
+-- 
+1.8.3.2
+

@@ -1,0 +1,29 @@
+From 3579430169fb2dd8d25603da29bd25d999497774 Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Thu, 24 Oct 2013 22:36:43 +0900
+Subject: [PATCH 0888/1302] ARM: dts: exynos4412_slp_pq: add the desc_num for
+ mshc
+
+Add the desc_num for mshc. (using 4)
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 92bea1f..9f98e32 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -264,6 +264,7 @@
+ 		broken-cd;
+ 		non-removable;
+ 		fifo-depth = <0x80>;
++		desc-num = <4>;
+ 		card-detect-delay = <200>;
+ 		clocks = <&clock 351>, <&clock 132>;
+ 		clock-name = "biu", "ciu";
+-- 
+1.8.3.2
+

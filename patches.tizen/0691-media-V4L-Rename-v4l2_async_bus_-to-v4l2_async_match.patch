@@ -1,0 +1,121 @@
+From 72f806632ce51f425da3a174e7346faeed3c5325 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 19 Jul 2013 12:14:46 -0300
+Subject: [PATCH 0691/1302] [media] V4L: Rename v4l2_async_bus_* to
+ v4l2_async_match_*
+
+enum v4l2_async_bus_type also selects a method subdevs are matched
+in the notification handlers, rename it to v4l2_async_match_type
+so V4L2_ASYNC_MATCH_OF entry can be further added for matching by
+device tree node pointer.
+
+Acked-and-tested-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Acked-by: Hans Verkuil <hans.verkuil@cisco.com>
+Acked-by: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Signed-off-by: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/v4l2-core/v4l2-async.c | 26 +++++++++++++-------------
+ include/media/v4l2-async.h           | 12 ++++++------
+ 2 files changed, 19 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2-async.c
+index ff87c29..86934ca 100644
+--- a/drivers/media/v4l2-core/v4l2-async.c
++++ b/drivers/media/v4l2-core/v4l2-async.c
+@@ -34,9 +34,9 @@ static bool match_i2c(struct device *dev, struct v4l2_async_subdev *asd)
+ #endif
+ }
+ 
+-static bool match_platform(struct device *dev, struct v4l2_async_subdev *asd)
++static bool match_devname(struct device *dev, struct v4l2_async_subdev *asd)
+ {
+-	return !strcmp(asd->match.platform.name, dev_name(dev));
++	return !strcmp(asd->match.device_name.name, dev_name(dev));
+ }
+ 
+ static LIST_HEAD(subdev_list);
+@@ -53,17 +53,17 @@ static struct v4l2_async_subdev *v4l2_async_belongs(struct v4l2_async_notifier *
+ 
+ 	list_for_each_entry(asd, &notifier->waiting, list) {
+ 		/* bus_type has been verified valid before */
+-		switch (asd->bus_type) {
+-		case V4L2_ASYNC_BUS_CUSTOM:
++		switch (asd->match_type) {
++		case V4L2_ASYNC_MATCH_CUSTOM:
+ 			match = asd->match.custom.match;
+ 			if (!match)
+ 				/* Match always */
+ 				return asd;
+ 			break;
+-		case V4L2_ASYNC_BUS_PLATFORM:
+-			match = match_platform;
++		case V4L2_ASYNC_MATCH_DEVNAME:
++			match = match_devname;
+ 			break;
+-		case V4L2_ASYNC_BUS_I2C:
++		case V4L2_ASYNC_MATCH_I2C:
+ 			match = match_i2c;
+ 			break;
+ 		default:
+@@ -141,15 +141,15 @@ int v4l2_async_notifier_register(struct v4l2_device *v4l2_dev,
+ 	for (i = 0; i < notifier->num_subdevs; i++) {
+ 		asd = notifier->subdev[i];
+ 
+-		switch (asd->bus_type) {
+-		case V4L2_ASYNC_BUS_CUSTOM:
+-		case V4L2_ASYNC_BUS_PLATFORM:
+-		case V4L2_ASYNC_BUS_I2C:
++		switch (asd->match_type) {
++		case V4L2_ASYNC_MATCH_CUSTOM:
++		case V4L2_ASYNC_MATCH_DEVNAME:
++		case V4L2_ASYNC_MATCH_I2C:
+ 			break;
+ 		default:
+ 			dev_err(notifier->v4l2_dev ? notifier->v4l2_dev->dev : NULL,
+-				"Invalid bus-type %u on %p\n",
+-				asd->bus_type, asd);
++				"Invalid match type %u on %p\n",
++				asd->match_type, asd);
+ 			return -EINVAL;
+ 		}
+ 		list_add_tail(&asd->list, &notifier->waiting);
+diff --git a/include/media/v4l2-async.h b/include/media/v4l2-async.h
+index c3ec6ac..33e3b2a 100644
+--- a/include/media/v4l2-async.h
++++ b/include/media/v4l2-async.h
+@@ -22,10 +22,10 @@ struct v4l2_async_notifier;
+ /* A random max subdevice number, used to allocate an array on stack */
+ #define V4L2_MAX_SUBDEVS 128U
+ 
+-enum v4l2_async_bus_type {
+-	V4L2_ASYNC_BUS_CUSTOM,
+-	V4L2_ASYNC_BUS_PLATFORM,
+-	V4L2_ASYNC_BUS_I2C,
++enum v4l2_async_match_type {
++	V4L2_ASYNC_MATCH_CUSTOM,
++	V4L2_ASYNC_MATCH_DEVNAME,
++	V4L2_ASYNC_MATCH_I2C,
+ };
+ 
+ /**
+@@ -36,11 +36,11 @@ enum v4l2_async_bus_type {
+  *		probed, to a notifier->waiting list
+  */
+ struct v4l2_async_subdev {
+-	enum v4l2_async_bus_type bus_type;
++	enum v4l2_async_match_type match_type;
+ 	union {
+ 		struct {
+ 			const char *name;
+-		} platform;
++		} device_name;
+ 		struct {
+ 			int adapter_id;
+ 			unsigned short address;
+-- 
+1.8.3.2
+

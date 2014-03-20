@@ -1,0 +1,29 @@
+From 48cb1dc3d2e22813c27f34fed73b554721fb4e7a Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 31 May 2013 20:39:07 +0900
+Subject: [PATCH 0249/1302] ARM: dts: Add g2d clock properties
+
+This patch adds g2d's clock properties.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index caaff80..30da6ca 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -102,6 +102,8 @@
+ 		compatible = "samsung,exynos4212-g2d";
+ 		reg = <0x10800000 0x1000>;
+ 		interrupts = <0 89 0>;
++		clocks = <&clock 277>;
++		clock-names = "fimg2d";
+ 		status = "disabled";
+ 	};
+ 
+-- 
+1.8.3.2
+

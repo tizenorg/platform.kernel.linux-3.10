@@ -1,0 +1,74 @@
+From aef6e26468a1c59ac0d3374b731196b2b2574384 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 2 Sep 2013 16:33:02 +0200
+Subject: [PATCH 0735/1302] Revert "m5mols: device initialization moved to V4L2
+ registered callback"
+
+This reverts commit 30e7664276434227e448742b49738b47d03b6090.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/m5mols/m5mols_core.c | 37 +++++++++++-----------------------
+ 1 file changed, 12 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/media/i2c/m5mols/m5mols_core.c b/drivers/media/i2c/m5mols/m5mols_core.c
+index f720a41..a364781 100644
+--- a/drivers/media/i2c/m5mols/m5mols_core.c
++++ b/drivers/media/i2c/m5mols/m5mols_core.c
+@@ -927,31 +927,7 @@ static int m5mols_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ 	return 0;
+ }
+ 
+-static int m5mols_registered(struct v4l2_subdev *sd)
+-{
+-	struct m5mols_info *info = to_m5mols(sd);
+-	int ret;
+-
+-	mutex_lock(&info->lock);
+-
+-	ret = m5mols_sensor_power(info, true);
+-	if (!ret)
+-		ret = m5mols_fw_start(sd);
+-	if (!ret)
+-		ret = m5mols_init_controls(sd);
+-
+-	m5mols_sensor_power(info, false);
+-
+-	mutex_unlock(&info->lock);
+-
+-	v4l2_dbg(1, m5mols_debug, sd, "%s: Booting %s (%d)\n",
+-		 __func__, ret ? "failed" : "succeded", ret);
+-
+-	return ret;
+-}
+-
+ static const struct v4l2_subdev_internal_ops m5mols_subdev_internal_ops = {
+-	.registered	= m5mols_registered,
+ 	.open		= m5mols_open,
+ };
+ 
+@@ -1039,8 +1015,19 @@ static int m5mols_probe(struct i2c_client *client,
+ 	info->ffmt[0] = m5mols_default_ffmt[0];
+ 	info->ffmt[1] =	m5mols_default_ffmt[1];
+ 
+-	return 0;
++	ret = m5mols_sensor_power(info, true);
++	if (ret)
++		goto out_irq;
+ 
++	ret = m5mols_fw_start(sd);
++	if (!ret)
++		ret = m5mols_init_controls(sd);
++
++	ret = m5mols_sensor_power(info, false);
++	if (!ret)
++		return 0;
++out_irq:
++	free_irq(client->irq, sd);
+ out_me:
+ 	media_entity_cleanup(&sd->entity);
+ out_reg:
+-- 
+1.8.3.2
+

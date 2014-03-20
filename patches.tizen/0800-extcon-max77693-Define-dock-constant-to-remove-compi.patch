@@ -1,0 +1,34 @@
+From 05989a8a21019f650940fca6ac3ef2fc1beedc62 Mon Sep 17 00:00:00 2001
+From: Chanwoo Choi <cw00.choi@samsung.com>
+Date: Mon, 9 Sep 2013 19:43:13 +0900
+Subject: [PATCH 0800/1302] extcon: max77693: Define dock constant to remove
+ compile error
+
+Signed-off-by: Chanwoo Choi <cw00.choi@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ include/linux/mfd/max77693.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/include/linux/mfd/max77693.h b/include/linux/mfd/max77693.h
+index f42ae8a..c45c296 100644
+--- a/include/linux/mfd/max77693.h
++++ b/include/linux/mfd/max77693.h
+@@ -30,6 +30,14 @@
+ #ifndef __LINUX_MFD_MAX77693_H
+ #define __LINUX_MFD_MAX77693_H
+ 
++enum {
++	MAX77693_MUIC_DOCK_DETACHED = 0,
++	MAX77693_MUIC_DOCK_DESKDOCK,
++	MAX77693_MUIC_DOCK_CARDOCK,
++	MAX77693_MUIC_DOCK_AUDIODOCK = 7,
++	MAX77693_MUIC_DOCK_SMARTDOCK = 8
++};
++
+ /* MAX77686 regulator IDs */
+ enum max77693_regulators {
+ 	MAX77693_ESAFEOUT1 = 0,
+-- 
+1.8.3.2
+

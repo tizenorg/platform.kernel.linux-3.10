@@ -1,0 +1,111 @@
+From e69e33b1c4d3297d1ae012b7dc784a902092a1ef Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 25 Mar 2013 00:56:08 +0100
+Subject: [PATCH 0397/1302] perf tools: Move slang check config into
+ config/Makefile
+
+Moving slang check config into config/Makefile.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-10-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        | 39 +++++++++++++--------------------------
+ tools/perf/config/Makefile | 17 +++++++++++++++++
+ 2 files changed, 30 insertions(+), 26 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index 57d39ed..f0c23ce 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -99,10 +99,6 @@ ifeq ($(config),1)
+ include config/Makefile
+ endif
+ 
+-ifdef NO_NEWT
+-	NO_SLANG=1
+-endif
+-
+ # Among the variables below, these:
+ #   perfexecdir
+ #   template_dir
+@@ -509,28 +505,19 @@ ifndef NO_LIBAUDIT
+ endif
+ 
+ ifndef NO_SLANG
+-	FLAGS_SLANG=$(ALL_CFLAGS) $(ALL_LDFLAGS) $(EXTLIBS) -I/usr/include/slang -lslang
+-	ifneq ($(call try-cc,$(SOURCE_SLANG),$(FLAGS_SLANG),libslang),y)
+-		msg := $(warning slang not found, disables TUI support. Please install slang-devel or libslang-dev);
+-	else
+-		# Fedora has /usr/include/slang/slang.h, but ubuntu /usr/include/slang.h
+-		BASIC_CFLAGS += -I/usr/include/slang
+-		BASIC_CFLAGS += -DSLANG_SUPPORT
+-		EXTLIBS += -lslang
+-		LIB_OBJS += $(OUTPUT)ui/browser.o
+-		LIB_OBJS += $(OUTPUT)ui/browsers/annotate.o
+-		LIB_OBJS += $(OUTPUT)ui/browsers/hists.o
+-		LIB_OBJS += $(OUTPUT)ui/browsers/map.o
+-		LIB_OBJS += $(OUTPUT)ui/browsers/scripts.o
+-		LIB_OBJS += $(OUTPUT)ui/tui/setup.o
+-		LIB_OBJS += $(OUTPUT)ui/tui/util.o
+-		LIB_OBJS += $(OUTPUT)ui/tui/helpline.o
+-		LIB_OBJS += $(OUTPUT)ui/tui/progress.o
+-		LIB_H += ui/browser.h
+-		LIB_H += ui/browsers/map.h
+-		LIB_H += ui/keysyms.h
+-		LIB_H += ui/libslang.h
+-	endif
++	LIB_OBJS += $(OUTPUT)ui/browser.o
++	LIB_OBJS += $(OUTPUT)ui/browsers/annotate.o
++	LIB_OBJS += $(OUTPUT)ui/browsers/hists.o
++	LIB_OBJS += $(OUTPUT)ui/browsers/map.o
++	LIB_OBJS += $(OUTPUT)ui/browsers/scripts.o
++	LIB_OBJS += $(OUTPUT)ui/tui/setup.o
++	LIB_OBJS += $(OUTPUT)ui/tui/util.o
++	LIB_OBJS += $(OUTPUT)ui/tui/helpline.o
++	LIB_OBJS += $(OUTPUT)ui/tui/progress.o
++	LIB_H += ui/browser.h
++	LIB_H += ui/browsers/map.h
++	LIB_H += ui/keysyms.h
++	LIB_H += ui/libslang.h
+ endif
+ 
+ ifndef NO_GTK2
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index 02e58ff..06634be 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -208,3 +208,20 @@ ifndef NO_LIBAUDIT
+ 		EXTLIBS += -laudit
+ 	endif
+ endif
++
++ifdef NO_NEWT
++	NO_SLANG=1
++endif
++
++ifndef NO_SLANG
++	FLAGS_SLANG=$(ALL_CFLAGS) $(ALL_LDFLAGS) $(EXTLIBS) -I/usr/include/slang -lslang
++	ifneq ($(call try-cc,$(SOURCE_SLANG),$(FLAGS_SLANG),libslang),y)
++		msg := $(warning slang not found, disables TUI support. Please install slang-devel or libslang-dev);
++		NO_SLANG := 1
++	else
++		# Fedora has /usr/include/slang/slang.h, but ubuntu /usr/include/slang.h
++		BASIC_CFLAGS += -I/usr/include/slang
++		BASIC_CFLAGS += -DSLANG_SUPPORT
++		EXTLIBS += -lslang
++	endif
++endif
+-- 
+1.8.3.2
+

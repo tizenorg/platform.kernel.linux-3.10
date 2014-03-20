@@ -1,0 +1,39 @@
+From cdc9149d44f2a0e1200c0ad08c63732751edd569 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Mon, 13 Jan 2014 16:41:22 +0100
+Subject: [PATCH 1193/1302] usb: gadget: FunctionFS: dereference ffs_dev
+ conditionally
+
+ffs_dev->ffs_release_dev_callback should be accessed only if ffs_dev
+is not NULL.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index 7ede285..52fd0c1 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -2590,11 +2590,12 @@ static void ffs_release_dev(struct ffs_data *ffs_data)
+ 	ffs_dev_lock();
+ 
+ 	ffs_dev = ffs_data->private_data;
+-	if (ffs_dev)
++	if (ffs_dev) {
+ 		ffs_dev->mounted = false;
+-	
+-	if (ffs_dev->ffs_release_dev_callback)
+-		ffs_dev->ffs_release_dev_callback(ffs_dev);
++
++		if (ffs_dev->ffs_release_dev_callback)
++			ffs_dev->ffs_release_dev_callback(ffs_dev);
++	}
+ 
+ 	ffs_dev_unlock();
+ }
+-- 
+1.8.3.2
+

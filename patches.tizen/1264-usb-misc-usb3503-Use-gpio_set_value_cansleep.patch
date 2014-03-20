@@ -1,0 +1,34 @@
+From 16231740a1003ef03fa6ec5ad7c7f9ebfbc2ecda Mon Sep 17 00:00:00 2001
+From: Mark Brown <broonie@linaro.org>
+Date: Fri, 9 Aug 2013 11:41:49 +0100
+Subject: [PATCH 1264/1302] usb: misc: usb3503: Use gpio_set_value_cansleep()
+
+The /RESET GPIO is not manipulated from atomic context so support GPIOs
+that can't be written from atomic context by using _cansleep().
+
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+[mszyprow: mainline commit 24455b09b4838cdc0165af0f24ca63ec9ad54e44]
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: I24455b09b4838cdc0165af0f24ca63ec9ad54e44
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/misc/usb3503.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/misc/usb3503.c b/drivers/usb/misc/usb3503.c
+index 41b4228..2e9e100 100644
+--- a/drivers/usb/misc/usb3503.c
++++ b/drivers/usb/misc/usb3503.c
+@@ -103,7 +103,7 @@ static int usb3503_clear_bits(struct i2c_client *client, char reg, char req)
+ static int usb3503_reset(int gpio_reset, int state)
+ {
+ 	if (gpio_is_valid(gpio_reset))
+-		gpio_set_value(gpio_reset, state);
++		gpio_set_value_cansleep(gpio_reset, state);
+ 
+ 	/* Wait T_HUBINIT == 4ms for hub logic to stabilize */
+ 	if (state)
+-- 
+1.8.3.2
+

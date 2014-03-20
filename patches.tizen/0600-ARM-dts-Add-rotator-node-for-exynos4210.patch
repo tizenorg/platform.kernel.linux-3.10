@@ -1,0 +1,40 @@
+From ed6076ad1d1c1959bc632e4ee7969a128454f739 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 12 Aug 2013 22:49:16 +0900
+Subject: [PATCH 0600/1302] ARM: dts: Add rotator node for exynos4210
+
+This patch adds a rotator node for exynos4210. The exynos4210 has different
+limitation of image size compared with later chips.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Cc: Thomas Abraham <thomas.abraham@linaro.org>
+Cc: Kukjin Kim <kgene.kim@samsung.com>
+Cc: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index e084b26..e3e47a1 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -268,6 +268,14 @@
+ 		status = "disabled";
+ 	};
+ 
++	rotator@12810000 {
++		compatible = "samsung,exynos4210-rotator";
++		reg = <0x12810000 0x1000>;
++		interrupts = <0 83 0>;
++		clocks = <&clock 278>;
++		clock-names = "rotator";
++	};
++
+ 	mfc: codec@13400000 {
+ 		compatible = "samsung,mfc-v5";
+ 		reg = <0x13400000 0x10000>;
+-- 
+1.8.3.2
+

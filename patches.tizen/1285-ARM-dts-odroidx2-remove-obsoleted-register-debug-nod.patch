@@ -1,0 +1,35 @@
+From 6d84c7146e8fc2520da70a084d3a85bc81befdb0 Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 4 Mar 2014 12:27:53 +0100
+Subject: [PATCH 1285/1302] ARM: dts: odroidx2: remove obsoleted register debug
+ node
+
+Register-debug node was used for some internal debug, it is not needed
+at in release code.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: I3cefb94755850a9c3caa609ed0fb5c5e56d1fc94
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-odroidx2.dts | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-odroidx2.dts b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+index e10200b..9aa7f34 100644
+--- a/arch/arm/boot/dts/exynos4412-odroidx2.dts
++++ b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+@@ -468,11 +468,6 @@
+ 		status = "okay";
+ 	};
+ 
+-	register-debug {
+-		compatible = "generic,register-debug";
+-		status = "okay";
+-	};
+-
+ 	camera {
+ 		status = "okay";
+ 
+-- 
+1.8.3.2
+

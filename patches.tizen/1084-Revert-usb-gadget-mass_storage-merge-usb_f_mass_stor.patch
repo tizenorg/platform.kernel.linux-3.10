@@ -1,0 +1,78 @@
+From 6e4b32497259b1e09a6703b80211029b9f192766 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 14 Jan 2014 14:26:04 +0100
+Subject: [PATCH 1084/1302] Revert "usb/gadget: mass_storage: merge
+ usb_f_mass_storage module with u_ms module"
+
+This reverts commit 2e3f33eddfca46f0d4909d496f6309454b8da298.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/Kconfig  | 7 +++++++
+ drivers/usb/gadget/Makefile | 4 +++-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index 93dfc90..df9c040 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -537,6 +537,9 @@ config USB_F_SUBSET
+ config USB_F_RNDIS
+ 	tristate
+ 
++config USB_U_MS
++	tristate
++
+ config USB_F_MASS_STORAGE
+ 	tristate
+ 
+@@ -680,6 +683,7 @@ config USB_CONFIGFS_PHONET
+ config USB_CONFIGFS_MASS_STORAGE
+ 	boolean "Mass storage"
+ 	depends on USB_CONFIGFS
++	select USB_U_MS
+ 	select USB_F_MASS_STORAGE
+ 	help
+ 	  The Mass Storage Gadget acts as a USB Mass Storage disk drive.
+@@ -903,6 +907,7 @@ config USB_MASS_STORAGE
+ 	tristate "Mass Storage Gadget"
+ 	depends on BLOCK
+ 	select USB_LIBCOMPOSITE
++	select USB_U_MS
+ 	select USB_F_MASS_STORAGE
+ 	help
+ 	  The Mass Storage Gadget acts as a USB Mass Storage disk drive.
+@@ -1039,6 +1044,7 @@ config USB_G_ACM_MS
+ 	select USB_LIBCOMPOSITE
+ 	select USB_U_SERIAL
+ 	select USB_F_ACM
++	select USB_U_MS
+ 	select USB_F_MASS_STORAGE
+ 	help
+ 	  This driver provides two functions in one configuration:
+@@ -1055,6 +1061,7 @@ config USB_G_MULTI
+ 	select USB_U_SERIAL
+ 	select USB_U_ETHER
+ 	select USB_F_ACM
++	select USB_U_MS
+ 	select USB_F_MASS_STORAGE
+ 	help
+ 	  The Multifunction Composite Gadget provides Ethernet (RNDIS
+diff --git a/drivers/usb/gadget/Makefile b/drivers/usb/gadget/Makefile
+index 345a49c..62ccbda 100644
+--- a/drivers/usb/gadget/Makefile
++++ b/drivers/usb/gadget/Makefile
+@@ -60,7 +60,9 @@ usb_f_ecm_subset-y		:= f_subset.o
+ obj-$(CONFIG_USB_F_SUBSET)	+= usb_f_ecm_subset.o
+ usb_f_rndis-y			:= f_rndis.o
+ obj-$(CONFIG_USB_F_RNDIS)	+= usb_f_rndis.o
+-usb_f_mass_storage-y		:= f_mass_storage.o storage_common.o
++u_ms-y				:= storage_common.o
++obj-$(CONFIG_USB_U_MS)		+= u_ms.o
++usb_f_mass_storage-y		:= f_mass_storage.o
+ obj-$(CONFIG_USB_F_MASS_STORAGE)+= usb_f_mass_storage.o
+ 
+ #
+-- 
+1.8.3.2
+

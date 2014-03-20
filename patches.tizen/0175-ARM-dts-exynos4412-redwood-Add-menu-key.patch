@@ -1,0 +1,38 @@
+From cdfed0ec79879f81a7a5349aab6fd0e3cdf6d25b Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Wed, 20 Mar 2013 20:47:51 +0900
+Subject: [PATCH 0175/1302] ARM: dts: exynos4412-redwood: Add menu key
+
+This patch adds a node of menu key. The redwood has menu(home) key and its key
+code is 139.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index 17f704e..0f86fea 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -132,6 +132,16 @@
+ 			debounce-interval = <10>;
+ 			gpio-key,wakeup;
+ 		};
++
++		key@139 {
++			interrupt-parent = <&gpx0>;
++			interrupts = <1 0>;
++			gpios = <&gpx0 1 1>;
++			linux,code = <139>;
++			label = "menu";
++			debounce-interval = <10>;
++			gpio-key,wakeup;
++		};
+ 	};
+ 
+ 	i2c_0: i2c@13860000 {
+-- 
+1.8.3.2
+

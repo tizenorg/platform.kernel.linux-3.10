@@ -1,0 +1,52 @@
+From 7464f7e4fed02c10aa619746890bdd96b1b43fc3 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Wed, 19 Mar 2014 00:55:10 +0900
+Subject: [PATCH 1302/1302] extcon: max77693: Fix a bug occured at changing ADC
+ debounce time.
+
+During the initialzation of max77693 muic device, it has been suffered from
+abnormal interrupt and accidental reset of certain register when it changes
+ADC debounce time. All these happens occured by mistakenly writing some value
+to BLTDset and JIGset from CONTROL3 register.
+BLTDset and JIGset are not configurable and only reflect actual pin status.
+If you write some value other than 0 to them, muic device will return false
+information.
+
+To set ADC debounce time properly, give 0 to BLTDset and JIGset when writing
+CONTORL3 register.
+
+Previous workaround patches are now purged.
+
+Change-Id: If87e01785115d460b1153e24271a50125d1631fb
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/extcon/extcon-max77693.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/extcon/extcon-max77693.c b/drivers/extcon/extcon-max77693.c
+index 077296d..f29148b 100644
+--- a/drivers/extcon/extcon-max77693.c
++++ b/drivers/extcon/extcon-max77693.c
+@@ -252,10 +252,15 @@ static int max77693_muic_set_debounce_time(struct max77693_muic_info *info,
+ 	case ADC_DEBOUNCE_TIME_10MS:
+ 	case ADC_DEBOUNCE_TIME_25MS:
+ 	case ADC_DEBOUNCE_TIME_38_62MS:
+-		ret = max77693_update_reg(info->max77693->regmap_muic,
++		/*
++		 * Don't touch BTLDset, JIGset when you want to change adc
++		 * debounce time. BTLDset, JIGset reflects actual pin status
++		 * and are not configurable.
++		 */
++		ret = max77693_write_reg(info->max77693->regmap_muic,
+ 					  MAX77693_MUIC_REG_CTRL3,
+-					  time << CONTROL3_ADCDBSET_SHIFT,
+-					  CONTROL3_ADCDBSET_MASK);
++					  ((time << CONTROL3_ADCDBSET_SHIFT) &
++					  CONTROL3_ADCDBSET_MASK));
+ 		if (ret) {
+ 			dev_err(info->dev, "failed to set ADC debounce time\n");
+ 			return ret;
+-- 
+1.8.3.2
+

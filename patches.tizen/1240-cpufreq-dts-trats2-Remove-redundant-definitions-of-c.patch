@@ -1,0 +1,46 @@
+From 040dee1bb9c2ed8a6fa458e0eb8d10b7f941ed63 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Wed, 19 Feb 2014 12:56:13 +0100
+Subject: [PATCH 1240/1302] cpufreq: dts: trats2: Remove redundant definitions
+ of cpufreq node
+
+After the dts cleanup the cpufreq nodes were duplicated for trats2.
+As a result the trats2 had freq_table definition corresponding to
+SLP_PQ (Proxima PQ) target.
+
+Change-Id: I63a7f627c448caa163df5e915b91cd0979da468e
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-trats2.dts | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-trats2.dts b/arch/arm/boot/dts/exynos4412-trats2.dts
+index 208e15f..4f2683c 100644
+--- a/arch/arm/boot/dts/exynos4412-trats2.dts
++++ b/arch/arm/boot/dts/exynos4412-trats2.dts
+@@ -282,12 +282,6 @@
+ 		};
+ 	};
+ 
+-	cpufreq {
+-		freq_table = <1400000 1300000 1200000 1100000 1000000
+-			     900000 800000 700000 600000 500000 400000 300000
+-			     200000>;
+-	};
+-
+ 	thermistor-ap@0 {
+ 		compatible = "ntc,ncp03wb473";
+ 		status = "ok";
+@@ -1351,7 +1345,7 @@
+ 	};
+ 
+ 	cpufreq {
+-		freq_table = <0xFFFFFFFF 0xFFFFFFFF 0xFFFFFFFF 1100000 1000000
++		freq_table = <1400000 1300000 1200000 1100000 1000000
+ 			     900000 800000 700000 600000 500000 400000 300000
+ 			     200000>;
+ 		vdd_arm-supply = <&buck2_reg>;
+-- 
+1.8.3.2
+

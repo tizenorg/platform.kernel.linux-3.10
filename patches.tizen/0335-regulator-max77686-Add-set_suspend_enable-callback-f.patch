@@ -1,0 +1,58 @@
+From a5567732ac7785e34b534564b2328a3d978d68ee Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 25 Apr 2013 15:47:59 +0200
+Subject: [PATCH 0335/1302] regulator: max77686: Add set_suspend_enable
+ callback for buck regulators
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/regulator/max77686.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/drivers/regulator/max77686.c b/drivers/regulator/max77686.c
+index 20935b1..0b55f55 100644
+--- a/drivers/regulator/max77686.c
++++ b/drivers/regulator/max77686.c
+@@ -91,6 +91,22 @@ static int max77686_buck_set_suspend_disable(struct regulator_dev *rdev)
+ 	return 0;
+ }
+ 
++static int max77686_buck_set_suspend_enable(struct regulator_dev *rdev)
++{
++	unsigned int val;
++	struct max77686_data *max77686 = rdev_get_drvdata(rdev);
++
++	if (rdev->desc->id == MAX77686_BUCK1)
++		val = MAX77686_OPMODE_MASK;
++	else
++		val = MAX77686_OPMODE_MASK << MAX77686_OPMODE_BUCK234_SHIFT;
++
++	max77686->opmode[rdev->desc->id] = val;
++	return regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
++				  rdev->desc->enable_mask,
++				  val);
++}
++
+ /* Some LDOs supports [LPM/Normal]ON mode during suspend state */
+ static int max77686_set_suspend_mode(struct regulator_dev *rdev,
+ 				     unsigned int mode)
+@@ -226,6 +242,7 @@ static struct regulator_ops max77686_buck1_ops = {
+ 	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
+ 	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
+ 	.set_suspend_disable	= max77686_buck_set_suspend_disable,
++	.set_suspend_enable	= max77686_buck_set_suspend_enable,
+ };
+ 
+ static struct regulator_ops max77686_buck_dvs_ops = {
+@@ -239,6 +256,7 @@ static struct regulator_ops max77686_buck_dvs_ops = {
+ 	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
+ 	.set_ramp_delay		= max77686_set_ramp_delay,
+ 	.set_suspend_disable	= max77686_buck_set_suspend_disable,
++	.set_suspend_enable	= max77686_buck_set_suspend_enable,
+ };
+ 
+ #define regulator_desc_ldo(num)		{				\
+-- 
+1.8.3.2
+

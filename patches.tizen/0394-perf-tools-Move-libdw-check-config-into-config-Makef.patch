@@ -1,0 +1,73 @@
+From fffd1e59e047c73928a3a96699007598a0ce5729 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 25 Mar 2013 00:48:14 +0100
+Subject: [PATCH 0394/1302] perf tools: Move libdw check config into
+ config/Makefile
+
+Moving libdw check config into config/Makefile.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-7-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        |  7 -------
+ tools/perf/config/Makefile | 15 +++++++++++++++
+ 2 files changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index a174c68..51fac31 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -515,15 +515,8 @@ LIB_OBJS += $(OUTPUT)util/symbol-minimal.o
+ 
+ else # NO_LIBELF
+ ifndef NO_DWARF
+-ifeq ($(origin PERF_HAVE_DWARF_REGS), undefined)
+-	msg := $(warning DWARF register mappings have not been defined for architecture $(ARCH), DWARF support disabled);
+-else
+-	BASIC_CFLAGS := -DDWARF_SUPPORT $(LIBDW_CFLAGS) $(BASIC_CFLAGS)
+-	BASIC_LDFLAGS := $(LIBDW_LDFLAGS) $(BASIC_LDFLAGS)
+-	EXTLIBS += -lelf -ldw
+ 	LIB_OBJS += $(OUTPUT)util/probe-finder.o
+ 	LIB_OBJS += $(OUTPUT)util/dwarf-aux.o
+-endif # PERF_HAVE_DWARF_REGS
+ endif # NO_DWARF
+ endif # NO_LIBELF
+ 
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index 17614b1..71e737c 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -154,4 +154,19 @@ FLAGS_LIBELF=$(ALL_CFLAGS) $(ALL_LDFLAGS) $(EXTLIBS)
+ ifeq ($(call try-cc,$(SOURCE_ELF_MMAP),$(FLAGS_LIBELF),-DLIBELF_MMAP),y)
+ 	BASIC_CFLAGS += -DLIBELF_MMAP
+ endif
++
++# include ARCH specific config
++-include arch/$(ARCH)/Makefile
++
++ifndef NO_DWARF
++ifeq ($(origin PERF_HAVE_DWARF_REGS), undefined)
++	msg := $(warning DWARF register mappings have not been defined for architecture $(ARCH), DWARF support disabled);
++	NO_DWARF := 1
++else
++	BASIC_CFLAGS := -DDWARF_SUPPORT $(LIBDW_CFLAGS) $(BASIC_CFLAGS)
++	BASIC_LDFLAGS := $(LIBDW_LDFLAGS) $(BASIC_LDFLAGS)
++	EXTLIBS += -lelf -ldw
++endif # PERF_HAVE_DWARF_REGS
++endif # NO_DWARF
++
+ endif # NO_LIBELF
+-- 
+1.8.3.2
+

@@ -1,0 +1,40 @@
+From a141f154c731efd0478713c1ffc12133965e15d4 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Fri, 19 Apr 2013 16:50:42 +0200
+Subject: [PATCH 0232/1302] ARM: dts: thermal: exynos4: TMU voltage regulator
+ support at REDWOOD
+
+This regulator must be enabled at REDWOOD target to allow temperature
+sensor to work.
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index 0f86fea..6ceeb8d 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -661,4 +661,16 @@
+ 		status = "okay";
+ 		vdd_g3d-supply = <&buck4_reg>;
+ 	};
++
++	cpufreq {
++		status = "okay";
++		overclocking = "okay";
++		max_overclocking_freq = <1500000>;
++	};
++
++	tmu@100C0000 {
++		vdd_ts-supply = <&ldo10_reg>;
++		status = "okay";
++	};
++
+ };
+-- 
+1.8.3.2
+

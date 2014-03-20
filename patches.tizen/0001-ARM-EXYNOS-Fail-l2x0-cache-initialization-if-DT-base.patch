@@ -1,0 +1,38 @@
+From cf01114c6e953bcbcf1fc2a9474eedb71e4f3a9b Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 12 Sep 2012 15:30:32 +0200
+Subject: [PATCH 0001/1302] ARM: EXYNOS: Fail l2x0 cache initialization if
+ DT-based init fails
+
+On DT-based boards, DT decides whether to enable l2x0 cache controller
+or not.
+
+This patch modifies Exynos l2x0 cache initialization code to fail if
+l2x0_of_init fails.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/common.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/mach-exynos/common.c b/arch/arm/mach-exynos/common.c
+index f7e504b..5bb6b26 100644
+--- a/arch/arm/mach-exynos/common.c
++++ b/arch/arm/mach-exynos/common.c
+@@ -560,8 +560,10 @@ static int __init exynos4_l2x0_cache_init(void)
+ 	if (soc_is_exynos5250() || soc_is_exynos5440())
+ 		return 0;
+ 
+-	ret = l2x0_of_init(L2_AUX_VAL, L2_AUX_MASK);
+-	if (!ret) {
++	if (of_have_populated_dt()) {
++		ret = l2x0_of_init(L2_AUX_VAL, L2_AUX_MASK);
++		if (ret)
++			return ret;
+ 		l2x0_regs_phys = virt_to_phys(&l2x0_saved_regs);
+ 		clean_dcache_area(&l2x0_regs_phys, sizeof(unsigned long));
+ 		return 0;
+-- 
+1.8.3.2
+

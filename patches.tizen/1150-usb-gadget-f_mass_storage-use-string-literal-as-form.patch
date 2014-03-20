@@ -1,0 +1,36 @@
+From 930117c1edccba0329f341e5846aa23e57590614 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Fri, 25 Oct 2013 09:09:27 +0200
+Subject: [PATCH 1150/1302] usb/gadget: f_mass_storage: use string literal as
+ format in dev_set_name
+
+Fix commit b27c08c953e994f792a03d9b7cbc5cf3f9844135 where dev_set_name()
+is used without a string literal as format.
+
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Cc: Kees Cook <keescook@chromium.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 8fa8b1f7..a03ba2c 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -2949,7 +2949,7 @@ int fsg_common_create_lun(struct fsg_common *common, struct fsg_lun_config *cfg,
+ 		lun->dev.release = fsg_lun_release;
+ 		lun->dev.parent = &common->gadget->dev;
+ 		dev_set_drvdata(&lun->dev, &common->filesem);
+-		dev_set_name(&lun->dev, name);
++		dev_set_name(&lun->dev, "%s", name);
+ 		lun->name = dev_name(&lun->dev);
+ 
+ 		rc = fsg_common_add_sysfs(common, lun);
+-- 
+1.8.3.2
+

@@ -1,0 +1,61 @@
+From be82449c54094f1636380aa70d3e54529e908522 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 28 May 2013 09:15:45 +0200
+Subject: [PATCH 0627/1302] usb: gadget: u_ether: allow getting binary-form
+ host address
+
+helper function to copy MAC address to proper place.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/u_ether.c |  9 +++++++++
+ drivers/usb/gadget/u_ether.h | 10 ++++++++++
+ 2 files changed, 19 insertions(+)
+
+diff --git a/drivers/usb/gadget/u_ether.c b/drivers/usb/gadget/u_ether.c
+index 6d3ccdc..2aae0d6 100644
+--- a/drivers/usb/gadget/u_ether.c
++++ b/drivers/usb/gadget/u_ether.c
+@@ -963,6 +963,15 @@ int gether_get_host_addr_cdc(struct net_device *net, char *host_addr, int len)
+ }
+ EXPORT_SYMBOL(gether_get_host_addr_cdc);
+ 
++void gether_get_host_addr_u8(struct net_device *net, u8 host_mac[ETH_ALEN])
++{
++	struct eth_dev *dev;
++
++	dev = netdev_priv(net);
++	memcpy(host_mac, dev->host_mac, ETH_ALEN);
++}
++EXPORT_SYMBOL(gether_get_host_addr_u8);
++
+ void gether_set_qmult(struct net_device *net, unsigned qmult)
+ {
+ 	struct eth_dev *dev;
+diff --git a/drivers/usb/gadget/u_ether.h b/drivers/usb/gadget/u_ether.h
+index 1671a79..5efa657 100644
+--- a/drivers/usb/gadget/u_ether.h
++++ b/drivers/usb/gadget/u_ether.h
+@@ -210,6 +210,16 @@ int gether_get_host_addr(struct net_device *net, char *host_addr, int len);
+ int gether_get_host_addr_cdc(struct net_device *net, char *host_addr, int len);
+ 
+ /**
++ * gether_get_host_addr_u8 - get an ethernet-over-usb link host address
++ * @net: device representing this link
++ * @host_mac: place to store the eth address of the host
++ *
++ * This gets the binary formatted host-side Ethernet address of this
++ * ethernet-over-usb link.
++ */
++void gether_get_host_addr_u8(struct net_device *net, u8 host_mac[ETH_ALEN]);
++
++/**
+  * gether_set_qmult - initialize an ethernet-over-usb link with a multiplier
+  * @net: device representing this link
+  * @qmult: queue multiplier
+-- 
+1.8.3.2
+

@@ -1,0 +1,114 @@
+From 8021cf7d5e7f901009e9ef198486abf298aeffff Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 10 May 2013 15:16:07 +0200
+Subject: [PATCH 0134/1302] ARM: dts: exynos4210-trats: add s5k5baf sensor
+ support
+
+Added:
+- i2c-gpio bus for the sensor,
+- required regulators,
+- MIPI-CSIS1 node,
+- sensor node.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 61 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 61 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index 5c68f44..a399016 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -117,6 +117,16 @@
+ 			gpio = <&gpe2 5 0>;
+ 			enable-active-high;
+ 		};
++
++		vt_core_15v_reg: regulator@5 {
++			compatible = "regulator-fixed";
++			reg = <5>;
++			regulator-name = "VT_CORE_1.5V";
++			regulator-min-microvolt = <1500000>;
++			regulator-max-microvolt = <1500000>;
++			gpio = <&gpe2 2 0>;
++			enable-active-high;
++		};
+ 	};
+ 
+ 	sdhci_emmc: sdhci@12510000 {
+@@ -177,6 +187,32 @@
+ 		};
+ 	};
+ 
++	i2c-gpio {
++		compatible = "i2c-gpio";
++		gpios = <&gpc1 0 0>, <&gpc1 2 0>;
++		i2c-gpio,delay-us = <2>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		status = "okay";
++
++		s5k5bafx@2d {
++			compatible = "samsung,s5k5baf";
++			reg = <0x2d>;
++			vdda-supply = <&cam_io_en_reg>;
++			vdd_reg-supply = <&vt_core_15v_reg>;
++			vddio-supply = <&vtcam_reg>;
++			gpios = <&gpl2 1 1>,
++				<&gpl2 0 1>;
++			clock-frequency = <24000000>;
++
++			port {
++				s5k5bafx_ep: endpoint {
++					remote-endpoint = <&csis1_ep>;
++				};
++			};
++		};
++	};
++
+ 	i2c@13860000 {
+ 		samsung,i2c-sda-delay = <100>;
+ 		samsung,i2c-max-bus-freq = <400000>;
+@@ -321,6 +357,12 @@
+ 				     regulator-always-on;
+ 				};
+ 
++				vtcam_reg: LDO12 {
++				     regulator-name = "VT_CAM_1.8V";
++				     regulator-min-microvolt = <1800000>;
++				     regulator-max-microvolt = <1800000>;
++				};
++
+ 				vcclcd_reg: LDO13 {
+ 				     regulator-name = "VCC_3.3V_LCD";
+ 				     regulator-min-microvolt = <3300000>;
+@@ -512,6 +554,25 @@
+ 				};
+ 			};
+ 		};
++
++		csis_1: csis@11890000 {
++			status = "okay";
++			vddcore-supply = <&vusb_reg>;
++			vddio-supply = <&vmipi_reg>;
++			clock-frequency = <160000000>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			/* MIPI-CSIS1 */
++			port@4 {
++				reg = <4>;
++				csis1_ep: endpoint {
++					remote-endpoint = <&s5k5bafx_ep>;
++					data-lanes = <1>;
++					samsung,csis-hs-settle = <6>;
++				};
++			};
++		};
+ 	};
+ 
+ 	mfc: codec@13400000 {
+-- 
+1.8.3.2
+

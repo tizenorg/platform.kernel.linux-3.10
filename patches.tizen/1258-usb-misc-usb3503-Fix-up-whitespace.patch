@@ -1,0 +1,36 @@
+From 003e73e7a01d03ede8801cd8fa1ef91bb152dd67 Mon Sep 17 00:00:00 2001
+From: Julius Werner <jwerner@chromium.org>
+Date: Fri, 31 May 2013 18:34:50 -0700
+Subject: [PATCH 1258/1302] usb: misc: usb3503: Fix up whitespace
+
+Remove an erroneous tab that should be a space.
+
+Signed-off-by: Julius Werner <jwerner@chromium.org>
+Signed-off-by: Dongjin Kim <tobetter@gmail.com>
+Acked-by: Olof Johansson <olof@lixom.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+[mszyprow: mainline commit ccf92c94135059c2fa7ee67bbd19af5103547510]
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: Iccf92c94135059c2fa7ee67bbd19af5103547510
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/misc/usb3503.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/misc/usb3503.c b/drivers/usb/misc/usb3503.c
+index 1908ec6..a56299d 100644
+--- a/drivers/usb/misc/usb3503.c
++++ b/drivers/usb/misc/usb3503.c
+@@ -223,7 +223,7 @@ static int usb3503_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
+ 		hub->gpio_connect = of_get_named_gpio(np, "intn-gpios", 0);
+ 		if (hub->gpio_connect == -EPROBE_DEFER)
+ 			return -EPROBE_DEFER;
+-		hub->gpio_reset	= of_get_named_gpio(np, "reset-gpios", 0);
++		hub->gpio_reset = of_get_named_gpio(np, "reset-gpios", 0);
+ 		if (hub->gpio_reset == -EPROBE_DEFER)
+ 			return -EPROBE_DEFER;
+ 		of_property_read_u32(np, "initial-mode", &mode);
+-- 
+1.8.3.2
+

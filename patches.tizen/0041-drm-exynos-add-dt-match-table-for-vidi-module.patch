@@ -1,0 +1,40 @@
+From b96dacd547b581341447efd317da886856802878 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Fri, 4 Jan 2013 16:27:03 +0900
+Subject: [PATCH 0041/1302] drm/exynos: add dt match table for vidi module.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_vidi.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_vidi.c b/drivers/gpu/drm/exynos/exynos_drm_vidi.c
+index 24376c1..c966e23 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_vidi.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_vidi.c
+@@ -85,6 +85,14 @@ static const char fake_edid_info[] = {
+ 	0x00, 0x00, 0x00, 0x06
+ };
+ 
++#ifdef CONFIG_OF
++static const struct of_device_id vidi_driver_dt_match[] = {
++	{ .compatible = "samsung,exynos-drm-vidi" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, vidi_driver_dt_match);
++#endif
++
+ static bool vidi_display_is_connected(struct device *dev)
+ {
+ 	struct vidi_context *ctx = get_vidi_context(dev);
+@@ -664,5 +672,6 @@ struct platform_driver vidi_driver = {
+ 		.name	= "exynos-drm-vidi",
+ 		.owner	= THIS_MODULE,
+ 		.pm	= &vidi_pm_ops,
++		.of_match_table = of_match_ptr(vidi_driver_dt_match),
+ 	},
+ };
+-- 
+1.8.3.2
+

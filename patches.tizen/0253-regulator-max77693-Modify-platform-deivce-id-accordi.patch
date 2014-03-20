@@ -1,0 +1,37 @@
+From 35dc664b8254f125cfb688390c099254fe0a89b6 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Tue, 11 Jun 2013 00:12:17 +0900
+Subject: [PATCH 0253/1302] regulator: max77693: Modify platform deivce id
+ according to mfd driver.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/regulator/max77693.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/regulator/max77693.c b/drivers/regulator/max77693.c
+index 60842a8..fb802d5 100644
+--- a/drivers/regulator/max77693.c
++++ b/drivers/regulator/max77693.c
+@@ -812,7 +812,7 @@ static int max77693_pmic_remove(struct platform_device *pdev)
+ }
+ 
+ static const struct platform_device_id max77693_pmic_id[] = {
+-	{"max77693-safeout", 0},
++	{"max77693-pmic", 0},
+ 	{},
+ };
+ 
+@@ -820,7 +820,7 @@ MODULE_DEVICE_TABLE(platform, max77693_pmic_id);
+ 
+ static struct platform_driver max77693_pmic_driver = {
+ 	.driver = {
+-		   .name = "max77693-safeout",
++		   .name = "max77693-pmic",
+ 		   .owner = THIS_MODULE,
+ 		   },
+ 	.probe = max77693_pmic_probe,
+-- 
+1.8.3.2
+

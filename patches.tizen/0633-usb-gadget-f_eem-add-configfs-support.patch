@@ -1,0 +1,195 @@
+From 4b584efbb9a4ec5dd80006ca46a103ff2fde0804 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 28 May 2013 09:15:51 +0200
+Subject: [PATCH 0633/1302] usb: gadget: f_eem: add configfs support
+
+f_eem learns about our configfs interface so we
+can remove in-kernel gadget drivers in future.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ Documentation/ABI/testing/configfs-usb-gadget-eem | 14 +++++++
+ drivers/usb/gadget/Kconfig                        | 15 +++++++
+ drivers/usb/gadget/f_eem.c                        | 49 +++++++++++++++++++++++
+ drivers/usb/gadget/u_eem.h                        |  9 +++++
+ 4 files changed, 87 insertions(+)
+ create mode 100644 Documentation/ABI/testing/configfs-usb-gadget-eem
+
+diff --git a/Documentation/ABI/testing/configfs-usb-gadget-eem b/Documentation/ABI/testing/configfs-usb-gadget-eem
+new file mode 100644
+index 0000000..10e87d6
+--- /dev/null
++++ b/Documentation/ABI/testing/configfs-usb-gadget-eem
+@@ -0,0 +1,14 @@
++What:		/config/usb-gadget/gadget/functions/eem.name
++Date:		May 2013
++KenelVersion:	3.11
++Description:
++		The attributes:
++
++		ifname		- network device interface name associated with
++				this function instance
++		qmult		- queue length multiplier for high and
++				super speed
++		host_addr	- MAC address of host's end of this
++				Ethernet over USB link
++		dev_addr	- MAC address of device's end of this
++				Ethernet over USB link
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index ce1abb5..90e64a9 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -552,6 +552,21 @@ choice
+ 
+ # this first set of drivers all depend on bulk-capable hardware.
+ 
++config USB_CONFIGFS_EEM
++	bool "Ethernet Emulation Model (EEM)"
++	depends on USB_CONFIGFS
++	depends on NET
++	select USB_U_ETHER
++	select USB_F_EEM
++	help
++	  CDC EEM is a newer USB standard that is somewhat simpler than CDC ECM
++	  and therefore can be supported by more hardware.  Technically ECM and
++	  EEM are designed for different applications.  The ECM model extends
++	  the network interface to the target (e.g. a USB cable modem), and the
++	  EEM model is for mobile devices to communicate with hosts using
++	  ethernet over USB.  For Linux gadgets, however, the interface with
++	  the host is the same (a usbX device), so the differences are minimal.
++
+ config USB_CONFIGFS_PHONET
+ 	boolean "Phonet protocol"
+ 	depends on USB_CONFIGFS
+diff --git a/drivers/usb/gadget/f_eem.c b/drivers/usb/gadget/f_eem.c
+index 31a2cb7..90ee802 100644
+--- a/drivers/usb/gadget/f_eem.c
++++ b/drivers/usb/gadget/f_eem.c
+@@ -19,6 +19,7 @@
+ #include <linux/slab.h>
+ 
+ #include "u_ether.h"
++#include "u_ether_configfs.h"
+ #include "u_eem.h"
+ 
+ #define EEM_HLEN 2
+@@ -263,8 +264,10 @@ static int eem_bind(struct usb_configuration *c, struct usb_function *f)
+ 	 * with regard to eem_opts->bound access
+ 	 */
+ 	if (!eem_opts->bound) {
++		mutex_lock(&eem_opts->lock);
+ 		gether_set_gadget(eem_opts->net, cdev->gadget);
+ 		status = gether_register_netdev(eem_opts->net);
++		mutex_unlock(&eem_opts->lock);
+ 		if (status)
+ 			return status;
+ 		eem_opts->bound = true;
+@@ -533,6 +536,41 @@ error:
+ 	return status;
+ }
+ 
++static inline struct f_eem_opts *to_f_eem_opts(struct config_item *item)
++{
++	return container_of(to_config_group(item), struct f_eem_opts,
++			    func_inst.group);
++}
++
++/* f_eem_item_ops */
++USB_ETHERNET_CONFIGFS_ITEM(eem);
++
++/* f_eem_opts_dev_addr */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_DEV_ADDR(eem);
++
++/* f_eem_opts_host_addr */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_HOST_ADDR(eem);
++
++/* f_eem_opts_qmult */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_QMULT(eem);
++
++/* f_eem_opts_ifname */
++USB_ETHERNET_CONFIGFS_ITEM_ATTR_IFNAME(eem);
++
++static struct configfs_attribute *eem_attrs[] = {
++	&f_eem_opts_dev_addr.attr,
++	&f_eem_opts_host_addr.attr,
++	&f_eem_opts_qmult.attr,
++	&f_eem_opts_ifname.attr,
++	NULL,
++};
++
++static struct config_item_type eem_func_type = {
++	.ct_item_ops	= &eem_item_ops,
++	.ct_attrs	= eem_attrs,
++	.ct_owner	= THIS_MODULE,
++};
++
+ static void eem_free_inst(struct usb_function_instance *f)
+ {
+ 	struct f_eem_opts *opts;
+@@ -552,20 +590,28 @@ static struct usb_function_instance *eem_alloc_inst(void)
+ 	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
+ 	if (!opts)
+ 		return ERR_PTR(-ENOMEM);
++	mutex_init(&opts->lock);
+ 	opts->func_inst.free_func_inst = eem_free_inst;
+ 	opts->net = gether_setup_default();
+ 	if (IS_ERR(opts->net))
+ 		return ERR_CAST(opts->net);
+ 
++	config_group_init_type_name(&opts->func_inst.group, "", &eem_func_type);
++
+ 	return &opts->func_inst;
+ }
+ 
+ static void eem_free(struct usb_function *f)
+ {
+ 	struct f_eem *eem;
++	struct f_eem_opts *opts;
+ 
+ 	eem = func_to_eem(f);
++	opts = container_of(f->fi, struct f_eem_opts, func_inst);
+ 	kfree(eem);
++	mutex_lock(&opts->lock);
++	opts->refcnt--;
++	mutex_unlock(&opts->lock);
+ }
+ 
+ static void eem_unbind(struct usb_configuration *c, struct usb_function *f)
+@@ -586,8 +632,11 @@ struct usb_function *eem_alloc(struct usb_function_instance *fi)
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	opts = container_of(fi, struct f_eem_opts, func_inst);
++	mutex_lock(&opts->lock);
++	opts->refcnt++;
+ 
+ 	eem->port.ioport = netdev_priv(opts->net);
++	mutex_unlock(&opts->lock);
+ 	eem->port.cdc_filter = DEFAULT_FILTER;
+ 
+ 	eem->port.func.name = "cdc_eem";
+diff --git a/drivers/usb/gadget/u_eem.h b/drivers/usb/gadget/u_eem.h
+index 8f432f2..e3ae978 100644
+--- a/drivers/usb/gadget/u_eem.h
++++ b/drivers/usb/gadget/u_eem.h
+@@ -22,6 +22,15 @@ struct f_eem_opts {
+ 	struct usb_function_instance	func_inst;
+ 	struct net_device		*net;
+ 	bool				bound;
++
++	/*
++	 * Read/write access to configfs attributes is handled by configfs.
++	 *
++	 * This is to protect the data from concurrent access by read/write
++	 * and create symlink/remove symlink.
++	 */
++	struct mutex			lock;
++	int				refcnt;
+ };
+ 
+ #endif /* U_EEM_H */
+-- 
+1.8.3.2
+

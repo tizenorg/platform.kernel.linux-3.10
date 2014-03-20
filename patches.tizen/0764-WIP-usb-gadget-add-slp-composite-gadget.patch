@@ -1,0 +1,2204 @@
+From efac50aee64d511b2da54fa5ae23bbf4774f657b Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 9 Sep 2013 19:14:06 +0900
+Subject: [PATCH 0764/1302] WIP: usb: gadget: add slp composite gadget
+
+This patch only enables 'rndis' and 'sdb' function gadgets. We may need to
+verify 'mtp', 'accessary' and so on. The slp gadget should be removed after
+we migrate to configfs-based gadget configuration successfully.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/Kconfig  |   12 +
+ drivers/usb/gadget/Makefile |    2 +
+ drivers/usb/gadget/f_sdb.c  |  763 ++++++++++++++++++++++++
+ drivers/usb/gadget/slp.c    | 1365 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 2142 insertions(+)
+ create mode 100644 drivers/usb/gadget/f_sdb.c
+ create mode 100644 drivers/usb/gadget/slp.c
+
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index 84ac134..93dfc90 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -983,6 +983,18 @@ config USB_G_PRINTER
+ 	  For more information, see Documentation/usb/gadget_printer.txt
+ 	  which includes sample code for accessing the device file.
+ 
++config USB_G_SLP
++	boolean "SLP Gadget based on Android"
++	select USB_F_ACM
++	select USB_LIBCOMPOSITE
++	select USB_U_SERIAL
++	help
++	  The SLP gadget driver supports multiple USB functions.
++	  The functions can be configured via a board file and may be
++	  enabled and disabled dynamically.
++	  Support functions: sdb, acm, mtp, mass storage, rndis,
++	  android accessory, diag.
++
+ if TTY
+ 
+ config USB_CDC_COMPOSITE
+diff --git a/drivers/usb/gadget/Makefile b/drivers/usb/gadget/Makefile
+index f106645..345a49c 100644
+--- a/drivers/usb/gadget/Makefile
++++ b/drivers/usb/gadget/Makefile
+@@ -82,6 +82,7 @@ g_nokia-y			:= nokia.o
+ g_webcam-y			:= webcam.o
+ g_ncm-y				:= ncm.o
+ g_acm_ms-y			:= acm_ms.o
++g_slp-y				:= slp.o
+ g_tcm_usb_gadget-y		:= tcm_usb_gadget.o
+ 
+ obj-$(CONFIG_USB_ZERO)		+= g_zero.o
+@@ -101,4 +102,5 @@ obj-$(CONFIG_USB_G_NOKIA)	+= g_nokia.o
+ obj-$(CONFIG_USB_G_WEBCAM)	+= g_webcam.o
+ obj-$(CONFIG_USB_G_NCM)		+= g_ncm.o
+ obj-$(CONFIG_USB_G_ACM_MS)	+= g_acm_ms.o
++obj-$(CONFIG_USB_G_SLP)		+= g_slp.o
+ obj-$(CONFIG_USB_GADGET_TARGET)	+= tcm_usb_gadget.o
+diff --git a/drivers/usb/gadget/f_sdb.c b/drivers/usb/gadget/f_sdb.c
+new file mode 100644
+index 0000000..fec7238
+--- /dev/null
++++ b/drivers/usb/gadget/f_sdb.c
+@@ -0,0 +1,763 @@
++/*
++ * Gadget Driver for Samsung SDB (based on Android ADB)
++ *
++ * Copyright (C) 2008 Google, Inc.
++ * Author: Mike Lockwood <lockwood@android.com>
++ *
++ * This software is licensed under the terms of the GNU General Public
++ * License version 2, as published by the Free Software Foundation, and
++ * may be copied, distributed, and modified under those terms.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++/* #define DEBUG */
++/* #define VERBOSE_DEBUG */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/poll.h>
++#include <linux/delay.h>
++#include <linux/sched.h>
++#include <linux/wait.h>
++#include <linux/err.h>
++#include <linux/interrupt.h>
++
++#include <linux/types.h>
++#include <linux/device.h>
++#include <linux/miscdevice.h>
++
++#define SDB_BULK_BUFFER_SIZE           4096
++
++/* number of tx requests to allocate */
++#define SDB_TX_REQ_MAX 4
++
++static const char sdb_shortname[] = "samsung_sdb";
++
++static DEFINE_MUTEX(sdb_lock);
++
++struct sdb_ep_descs {
++	struct usb_endpoint_descriptor	*in;
++	struct usb_endpoint_descriptor	*out;
++};
++
++struct f_sdb {
++	struct usb_function function;
++	u8	inf_id;
++
++	struct sdb_ep_descs	fs;
++	struct sdb_ep_descs hs;
++
++	struct usb_ep *ep_in;
++	struct usb_ep *ep_out;
++
++	struct list_head bulk_in_q;
++};
++
++struct sdb_dev {
++	struct f_sdb *sdb_func;
++	spinlock_t lock;
++
++	int online;
++	int error;
++
++	atomic_t read_excl;
++	atomic_t write_excl;
++	atomic_t open_excl;
++
++	struct list_head *tx_idle;
++
++	wait_queue_head_t read_wq;
++	wait_queue_head_t write_wq;
++
++	struct usb_request *rx_req;
++	int rx_done;
++};
++
++static struct usb_interface_descriptor sdb_interface_desc = {
++	.bLength                = USB_DT_INTERFACE_SIZE,
++	.bDescriptorType        = USB_DT_INTERFACE,
++	/* .bInterfaceNumber	= DYNAMIC */
++	.bNumEndpoints          = 2,
++	.bInterfaceClass        = 0xFF,
++	.bInterfaceSubClass     = 0x20,
++	.bInterfaceProtocol     = 0x02,
++	/* .iInterface			= DYNAMIC */
++};
++
++static struct usb_endpoint_descriptor sdb_fullspeed_in_desc = {
++	.bLength                = USB_DT_ENDPOINT_SIZE,
++	.bDescriptorType        = USB_DT_ENDPOINT,
++	.bEndpointAddress       = USB_DIR_IN,
++	.bmAttributes           = USB_ENDPOINT_XFER_BULK,
++	/* .wMaxPacketSize set by autoconfiguration */
++};
++
++static struct usb_endpoint_descriptor sdb_fullspeed_out_desc = {
++	.bLength                = USB_DT_ENDPOINT_SIZE,
++	.bDescriptorType        = USB_DT_ENDPOINT,
++	.bEndpointAddress       = USB_DIR_OUT,
++	.bmAttributes           = USB_ENDPOINT_XFER_BULK,
++	/* .wMaxPacketSize set by autoconfiguration */
++};
++
++static struct usb_descriptor_header *fs_sdb_descs[] = {
++	(struct usb_descriptor_header *) &sdb_interface_desc,
++	(struct usb_descriptor_header *) &sdb_fullspeed_in_desc,
++	(struct usb_descriptor_header *) &sdb_fullspeed_out_desc,
++	NULL,
++};
++
++static struct usb_endpoint_descriptor sdb_highspeed_in_desc = {
++	.bLength                = USB_DT_ENDPOINT_SIZE,
++	.bDescriptorType        = USB_DT_ENDPOINT,
++	/* bEndpointAddress copied from sdb_fullspeed_in_desc
++		during sdb_function_bind() */
++	.bmAttributes           = USB_ENDPOINT_XFER_BULK,
++	.wMaxPacketSize         = cpu_to_le16(512),
++};
++
++static struct usb_endpoint_descriptor sdb_highspeed_out_desc = {
++	.bLength                = USB_DT_ENDPOINT_SIZE,
++	.bDescriptorType        = USB_DT_ENDPOINT,
++	/* bEndpointAddress copied from sdb_fullspeed_in_desc
++		during sdb_function_bind() */
++	.bmAttributes           = USB_ENDPOINT_XFER_BULK,
++	.wMaxPacketSize         = cpu_to_le16(512),
++};
++
++static struct usb_descriptor_header *hs_sdb_descs[] = {
++	(struct usb_descriptor_header *) &sdb_interface_desc,
++	(struct usb_descriptor_header *) &sdb_highspeed_in_desc,
++	(struct usb_descriptor_header *) &sdb_highspeed_out_desc,
++	NULL,
++};
++
++/* string descriptors: */
++
++#define F_SDB_IDX	0
++
++/* static strings, in UTF-8 */
++static struct usb_string sdb_string_defs[] = {
++	[F_SDB_IDX].s = "Samsung SDB",
++	{  /* ZEROES END LIST */ },
++};
++
++static struct usb_gadget_strings sdb_string_table = {
++	.language =		0x0409,	/* en-us */
++	.strings =		sdb_string_defs,
++};
++
++static struct usb_gadget_strings *sdb_strings[] = {
++	&sdb_string_table,
++	NULL,
++};
++
++/* temporary variable used between sdb_open() and sdb_gadget_bind() */
++static struct sdb_dev *_sdb_dev;
++
++static inline struct f_sdb *func_to_sdb(struct usb_function *f)
++{
++	return container_of(f, struct f_sdb, function);
++}
++
++static struct usb_request *sdb_request_new(struct usb_ep *ep, int buffer_size)
++{
++	struct usb_request *req = usb_ep_alloc_request(ep, GFP_KERNEL);
++	if (!req)
++		return NULL;
++
++	/* now allocate buffers for the requests */
++	req->buf = kmalloc(buffer_size, GFP_KERNEL);
++	if (!req->buf) {
++		usb_ep_free_request(ep, req);
++		return NULL;
++	}
++
++	return req;
++}
++
++static void sdb_request_free(struct usb_request *req, struct usb_ep *ep)
++{
++	if (req) {
++		kfree(req->buf);
++		usb_ep_free_request(ep, req);
++	}
++}
++
++static inline int _sdb_lock(atomic_t *excl)
++{
++	if (atomic_inc_return(excl) == 1) {
++		return 0;
++	} else {
++		atomic_dec(excl);
++		return -EBUSY;
++	}
++}
++
++static inline void _sdb_unlock(atomic_t *excl)
++{
++	atomic_dec(excl);
++}
++
++/* add a request to the tail of a list */
++static void sdb_req_put(struct sdb_dev *dev, struct list_head *head,
++		struct usb_request *req)
++{
++	unsigned long flags;
++
++	if (!dev || !req)
++		return;
++
++	spin_lock_irqsave(&dev->lock, flags);
++	if (head)
++		list_add_tail(&req->list, head);
++	spin_unlock_irqrestore(&dev->lock, flags);
++}
++
++/* remove a request from the head of a list */
++static struct usb_request *sdb_req_get(struct sdb_dev *dev,
++				struct list_head *head)
++{
++	unsigned long flags;
++	struct usb_request *req;
++
++	if (!dev)
++		return NULL;
++
++	spin_lock_irqsave(&dev->lock, flags);
++	if (!head)
++		req = NULL;
++	else {
++		if (list_empty(head)) {
++			req = NULL;
++		} else {
++			req = list_first_entry(head, struct usb_request, list);
++			list_del(&req->list);
++		}
++	}
++	spin_unlock_irqrestore(&dev->lock, flags);
++	return req;
++}
++
++static void sdb_complete_in(struct usb_ep *ep, struct usb_request *req)
++{
++	struct sdb_dev *dev = _sdb_dev;
++	struct f_sdb *sdb_func = ep->driver_data;
++
++	if (req->status != 0)
++		dev->error = 1;
++
++	sdb_req_put(dev, &sdb_func->bulk_in_q, req);
++	wake_up(&dev->write_wq);
++}
++
++static void sdb_complete_out(struct usb_ep *ep, struct usb_request *req)
++{
++	struct sdb_dev *dev = _sdb_dev;
++
++	dev->rx_done = 1;
++	if (req->status != 0)
++		dev->error = 1;
++
++	wake_up(&dev->read_wq);
++}
++
++static int sdb_create_bulk_endpoints(struct f_sdb *sdb_func,
++				struct usb_endpoint_descriptor *in_desc,
++				struct usb_endpoint_descriptor *out_desc)
++{
++	struct usb_composite_dev *cdev = sdb_func->function.config->cdev;
++	struct usb_request *req;
++	struct sdb_dev *dev = _sdb_dev;
++	struct usb_ep *ep;
++	int i;
++
++	DBG(cdev, "sdb_create_bulk_endpoints dev: %p\n", dev);
++
++	ep = usb_ep_autoconfig(cdev->gadget, in_desc);
++	if (!ep) {
++		ERROR(cdev, "usb_ep_autoconfig for ep_in failed\n");
++		return -ENODEV;
++	}
++	DBG(cdev, "usb_ep_autoconfig for ep_in got %s\n", ep->name);
++	ep->driver_data = cdev;		/* claim the endpoint */
++	sdb_func->ep_in = ep;
++
++	ep = usb_ep_autoconfig(cdev->gadget, out_desc);
++	if (!ep) {
++		ERROR(cdev, "usb_ep_autoconfig for ep_out failed\n");
++		return -ENODEV;
++	}
++	DBG(cdev, "usb_ep_autoconfig for sdb ep_out got %s\n", ep->name);
++	ep->driver_data = cdev;		/* claim the endpoint */
++	sdb_func->ep_out = ep;
++
++	/* now allocate requests for our endpoints */
++	req = sdb_request_new(sdb_func->ep_out, SDB_BULK_BUFFER_SIZE);
++	if (!req)
++		return -ENOMEM;
++	req->complete = sdb_complete_out;
++	dev->rx_req = req;
++
++	for (i = 0; i < SDB_TX_REQ_MAX; i++) {
++		req = sdb_request_new(sdb_func->ep_in, SDB_BULK_BUFFER_SIZE);
++		if (!req)
++			goto fail;
++		req->complete = sdb_complete_in;
++		sdb_req_put(dev, &sdb_func->bulk_in_q, req);
++	}
++
++	return 0;
++
++fail:
++	while (!!(req = sdb_req_get(dev, &sdb_func->bulk_in_q)))
++		sdb_request_free(req, sdb_func->ep_in);
++
++	sdb_request_free(dev->rx_req, sdb_func->ep_out);
++	dev->rx_req = NULL;
++
++	if (sdb_func->ep_in)
++		sdb_func->ep_in->driver_data = NULL;
++	if (sdb_func->ep_out)
++		sdb_func->ep_out->driver_data = NULL;
++
++	printk(KERN_ERR "sdb_bind() could not allocate requests\n");
++	return -ENOMEM;
++}
++
++static ssize_t sdb_read(struct file *fp, char __user *buf,
++				size_t count, loff_t *pos)
++{
++	struct sdb_dev *dev = fp->private_data;
++	int r = count, xfer;
++	int ret;
++
++	if (count > SDB_BULK_BUFFER_SIZE)
++		return -EINVAL;
++
++	if (_sdb_lock(&dev->read_excl))
++		return -EBUSY;
++
++	/* we will block until we're online */
++	while (!(dev->online || dev->error)) {
++		ret = wait_event_interruptible(dev->read_wq,
++				(dev->online || dev->error));
++		if (ret < 0) {
++			_sdb_unlock(&dev->read_excl);
++			return ret;
++		}
++	}
++	if (dev->error) {
++		r = -EIO;
++		goto done;
++	}
++
++requeue_req:
++	/* queue a request */
++	mutex_lock(&sdb_lock);
++	if (!dev->sdb_func || !dev->rx_req)
++		ret = -ENODEV;
++	else {
++		dev->rx_req->length = count;
++		dev->rx_done = 0;
++		ret = usb_ep_queue(dev->sdb_func->ep_out,
++				dev->rx_req, GFP_ATOMIC);
++	}
++	mutex_unlock(&sdb_lock);
++
++	if (ret < 0) {
++		r = -EIO;
++		dev->error = 1;
++		goto done;
++	}
++
++	/* wait for a request to complete */
++	ret = wait_event_interruptible(dev->read_wq, dev->rx_done);
++	if (ret < 0) {
++		dev->error = 1;
++		r = ret;
++		goto done;
++	}
++	if (!dev->error) {
++		/* If we got a 0-len packet, throw it back and try again. */
++		if (dev->rx_req->actual == 0)
++			goto requeue_req;
++
++		mutex_lock(&sdb_lock);
++		if (!dev->sdb_func || !dev->rx_req)
++			r = -ENODEV;
++		else {
++			xfer = (dev->rx_req->actual < count)
++					? dev->rx_req->actual : count;
++			if (copy_to_user(buf, dev->rx_req->buf, xfer))
++				r = -EFAULT;
++		}
++		mutex_unlock(&sdb_lock);
++	} else
++		r = -EIO;
++
++done:
++	_sdb_unlock(&dev->read_excl);
++	return r;
++}
++
++static ssize_t sdb_write(struct file *fp, const char __user *buf,
++				 size_t count, loff_t *pos)
++{
++	struct sdb_dev *dev = fp->private_data;
++	struct usb_request *req = 0;
++	int r = count, xfer;
++	int ret;
++
++	if (_sdb_lock(&dev->write_excl))
++		return -EBUSY;
++
++	while (count > 0) {
++		if (dev->error) {
++			r = -EIO;
++			break;
++		}
++
++		/* get an idle tx request to use */
++		req = 0;
++		ret = wait_event_interruptible(dev->write_wq,
++				(!!(req = sdb_req_get(dev, dev->tx_idle))
++				 || dev->error));
++
++		if (ret < 0) {
++			r = ret;
++			break;
++		}
++
++		if (req != 0) {
++			if (count > SDB_BULK_BUFFER_SIZE)
++				xfer = SDB_BULK_BUFFER_SIZE;
++			else
++				xfer = count;
++
++			mutex_lock(&sdb_lock);
++			if (!dev->sdb_func) {
++				mutex_unlock(&sdb_lock);
++				r = -ENODEV;
++				break;
++			} else if (copy_from_user(req->buf, buf, xfer)) {
++				mutex_unlock(&sdb_lock);
++				r = -EFAULT;
++				break;
++			}
++
++			req->length = xfer;
++			ret = usb_ep_queue(dev->sdb_func->ep_in,
++					req, GFP_ATOMIC);
++			mutex_unlock(&sdb_lock);
++
++			if (ret < 0) {
++				dev->error = 1;
++				r = -EIO;
++				break;
++			}
++
++			buf += xfer;
++			count -= xfer;
++
++			/* zero this so we don't try to free it on error exit */
++			req = 0;
++		}
++	}
++
++	if (req)
++		sdb_req_put(dev, dev->tx_idle, req);
++
++	_sdb_unlock(&dev->write_excl);
++	return r;
++}
++
++static int sdb_open(struct inode *ip, struct file *fp)
++{
++	printk(KERN_INFO "sdb_open\n");
++	if (_sdb_lock(&_sdb_dev->open_excl))
++		return -EBUSY;
++
++	fp->private_data = _sdb_dev;
++
++	/* clear the error latch */
++	_sdb_dev->error = 0;
++
++	return 0;
++}
++
++static int sdb_release(struct inode *ip, struct file *fp)
++{
++	printk(KERN_INFO "sdb_release\n");
++
++	if (_sdb_dev != NULL)
++		_sdb_unlock(&_sdb_dev->open_excl);
++
++	return 0;
++}
++
++/* file operations for SDB device /dev/samsung_sdb */
++static const struct file_operations sdb_fops = {
++	.owner = THIS_MODULE,
++	.read = sdb_read,
++	.write = sdb_write,
++	.open = sdb_open,
++	.release = sdb_release,
++};
++
++static struct miscdevice sdb_device = {
++	.minor = MISC_DYNAMIC_MINOR,
++	.name = sdb_shortname,
++	.fops = &sdb_fops,
++};
++
++static int
++sdb_function_bind(struct usb_configuration *c, struct usb_function *f)
++{
++	struct usb_composite_dev *cdev = c->cdev;
++	struct f_sdb *sdb_func = func_to_sdb(f);
++	int			id;
++	int			ret;
++
++	DBG(cdev, "sdb_function_bind sdb_func: %p\n", sdb_func);
++
++	/* allocate interface ID(s) */
++	id = usb_interface_id(c, f);
++	if (id < 0)
++		return id;
++
++	sdb_func->inf_id = id;
++	sdb_interface_desc.bInterfaceNumber = id;
++
++	/* allocate endpoints */
++	ret = sdb_create_bulk_endpoints(sdb_func, &sdb_fullspeed_in_desc,
++			&sdb_fullspeed_out_desc);
++	if (ret)
++		return ret;
++
++	f->fs_descriptors = usb_copy_descriptors(fs_sdb_descs);
++	if (!f->fs_descriptors)
++		goto desc_alloc_fail;
++
++	/* support high speed hardware */
++	if (gadget_is_dualspeed(cdev->gadget)) {
++		sdb_highspeed_in_desc.bEndpointAddress =
++			sdb_fullspeed_in_desc.bEndpointAddress;
++		sdb_highspeed_out_desc.bEndpointAddress =
++			sdb_fullspeed_out_desc.bEndpointAddress;
++
++		f->hs_descriptors = usb_copy_descriptors(hs_sdb_descs);
++		if (!f->hs_descriptors)
++			goto desc_alloc_fail;
++	}
++
++	return 0;
++
++desc_alloc_fail:
++	if (f->fs_descriptors)
++		usb_free_descriptors(f->fs_descriptors);
++
++	return -ENOMEM;
++}
++
++static void
++sdb_function_unbind(struct usb_configuration *c, struct usb_function *f)
++{
++	struct sdb_dev *dev = _sdb_dev;
++	struct f_sdb *sdb_func = func_to_sdb(f);
++	struct usb_request *req;
++
++	dev->online = 0;
++	dev->error = 1;
++
++	if (gadget_is_dualspeed(c->cdev->gadget))
++		usb_free_descriptors(f->hs_descriptors);
++	usb_free_descriptors(f->fs_descriptors);
++
++	mutex_lock(&sdb_lock);
++
++	while (!!(req = sdb_req_get(dev, &sdb_func->bulk_in_q)))
++		sdb_request_free(req, sdb_func->ep_in);
++
++	sdb_request_free(dev->rx_req, sdb_func->ep_out);
++
++	kfree(sdb_func);
++	dev->sdb_func = NULL;
++	dev->rx_req = NULL;
++
++	mutex_unlock(&sdb_lock);
++
++	wake_up(&dev->read_wq);
++	wake_up(&dev->write_wq);
++}
++
++static int sdb_function_set_alt(struct usb_function *f,
++		unsigned intf, unsigned alt)
++{
++	struct f_sdb *sdb_func = func_to_sdb(f);
++	struct usb_composite_dev *cdev = f->config->cdev;
++	struct sdb_dev *dev = _sdb_dev;
++	int ret;
++
++	if (sdb_func->inf_id != intf) {
++		printk(KERN_ERR "sdb_function_set_alt error wrong intf:%d alt:%d\n",
++						intf, alt);
++		return -EINVAL;
++	}
++
++	if (sdb_func->ep_in->driver_data)
++		usb_ep_disable(sdb_func->ep_in);
++	else if (config_ep_by_speed(cdev->gadget, f, sdb_func->ep_in))
++		return -EINVAL;
++
++	ret = usb_ep_enable(sdb_func->ep_in);
++	if (ret) {
++		printk(KERN_ERR "error, usb_ep_enable for sdb ep_in\n");
++		return ret;
++	}
++	sdb_func->ep_in->driver_data = sdb_func;
++
++	if (sdb_func->ep_out->driver_data)
++		usb_ep_disable(sdb_func->ep_out);
++	else if (config_ep_by_speed(cdev->gadget, f, sdb_func->ep_out)) {
++		usb_ep_disable(sdb_func->ep_in);
++		sdb_func->ep_in->driver_data = NULL;
++		return -EINVAL;
++	}
++
++	ret = usb_ep_enable(sdb_func->ep_out);
++	if (ret) {
++		usb_ep_disable(sdb_func->ep_in);
++		sdb_func->ep_in->driver_data = NULL;
++		printk(KERN_ERR "error, usb_ep_enable for sdb ep_out\n");
++		return ret;
++	}
++	sdb_func->ep_out->driver_data = sdb_func;
++
++	dev->tx_idle = &sdb_func->bulk_in_q;
++	dev->sdb_func = sdb_func;
++	dev->online = 1;
++
++	/* readers may be blocked waiting for us to go online */
++	wake_up(&dev->read_wq);
++	return 0;
++}
++
++static void sdb_function_disable(struct usb_function *f)
++{
++	struct sdb_dev *dev = _sdb_dev;
++	struct f_sdb *sdb_func = func_to_sdb(f);
++
++	dev->online = 0;
++	dev->error = 1;
++
++	spin_lock(&dev->lock);
++	dev->tx_idle = NULL;
++	spin_unlock(&dev->lock);
++
++	usb_ep_disable(sdb_func->ep_in);
++	sdb_func->ep_in->driver_data = NULL;
++
++	usb_ep_disable(sdb_func->ep_out);
++	sdb_func->ep_out->driver_data = NULL;
++
++	/* readers may be blocked waiting for us to go online */
++	wake_up(&dev->read_wq);
++	wake_up(&dev->write_wq);
++}
++
++static int sdb_setup(struct usb_composite_dev *cdev)
++{
++	struct sdb_dev *dev;
++	int ret;
++
++	printk(KERN_INFO "sdb_bind_config\n");
++
++	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
++	if (!dev)
++		return -ENOMEM;
++
++	if (sdb_string_defs[F_SDB_IDX].id == 0) {
++		ret = usb_string_id(cdev);
++		if (ret < 0) {
++			kfree(dev);
++			return ret;
++		}
++		sdb_string_defs[F_SDB_IDX].id = ret;
++		sdb_interface_desc.iInterface = ret;
++	}
++
++	spin_lock_init(&dev->lock);
++
++	init_waitqueue_head(&dev->read_wq);
++	init_waitqueue_head(&dev->write_wq);
++
++	atomic_set(&dev->open_excl, 0);
++	atomic_set(&dev->read_excl, 0);
++	atomic_set(&dev->write_excl, 0);
++
++
++	/* _sdb_dev must be set before calling usb_gadget_register_driver */
++	_sdb_dev = dev;
++
++	ret = misc_register(&sdb_device);
++	if (ret)
++		goto err1;
++
++	return 0;
++
++err1:
++	kfree(dev);
++	_sdb_dev = NULL;
++	printk(KERN_ERR "sdb gadget driver failed to initialize\n");
++	return ret;
++}
++
++static int sdb_bind_config(struct usb_configuration *c)
++{
++	int ret;
++	struct f_sdb *sdb_func;
++
++	if (!_sdb_dev) {
++		printk(KERN_ERR "Error There is no _sdb_dev!!\n");
++		return -ENODEV;
++	}
++
++	sdb_func = kzalloc(sizeof(*sdb_func), GFP_KERNEL);
++	if (!sdb_func) {
++		printk(KERN_ERR "sdb_func memory alloc failed !!!\n");
++		return -ENOMEM;
++	}
++
++	INIT_LIST_HEAD(&sdb_func->bulk_in_q);
++
++	sdb_func->function.name = "sdb";
++	sdb_func->function.strings = sdb_strings;
++	sdb_func->function.bind = sdb_function_bind;
++	sdb_func->function.unbind = sdb_function_unbind;
++	sdb_func->function.set_alt = sdb_function_set_alt;
++	sdb_func->function.disable = sdb_function_disable;
++
++	ret = usb_add_function(c, &sdb_func->function);
++	if (ret)
++		printk(KERN_ERR "Error in usb_add_function failed for sdb\n");
++
++	return ret;
++}
++
++static void sdb_cleanup(void)
++{
++	struct sdb_dev	*dev = _sdb_dev;
++
++	misc_deregister(&sdb_device);
++
++	if (!dev)
++		return;
++	_sdb_dev = NULL;
++	kfree(dev);
++}
+diff --git a/drivers/usb/gadget/slp.c b/drivers/usb/gadget/slp.c
+new file mode 100644
+index 0000000..6a22cf9
+--- /dev/null
++++ b/drivers/usb/gadget/slp.c
+@@ -0,0 +1,1365 @@
++/*
++ * Gadget Driver for SLP based on Android
++ *
++ * Copyright (C) 2008 Google, Inc.
++ * Author: Mike Lockwood <lockwood@android.com>
++ * Modified : Yongsul Oh <yongsul96.oh@samsung.com>
++ *
++ * Heavily based on android.c
++ *
++ * This software is licensed under the terms of the GNU General Public
++ * License version 2, as published by the Free Software Foundation, and
++ * may be copied, distributed, and modified under those terms.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++/* #define DEBUG */
++/* #define VERBOSE_DEBUG */
++
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/fs.h>
++
++#include <linux/delay.h>
++#include <linux/kernel.h>
++#include <linux/utsname.h>
++#include <linux/platform_device.h>
++#include <linux/mutex.h>
++
++#include <linux/usb/ch9.h>
++#include <linux/usb/composite.h>
++#include <linux/usb/gadget.h>
++#include <asm/system_info.h>
++#include <linux/pm_qos.h>
++#include <linux/workqueue.h>
++
++#include "gadget_chips.h"
++
++/*
++ * Kbuild is not very cooperative with respect to linking separately
++ * compiled library objects into one module.  So for now we won't use
++ * separate compilation ... ensuring init/exit sections work to shrink
++ * the runtime footprint, and giving us at least some parts of what
++ * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
++ */
++
++#include "f_sdb.c"
++#include "f_acm.c"
++#define USB_ETH_RNDIS y
++#define USB_FRNDIS_INCLUDED y
++#include "f_rndis.c"
++#include "rndis.c"
++#include "u_ether.c"
++
++#define USB_MODE_VERSION	"1.1"
++
++MODULE_AUTHOR("Yongsul Oh <yongsul96.oh@samsung.com>");
++MODULE_DESCRIPTION("SLP Composite USB Driver similar to Android Compiste");
++MODULE_LICENSE("GPL");
++MODULE_VERSION(USB_MODE_VERSION);
++
++static const char slp_longname[] = "Gadget SLP";
++
++/* Default vendor and product IDs, overridden by userspace */
++#define VENDOR_ID		0x04E8	/* Samsung VID */
++#define PRODUCT_ID		0x6860	/* KIES mode PID */
++
++/* DM_PORT NUM : /dev/ttyGS* port number */
++#define DM_PORT_NUM            1
++
++/* Moved from include/linux/usb/slp_multi.h */
++enum slp_multi_config_id {
++	USB_CONFIGURATION_1 = 1,
++	USB_CONFIGURATION_2 = 2,
++	USB_CONFIGURATION_DUAL = 0xFF,
++};
++
++struct slp_multi_func_data {
++	const char *name;
++	enum slp_multi_config_id usb_config_id;
++};
++
++struct slp_multi_usb_function {
++	char *name;
++	void *config;
++
++	struct device *dev;
++	char *dev_name;
++	struct device_attribute **attributes;
++
++	/* for slp_multi_dev.funcs_fconf */
++	struct list_head fconf_list;
++
++	/* for slp_multi_dev.funcs_sconf */
++	struct list_head sconf_list;
++
++	/* for slp_multi_dev.available_functions */
++	struct list_head available_list;
++
++	/* Manndatory: initialization during gadget bind */
++	int (*init) (struct slp_multi_usb_function *,
++					struct usb_composite_dev *);
++	/* Optional: cleanup during gadget unbind */
++	void (*cleanup) (struct slp_multi_usb_function *);
++	/* Optional: called when the function is added the list of
++	 *		enabled functions */
++	void (*enable)(struct slp_multi_usb_function *);
++	/* Optional: called when it is removed */
++	void (*disable)(struct slp_multi_usb_function *);
++
++	/* Mandatory: called when the usb enabled */
++	int (*bind_config) (struct slp_multi_usb_function *,
++			    struct usb_configuration *);
++	/* Optional: called when the configuration is removed */
++	void (*unbind_config) (struct slp_multi_usb_function *,
++			       struct usb_configuration *);
++	/* Optional: handle ctrl requests before the device is configured */
++	int (*ctrlrequest) (struct slp_multi_usb_function *,
++			    struct usb_composite_dev *,
++			    const struct usb_ctrlrequest *);
++};
++
++struct slp_multi_dev {
++	struct list_head available_functions;
++
++	/* for each configuration control */
++	struct list_head funcs_fconf;
++	struct list_head funcs_sconf;
++
++	struct usb_composite_dev *cdev;
++	struct device *dev;
++
++	bool enabled;
++	bool dual_config;
++	int disable_depth;
++	struct mutex mutex;
++	bool connected;
++	bool sw_connected;
++
++	/* to check USB suspend/resume */
++	unsigned int suspended:1;
++
++	/* to control DMA QOS */
++	char pm_qos[5];
++	s32 swfi_latency;
++	s32 curr_latency;
++	struct pm_qos_request pm_qos_req_dma;
++	struct work_struct qos_work;
++	char ffs_aliases[256];
++};
++
++/* TODO: only enabled 'rndis' and 'sdb'. need to verify more functions */
++static const char *default_funcs[] = {"rndis", "sdb"};
++static unsigned slp_multi_nluns;
++static struct class *slp_multi_class;
++static struct slp_multi_dev *_slp_multi_dev;
++static int slp_multi_bind_config(struct usb_configuration *c);
++static void slp_multi_unbind_config(struct usb_configuration *c);
++
++/* string IDs are assigned dynamically */
++#define STRING_MANUFACTURER_IDX		0
++#define STRING_PRODUCT_IDX		1
++#define STRING_SERIAL_IDX		2
++
++static char manufacturer_string[256];
++static char product_string[256];
++static char serial_string[256];
++
++/* String Table */
++static struct usb_string strings_dev[] = {
++	[STRING_MANUFACTURER_IDX].s = manufacturer_string,
++	[STRING_PRODUCT_IDX].s = product_string,
++	[STRING_SERIAL_IDX].s = serial_string,
++	{}			/* end of list */
++};
++
++static struct usb_gadget_strings stringtab_dev = {
++	.language = 0x0409,	/* en-us */
++	.strings = strings_dev,
++};
++
++static struct usb_gadget_strings *slp_dev_strings[] = {
++	&stringtab_dev,
++	NULL,
++};
++
++static struct usb_device_descriptor device_desc = {
++	.bLength		= sizeof(device_desc),
++	.bDescriptorType	= USB_DT_DEVICE,
++	.bcdUSB			= __constant_cpu_to_le16(0x0200),
++	.bDeviceClass		= USB_CLASS_PER_INTERFACE,
++	.idVendor		= __constant_cpu_to_le16(VENDOR_ID),
++	.idProduct		= __constant_cpu_to_le16(PRODUCT_ID),
++	.bcdDevice		= __constant_cpu_to_le16(0xffff),
++	.bNumConfigurations	= 1,
++};
++
++static struct usb_configuration first_config_driver = {
++	.label			= "slp_first_config",
++	.unbind			= slp_multi_unbind_config,
++	.bConfigurationValue	= USB_CONFIGURATION_1,
++	.bmAttributes		= USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
++	.MaxPower		= 0x30,	/* 96ma */
++};
++
++static struct usb_configuration second_config_driver = {
++	.label			= "slp_second_config",
++	.unbind			= slp_multi_unbind_config,
++	.bConfigurationValue	= USB_CONFIGURATION_2,
++	.bmAttributes		= USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
++	.MaxPower		= 0x30,	/* 96ma */
++};
++
++/*-------------------------------------------------------------------------*/
++/* Supported functions initialization */
++
++static int sdb_function_init(struct slp_multi_usb_function *f,
++			     struct usb_composite_dev *cdev)
++{
++	return sdb_setup(cdev);
++}
++
++static void sdb_function_cleanup(struct slp_multi_usb_function *f)
++{
++	sdb_cleanup();
++}
++
++static int sdb_function_bind_config(struct slp_multi_usb_function *f,
++				    struct usb_configuration *c)
++{
++	return sdb_bind_config(c);
++}
++
++static struct slp_multi_usb_function sdb_function = {
++	.name = "sdb",
++	.init = sdb_function_init,
++	.cleanup = sdb_function_cleanup,
++	.bind_config = sdb_function_bind_config,
++};
++
++#define MAX_ACM_INSTANCES 4
++struct acm_function_config {
++	int instances;
++	int instances_on;
++	struct usb_function *f_acm[MAX_ACM_INSTANCES];
++	struct usb_function_instance *f_acm_inst[MAX_ACM_INSTANCES];
++};
++
++static int
++acm_function_init(struct slp_multi_usb_function *f,
++		  struct usb_composite_dev *cdev)
++{
++	int i;
++	int ret;
++	struct acm_function_config *config;
++
++	config = kzalloc(sizeof(struct acm_function_config), GFP_KERNEL);
++	if (!config)
++		return -ENOMEM;
++	f->config = config;
++
++	for (i = 0; i < MAX_ACM_INSTANCES; i++) {
++		config->f_acm_inst[i] = usb_get_function_instance("acm");
++		if (IS_ERR(config->f_acm_inst[i])) {
++			ret = PTR_ERR(config->f_acm_inst[i]);
++			goto err_usb_get_function_instance;
++		}
++		config->f_acm[i] = usb_get_function(config->f_acm_inst[i]);
++		if (IS_ERR(config->f_acm[i])) {
++			ret = PTR_ERR(config->f_acm[i]);
++			goto err_usb_get_function;
++		}
++	}
++	return 0;
++err_usb_get_function_instance:
++	while (i-- > 0) {
++		usb_put_function(config->f_acm[i]);
++err_usb_get_function:
++		usb_put_function_instance(config->f_acm_inst[i]);
++	}
++	return ret;
++}
++
++static void acm_function_cleanup(struct slp_multi_usb_function *f)
++{
++	int i;
++	struct acm_function_config *config = f->config;
++
++	for (i = 0; i < MAX_ACM_INSTANCES; i++) {
++		usb_put_function(config->f_acm[i]);
++		usb_put_function_instance(config->f_acm_inst[i]);
++	}
++	kfree(f->config);
++	f->config = NULL;
++}
++
++static int
++acm_function_bind_config(struct slp_multi_usb_function *f,
++			 struct usb_configuration *c)
++{
++	int i;
++	int ret = 0;
++	struct acm_function_config *config = f->config;
++
++	config->instances_on = config->instances;
++	for (i = 0; i < config->instances_on; i++) {
++		ret = usb_add_function(c, config->f_acm[i]);
++		if (ret) {
++			pr_err("Could not bind acm%u config\n", i);
++			goto err_usb_add_function;
++		}
++	}
++
++	return 0;
++
++err_usb_add_function:
++	while (i-- > 0)
++		usb_remove_function(c, config->f_acm[i]);
++	return ret;
++}
++
++static void acm_function_unbind_config(struct slp_multi_usb_function *f,
++				       struct usb_configuration *c)
++{
++	int i;
++	struct acm_function_config *config = f->config;
++
++	for (i = 0; i < config->instances_on; i++)
++		usb_remove_function(c, config->f_acm[i]);
++}
++
++static ssize_t acm_instances_show(struct device *dev,
++				  struct device_attribute *attr, char *buf)
++{
++	struct slp_multi_usb_function *f = dev_get_drvdata(dev);
++	struct acm_function_config *config = f->config;
++	return sprintf(buf, "%d\n", config->instances);
++}
++
++static ssize_t acm_instances_store(struct device *dev,
++				   struct device_attribute *attr,
++				   const char *buf, size_t size)
++{
++	struct slp_multi_usb_function *f = dev_get_drvdata(dev);
++	struct acm_function_config *config = f->config;
++	int value;
++
++	sscanf(buf, "%d", &value);
++	if (value > MAX_ACM_INSTANCES)
++		value = MAX_ACM_INSTANCES;
++	config->instances = value;
++	return size;
++}
++
++static DEVICE_ATTR(instances, S_IRUGO | S_IWUSR, acm_instances_show,
++						 acm_instances_store);
++static struct device_attribute *acm_function_attributes[] = {
++	&dev_attr_instances,
++	NULL
++};
++
++static struct slp_multi_usb_function acm_function = {
++	.name		= "acm",
++	.init		= acm_function_init,
++	.cleanup	= acm_function_cleanup,
++	.bind_config	= acm_function_bind_config,
++	.unbind_config	= acm_function_unbind_config,
++	.attributes	= acm_function_attributes,
++};
++
++struct rndis_function_config {
++	u8 ethaddr[ETH_ALEN];
++	u32 vendorID;
++	char manufacturer[256];
++	bool wceis;
++	u8 rndis_string_defs0_id;
++	struct eth_dev *edev;
++};
++static char host_addr_string[18];
++
++static int rndis_function_init(struct slp_multi_usb_function *f,
++			       struct usb_composite_dev *cdev)
++{
++	struct rndis_function_config *config;
++	int status, i;
++
++	config = kzalloc(sizeof(struct rndis_function_config), GFP_KERNEL);
++	if (!config)
++		return -ENOMEM;
++
++	/* maybe allocate device-global string IDs */
++	if (rndis_string_defs[0].id == 0) {
++
++		/* control interface label */
++		status = usb_string_id(cdev);
++		if (status < 0)
++			goto rndis_init_error;
++		config->rndis_string_defs0_id = status;
++		rndis_string_defs[0].id = status;
++		rndis_control_intf.iInterface = status;
++
++		/* data interface label */
++		status = usb_string_id(cdev);
++		if (status < 0)
++			goto rndis_init_error;
++		rndis_string_defs[1].id = status;
++		rndis_data_intf.iInterface = status;
++
++		/* IAD iFunction label */
++		status = usb_string_id(cdev);
++		if (status < 0)
++			goto rndis_init_error;
++		rndis_string_defs[2].id = status;
++		rndis_iad_descriptor.iFunction = status;
++	}
++
++	/* create a fake MAC address from our serial number. */
++	for (i = 0; (i < 256) && serial_string[i]; i++) {
++		/* XOR the USB serial across the remaining bytes */
++		config->ethaddr[i % (ETH_ALEN - 1) + 1] ^= serial_string[i];
++	}
++	config->ethaddr[0] &= 0xfe;	/* clear multicast bit */
++	config->ethaddr[0] |= 0x02;	/* set local assignment bit (IEEE802) */
++
++	snprintf(host_addr_string, sizeof(host_addr_string),
++		"%02x:%02x:%02x:%02x:%02x:%02x",
++		config->ethaddr[0],	config->ethaddr[1],
++		config->ethaddr[2],	config->ethaddr[3],
++		config->ethaddr[4], config->ethaddr[5]);
++
++	f->config = config;
++	return 0;
++
++ rndis_init_error:
++	kfree(config);
++	return status;
++}
++
++static void rndis_function_cleanup(struct slp_multi_usb_function *f)
++{
++	kfree(f->config);
++	f->config = NULL;
++}
++
++static int rndis_function_bind_config(struct slp_multi_usb_function *f,
++				      struct usb_configuration *c)
++{
++	int ret = -EINVAL;
++	struct rndis_function_config *rndis = f->config;
++
++	if (!rndis) {
++		dev_err(f->dev, "error rndis_pdata is null\n");
++		return ret;
++	}
++
++	rndis->edev = gether_setup(c->cdev->gadget, rndis->ethaddr,
++				   host_addr_string, rndis->ethaddr,
++				   QMULT_DEFAULT);
++	if (IS_ERR(rndis->edev)) {
++		dev_err(f->dev, "gether_setup failed\n");
++		return ret;
++	}
++
++	if (rndis->wceis) {
++		/* "Wireless" RNDIS; auto-detected by Windows */
++		rndis_iad_descriptor.bFunctionClass =
++		    USB_CLASS_WIRELESS_CONTROLLER;
++		rndis_iad_descriptor.bFunctionSubClass = 0x01;
++		rndis_iad_descriptor.bFunctionProtocol = 0x03;
++		rndis_control_intf.bInterfaceClass =
++		    USB_CLASS_WIRELESS_CONTROLLER;
++		rndis_control_intf.bInterfaceSubClass = 0x01;
++		rndis_control_intf.bInterfaceProtocol = 0x03;
++	}
++
++	/* ... and setup RNDIS itself */
++	ret = rndis_init();
++	if (ret < 0) {
++		dev_err(f->dev, "rndis_init failed(ret:%d)\n", ret);
++		gether_cleanup(rndis->edev);
++		return ret;
++	}
++
++	/* Android team reset "rndis_string_defs[0].id" when RNDIS unbinded
++	 * in f_rndis.c but, that makes failure of rndis_bind_config() by
++	 * the overflow of "next_string_id" value in usb_string_id().
++	 * So, Android team also reset "next_string_id" value in android.c
++	 * but SLP does not reset "next_string_id" value. And we decided to
++	 * re-update "rndis_string_defs[0].id" by old value.
++	 * 20120224 yongsul96.oh@samsung.com
++	 */
++	if (rndis_string_defs[0].id == 0)
++		rndis_string_defs[0].id = rndis->rndis_string_defs0_id;
++
++	ret = rndis_bind_config_vendor(c, rndis->ethaddr, rndis->vendorID,
++				 rndis->manufacturer, rndis->edev);
++	if (ret) {
++		rndis_exit();
++		gether_cleanup(rndis->edev);
++		dev_err(f->dev, "rndis_bind_config failed(ret:%d)\n", ret);
++	}
++
++	return ret;
++}
++
++static void rndis_function_unbind_config(struct slp_multi_usb_function *f,
++					 struct usb_configuration *c)
++{
++	struct rndis_function_config *rndis = f->config;
++	gether_cleanup(rndis->edev);
++}
++
++static ssize_t rndis_manufacturer_show(struct device *dev,
++				       struct device_attribute *attr, char *buf)
++{
++	struct slp_multi_usb_function *f = dev_get_drvdata(dev);
++	struct rndis_function_config *config = f->config;
++	return snprintf(buf, PAGE_SIZE, "%s\n", config->manufacturer);
++}
++
++static ssize_t rndis_manufacturer_store(struct device *dev,
++					struct device_attribute *attr,
++					const char *buf, size_t size)
++{
++	struct slp_multi_usb_function *f = dev_get_drvdata(dev);
++	struct rndis_function_config *config = f->config;
++
++	if ((size >= sizeof(config->manufacturer)) ||
++		(sscanf(buf, "%s", config->manufacturer) != 1))
++		return -EINVAL;
++
++	return size;
++}
++
++static DEVICE_ATTR(manufacturer, S_IRUGO | S_IWUSR, rndis_manufacturer_show,
++		   rndis_manufacturer_store);
++
++static ssize_t rndis_wceis_show(struct device *dev,
++				struct device_attribute *attr, char *buf)
++{
++	struct slp_multi_usb_function *f = dev_get_drvdata(dev);
++	struct rndis_function_config *config = f->config;
++	return snprintf(buf, PAGE_SIZE, "%d\n", config->wceis);
++}
++
++static ssize_t rndis_wceis_store(struct device *dev,
++				 struct device_attribute *attr, const char *buf,
++				 size_t size)
++{
++	struct slp_multi_usb_function *f = dev_get_drvdata(dev);
++	struct rndis_function_config *config = f->config;
++	int value;
++
++	if (sscanf(buf, "%d", &value) == 1) {
++		config->wceis = value;
++		return size;
++	}
++	return -EINVAL;
++}
++
++static DEVICE_ATTR(wceis, S_IRUGO | S_IWUSR, rndis_wceis_show,
++		   rndis_wceis_store);
++
++static ssize_t rndis_ethaddr_show(struct device *dev,
++				  struct device_attribute *attr, char *buf)
++{
++	struct slp_multi_usb_function *f = dev_get_drvdata(dev);
++	struct rndis_function_config *rndis = f->config;
++	return snprintf(buf, PAGE_SIZE, "%02x:%02x:%02x:%02x:%02x:%02x\n",
++		       rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
++		       rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
++}
++
++static DEVICE_ATTR(ethaddr, S_IRUGO, rndis_ethaddr_show,
++		   NULL);
++
++static ssize_t rndis_vendorID_show(struct device *dev,
++				   struct device_attribute *attr, char *buf)
++{
++	struct slp_multi_usb_function *f = dev_get_drvdata(dev);
++	struct rndis_function_config *config = f->config;
++	return snprintf(buf, PAGE_SIZE, "%04x\n", config->vendorID);
++}
++
++static ssize_t rndis_vendorID_store(struct device *dev,
++				    struct device_attribute *attr,
++				    const char *buf, size_t size)
++{
++	struct slp_multi_usb_function *f = dev_get_drvdata(dev);
++	struct rndis_function_config *config = f->config;
++	int value;
++
++	if (sscanf(buf, "%04x", &value) == 1) {
++		config->vendorID = value;
++		return size;
++	}
++	return -EINVAL;
++}
++
++static DEVICE_ATTR(vendorID, S_IRUGO | S_IWUSR, rndis_vendorID_show,
++		   rndis_vendorID_store);
++
++static struct device_attribute *rndis_function_attributes[] = {
++	&dev_attr_manufacturer,
++	&dev_attr_wceis,
++	&dev_attr_ethaddr,
++	&dev_attr_vendorID,
++	NULL
++};
++
++static struct slp_multi_usb_function rndis_function = {
++	.name = "rndis",
++	.init = rndis_function_init,
++	.cleanup = rndis_function_cleanup,
++	.bind_config = rndis_function_bind_config,
++	.unbind_config = rndis_function_unbind_config,
++	.attributes = rndis_function_attributes,
++};
++
++/*-------------------------------------------------------------------------*/
++/* Supported functions initialization */
++
++static struct slp_multi_usb_function *supported_functions[] = {
++	&sdb_function,
++	&acm_function,
++	&rndis_function,
++	NULL,
++};
++
++static void slp_multi_qos_work(struct work_struct *data)
++{
++	struct slp_multi_dev *smdev =
++		container_of(data, struct slp_multi_dev, qos_work);
++
++	if (smdev->suspended) {
++		if (smdev->curr_latency != PM_QOS_DEFAULT_VALUE) {
++			smdev->curr_latency = PM_QOS_DEFAULT_VALUE;
++			pm_qos_update_request(&smdev->pm_qos_req_dma,
++				PM_QOS_DEFAULT_VALUE);
++			dev_info(smdev->dev, "usb suspended, set default qos\n");
++		}
++	} else {
++		if ((smdev->swfi_latency != PM_QOS_DEFAULT_VALUE) &&
++			!(strncmp(smdev->pm_qos, "high", 4)) &&
++			(smdev->curr_latency == PM_QOS_DEFAULT_VALUE)) {
++			smdev->curr_latency = smdev->swfi_latency;
++			pm_qos_update_request(&smdev->pm_qos_req_dma,
++				smdev->swfi_latency);
++			dev_info(smdev->dev, "usb resumed, set high qos\n");
++		}
++	}
++}
++
++static int slp_multi_init_functions(struct slp_multi_dev *smdev,
++				  struct usb_composite_dev *cdev)
++{
++	struct slp_multi_usb_function *f;
++	struct device_attribute **attrs;
++	struct device_attribute *attr;
++	int err = 0;
++	int index = 0;
++
++	list_for_each_entry(f, &smdev->available_functions, available_list) {
++		f->dev_name = kasprintf(GFP_KERNEL, "f_%s", f->name);
++		f->dev = device_create(slp_multi_class, smdev->dev,
++				       MKDEV(0, index++), f, f->dev_name);
++		if (IS_ERR(f->dev)) {
++			dev_err(smdev->dev,
++				"Failed to create dev %s", f->dev_name);
++			err = PTR_ERR(f->dev);
++			goto init_func_err_create;
++		}
++
++		if (f->init) {
++			err = f->init(f, cdev);
++			if (err) {
++				dev_err(smdev->dev,
++					"Failed to init %s", f->name);
++				goto init_func_err_out;
++			}
++		}
++
++		attrs = f->attributes;
++		if (attrs) {
++			while ((attr = *attrs++) && !err)
++				err = device_create_file(f->dev, attr);
++		}
++		if (err) {
++			dev_err(f->dev, "Failed to create function %s attributes",
++			       f->name);
++			goto init_func_err_out;
++		}
++	}
++	return 0;
++
++ init_func_err_out:
++	device_destroy(slp_multi_class, f->dev->devt);
++ init_func_err_create:
++	kfree(f->dev_name);
++	return err;
++}
++
++static void slp_multi_cleanup_functions(struct slp_multi_dev *smdev)
++{
++	struct slp_multi_usb_function *f;
++
++	list_for_each_entry(f, &smdev->available_functions, available_list) {
++		if (f->dev) {
++			device_destroy(slp_multi_class, f->dev->devt);
++			kfree(f->dev_name);
++		}
++
++		if (f->cleanup)
++			f->cleanup(f);
++	}
++}
++
++static int
++slp_multi_bind_enabled_functions(struct slp_multi_dev *smdev,
++			       struct usb_configuration *c)
++{
++	struct slp_multi_usb_function *f;
++	int ret;
++
++	if (c->bConfigurationValue == USB_CONFIGURATION_1) {
++		list_for_each_entry(f, &smdev->funcs_fconf, fconf_list) {
++			dev_dbg(smdev->dev, "usb_bind_conf(1st) f:%s\n",
++				f->name);
++			ret = f->bind_config(f, c);
++			if (ret) {
++				dev_err(smdev->dev, "%s bind_conf(1st) failed\n",
++					f->name);
++				return ret;
++			}
++		}
++	} else if (c->bConfigurationValue == USB_CONFIGURATION_2) {
++		list_for_each_entry(f, &smdev->funcs_sconf, sconf_list) {
++			dev_dbg(smdev->dev, "usb_bind_conf(2nd) f:%s\n",
++				f->name);
++			ret = f->bind_config(f, c);
++			if (ret) {
++				dev_err(smdev->dev, "%s bind_conf(2nd) failed\n",
++					f->name);
++				return ret;
++			}
++		}
++	} else {
++		dev_err(smdev->dev, "Not supported configuraton(%d)\n",
++			c->bConfigurationValue);
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static void
++slp_multi_unbind_enabled_functions(struct slp_multi_dev *smdev,
++				 struct usb_configuration *c)
++{
++	struct slp_multi_usb_function *f;
++
++	if (c->bConfigurationValue == USB_CONFIGURATION_1) {
++		list_for_each_entry(f, &smdev->funcs_fconf, fconf_list) {
++			if (f->unbind_config)
++				f->unbind_config(f, c);
++		}
++	} else if (c->bConfigurationValue == USB_CONFIGURATION_2) {
++		list_for_each_entry(f, &smdev->funcs_sconf, sconf_list) {
++			if (f->unbind_config)
++				f->unbind_config(f, c);
++		}
++	}
++}
++
++#define ADD_FUNCS_LIST(head, member)	\
++static inline int add_##member(struct slp_multi_dev *smdev, char *name)	\
++{	\
++	struct slp_multi_usb_function *av_f, *en_f;	\
++	\
++	dev_dbg(smdev->dev, "usb: name=%s\n", name);	\
++	list_for_each_entry(av_f, &smdev->available_functions,	\
++			available_list) {	\
++		if (!strcmp(name, av_f->name)) {	\
++			list_for_each_entry(en_f, &smdev->head,	\
++					member) {	\
++				if (av_f == en_f) {	\
++					dev_info(smdev->dev, \
++						"usb:%s already enabled!\n", \
++						name);	\
++					return 0;	\
++				}	\
++			}	\
++			list_add_tail(&av_f->member, &smdev->head);	\
++			return 0;	\
++		}	\
++	}	\
++	return -EINVAL;	\
++}	\
++static ssize_t	show_##head(struct device *pdev,	\
++			struct device_attribute *attr, char *buf)	\
++{	\
++	struct slp_multi_dev *smdev = dev_get_drvdata(pdev);	\
++	struct slp_multi_usb_function *f;	\
++	char *buff = buf;	\
++	\
++	list_for_each_entry(f, &smdev->head, member) {	\
++		dev_dbg(pdev, "usb: enabled_func=%s\n",	\
++		       f->name);	\
++		buff += snprintf(buff, PAGE_SIZE, "%s,", f->name);	\
++	}	\
++	if (buff != buf)	\
++		*(buff - 1) = '\n';	\
++	\
++	return buff - buf;	\
++}	\
++static ssize_t store_##head(struct device *pdev,	\
++		struct device_attribute *attr,	\
++		const char *buff, size_t size)	\
++{	\
++	struct slp_multi_dev *smdev = dev_get_drvdata(pdev);	\
++	char *name;	\
++	char buf[256], *b;	\
++	int err;	\
++	\
++	if (smdev->enabled) {	\
++		dev_info(pdev, "can't change usb functions"	\
++			"(already enabled)!!\n");	\
++		return -EBUSY;	\
++	}	\
++	\
++	INIT_LIST_HEAD(&smdev->head);	\
++	\
++	dev_dbg(pdev, "usb: buff=%s\n", buff);	\
++	strlcpy(buf, buff, sizeof(buf));	\
++	b = strim(buf);	\
++	\
++	while (b) {	\
++		name = strsep(&b, ",");	\
++		if (name) {	\
++			err = add_##member(smdev, name);	\
++			if (err)	\
++				dev_err(pdev, \
++					"slp_multi_usb: Cannot enable '%s'", \
++					name); \
++		}	\
++	}	\
++	\
++	return size;	\
++}	\
++static DEVICE_ATTR(head, S_IRUGO | S_IWUSR, show_##head, store_##head);
++
++ADD_FUNCS_LIST(funcs_fconf, fconf_list)
++ADD_FUNCS_LIST(funcs_sconf, sconf_list)
++
++/*-------------------------------------------------------------------------*/
++/* /sys/class/usb_mode/usb%d/ interface */
++
++static ssize_t pm_qos_show(struct device *pdev,
++			   struct device_attribute *attr, char *buf)
++{
++	struct slp_multi_dev *smdev = dev_get_drvdata(pdev);
++
++	return snprintf(buf, PAGE_SIZE, "%s\n", smdev->pm_qos);
++}
++
++static ssize_t pm_qos_store(struct device *pdev,
++			   struct device_attribute *attr,
++			   const char *buff, size_t size)
++{
++	struct slp_multi_dev *smdev = dev_get_drvdata(pdev);
++
++	if (smdev->enabled) {
++		dev_info(pdev, "Already usb enabled, can't change qos\n");
++		return -EBUSY;
++	}
++
++	strlcpy(smdev->pm_qos, buff, sizeof(smdev->pm_qos));
++	return size;
++}
++
++static DEVICE_ATTR(pm_qos, S_IRUGO | S_IWUSR, pm_qos_show, pm_qos_store);
++
++static ssize_t enable_show(struct device *pdev,
++			   struct device_attribute *attr, char *buf)
++{
++	struct slp_multi_dev *smdev = dev_get_drvdata(pdev);
++	dev_dbg(pdev, "usb: smdev->enabled=%d\n", smdev->enabled);
++	return snprintf(buf, PAGE_SIZE, "%d\n", smdev->enabled);
++}
++
++static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
++			    const char *buff, size_t size)
++{
++	struct slp_multi_dev *smdev = dev_get_drvdata(pdev);
++	struct usb_composite_dev *cdev = smdev->cdev;
++	int enabled;
++	int ret = 0;
++
++	if (sysfs_streq(buff, "1"))
++		enabled = 1;
++	else if (sysfs_streq(buff, "0"))
++		enabled = 0;
++	else {
++		dev_err(pdev, "Invalid cmd %c%c..", *buff, *(buff+1));
++		return -EINVAL;
++	}
++
++	dev_dbg(pdev, "usb: %s enabled=%d, !smdev->enabled=%d\n",
++	       __func__, enabled, !smdev->enabled);
++
++	mutex_lock(&smdev->mutex);
++
++	if (enabled && !smdev->enabled) {
++		struct slp_multi_usb_function *f;
++
++		/* update values in composite driver's
++		 * copy of device descriptor
++		 */
++		cdev->desc.idVendor = device_desc.idVendor;
++		cdev->desc.idProduct = device_desc.idProduct;
++		cdev->desc.bcdDevice = device_desc.bcdDevice;
++
++		list_for_each_entry(f, &smdev->funcs_fconf, fconf_list) {
++			if (!strcmp(f->name, "acm"))
++				cdev->desc.bcdDevice =
++					cpu_to_le16(0x0400);
++		}
++
++		list_for_each_entry(f, &smdev->funcs_sconf, sconf_list) {
++			if (!strcmp(f->name, "acm"))
++				cdev->desc.bcdDevice =
++					cpu_to_le16(0x0400);
++			smdev->dual_config = true;
++		}
++
++		cdev->desc.bDeviceClass = device_desc.bDeviceClass;
++		cdev->desc.bDeviceSubClass = device_desc.bDeviceSubClass;
++		cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
++
++		dev_dbg(pdev, "usb: %s vendor=%x,product=%x,bcdDevice=%x",
++		       __func__, cdev->desc.idVendor,
++		       cdev->desc.idProduct, cdev->desc.bcdDevice);
++		dev_dbg(pdev, ",Class=%x,SubClass=%x,Protocol=%x\n",
++		       cdev->desc.bDeviceClass,
++		       cdev->desc.bDeviceSubClass, cdev->desc.bDeviceProtocol);
++		dev_dbg(pdev, "usb: %s next cmd : usb_add_config\n",
++		       __func__);
++
++		ret = usb_add_config(cdev,
++				&first_config_driver, slp_multi_bind_config);
++		if (ret < 0) {
++			dev_err(pdev,
++				"usb_add_config fail-1st(%d)\n", ret);
++			smdev->dual_config = false;
++			goto done;
++		}
++
++		if (smdev->dual_config) {
++			ret = usb_add_config(cdev, &second_config_driver,
++				       slp_multi_bind_config);
++			if (ret < 0) {
++				dev_err(pdev,
++					"usb_add_config fail-2nd(%d)\n", ret);
++				usb_remove_config(cdev, &first_config_driver);
++				smdev->dual_config = false;
++				goto done;
++			}
++		}
++
++		smdev->enabled = true;
++		usb_gadget_connect(cdev->gadget);
++
++
++	} else if (!enabled && smdev->enabled) {
++
++		usb_gadget_disconnect(cdev->gadget);
++		/* Cancel pending control requests */
++		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
++		usb_remove_config(cdev, &first_config_driver);
++		if (smdev->dual_config)
++			usb_remove_config(cdev, &second_config_driver);
++		smdev->enabled = false;
++		smdev->dual_config = false;
++	} else {
++		dev_info(pdev, "slp_multi_usb: already %s\n",
++		       smdev->enabled ? "enabled" : "disabled");
++	}
++
++done:
++	mutex_unlock(&smdev->mutex);
++	return (ret < 0 ? ret : size);
++}
++
++static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, enable_show, enable_store);
++
++#define DESCRIPTOR_ATTR(field, format_string)				\
++static ssize_t								\
++field ## _show(struct device *dev, struct device_attribute *attr,	\
++		char *buf)						\
++{									\
++	return snprintf(buf, PAGE_SIZE, format_string, device_desc.field);\
++}									\
++static ssize_t								\
++field ## _store(struct device *dev, struct device_attribute *attr,	\
++		const char *buf, size_t size)	\
++{									\
++	int value;	\
++	if (sscanf(buf, format_string, &value) == 1) {			\
++		device_desc.field = value;				\
++		return size;						\
++	}								\
++	return -EINVAL;							\
++}									\
++static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
++
++#define DESCRIPTOR_STRING_ATTR(field, buffer)	\
++static ssize_t	\
++field ## _show(struct device *dev, struct device_attribute *attr,	\
++		char *buf)	\
++{	\
++	return snprintf(buf, PAGE_SIZE, "%s", buffer);	\
++}	\
++static ssize_t	\
++field ## _store(struct device *dev, struct device_attribute *attr,	\
++		const char *buf, size_t size)	\
++{	\
++	if ((size >= sizeof(buffer)) ||	\
++		(sscanf(buf, "%s", buffer) != 1)) {	\
++		return -EINVAL;	\
++	}	\
++	return size;	\
++}	\
++static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
++
++DESCRIPTOR_ATTR(idVendor, "%04x\n")
++DESCRIPTOR_ATTR(idProduct, "%04x\n")
++DESCRIPTOR_ATTR(bcdDevice, "%04x\n")
++DESCRIPTOR_ATTR(bDeviceClass, "%d\n")
++DESCRIPTOR_ATTR(bDeviceSubClass, "%d\n")
++DESCRIPTOR_ATTR(bDeviceProtocol, "%d\n")
++DESCRIPTOR_STRING_ATTR(iManufacturer, manufacturer_string)
++DESCRIPTOR_STRING_ATTR(iProduct, product_string)
++DESCRIPTOR_STRING_ATTR(iSerial, serial_string)
++
++static struct device_attribute *slp_multi_usb_attributes[] = {
++	&dev_attr_idVendor,
++	&dev_attr_idProduct,
++	&dev_attr_bcdDevice,
++	&dev_attr_bDeviceClass,
++	&dev_attr_bDeviceSubClass,
++	&dev_attr_bDeviceProtocol,
++	&dev_attr_iManufacturer,
++	&dev_attr_iProduct,
++	&dev_attr_iSerial,
++	&dev_attr_funcs_fconf,
++	&dev_attr_funcs_sconf,
++	&dev_attr_enable,
++	&dev_attr_pm_qos,
++	NULL
++};
++
++/*-------------------------------------------------------------------------*/
++/* Composite driver */
++
++static int slp_multi_bind_config(struct usb_configuration *c)
++{
++	struct slp_multi_dev *smdev = _slp_multi_dev;
++	int ret = 0;
++
++	ret = slp_multi_bind_enabled_functions(smdev, c);
++	if (ret)
++		return ret;
++
++	if ((smdev->swfi_latency != PM_QOS_DEFAULT_VALUE) &&
++		!(strncmp(smdev->pm_qos, "high", 4)) &&
++			(smdev->curr_latency == PM_QOS_DEFAULT_VALUE)) {
++		smdev->curr_latency = smdev->swfi_latency;
++		pm_qos_update_request(&smdev->pm_qos_req_dma,
++			smdev->swfi_latency);
++	}
++
++	return 0;
++}
++
++static void slp_multi_unbind_config(struct usb_configuration *c)
++{
++	struct slp_multi_dev *smdev = _slp_multi_dev;
++
++	cancel_work_sync(&smdev->qos_work);
++
++	if (smdev->curr_latency != PM_QOS_DEFAULT_VALUE) {
++		smdev->curr_latency = PM_QOS_DEFAULT_VALUE;
++		pm_qos_update_request(&smdev->pm_qos_req_dma,
++			PM_QOS_DEFAULT_VALUE);
++	}
++
++	slp_multi_unbind_enabled_functions(smdev, c);
++}
++
++static int slp_multi_bind(struct usb_composite_dev *cdev)
++{
++	struct slp_multi_dev *smdev = _slp_multi_dev;
++	struct usb_gadget *gadget = cdev->gadget;
++	int id, ret;
++
++	dev_dbg(smdev->dev, "usb: %s disconnect\n", __func__);
++	usb_gadget_disconnect(gadget);
++
++	/* Allocate string descriptor numbers ... note that string
++	 * contents can be overridden by the composite_dev glue.
++	 */
++	id = usb_string_id(cdev);
++	if (id < 0)
++		return id;
++	strings_dev[STRING_MANUFACTURER_IDX].id = id;
++	device_desc.iManufacturer = id;
++
++	id = usb_string_id(cdev);
++	if (id < 0)
++		return id;
++	strings_dev[STRING_PRODUCT_IDX].id = id;
++	device_desc.iProduct = id;
++
++	/* Default strings - should be updated by userspace */
++	strlcpy(manufacturer_string, "Samsung\0",
++		sizeof(manufacturer_string) - 1);
++	strlcpy(product_string, "SLP\0", sizeof(product_string) - 1);
++	snprintf(serial_string, sizeof(serial_string),
++		 "%08x%08x", system_serial_high, system_serial_low);
++
++	id = usb_string_id(cdev);
++	if (id < 0)
++		return id;
++	strings_dev[STRING_SERIAL_IDX].id = id;
++	device_desc.iSerialNumber = id;
++
++	ret = slp_multi_init_functions(smdev, cdev);
++	if (ret)
++		return ret;
++
++	usb_gadget_set_selfpowered(gadget);
++	smdev->cdev = cdev;
++
++	return 0;
++}
++
++static int slp_multi_usb_unbind(struct usb_composite_dev *cdev)
++{
++	struct slp_multi_dev *smdev = _slp_multi_dev;
++	dev_dbg(smdev->dev, "usb: %s\n", __func__);
++	slp_multi_cleanup_functions(smdev);
++	return 0;
++}
++
++static void slp_multi_usb_resume(struct usb_composite_dev *cdev)
++{
++	struct slp_multi_dev *smdev = _slp_multi_dev;
++
++	dev_dbg(smdev->dev, "usb: %s\n", __func__);
++
++	smdev->suspended = 0;
++
++	if ((smdev->swfi_latency != PM_QOS_DEFAULT_VALUE) &&
++		!(strncmp(smdev->pm_qos, "high", 4)))
++		schedule_work(&smdev->qos_work);
++}
++
++static void slp_multi_usb_suspend(struct usb_composite_dev *cdev)
++{
++	struct slp_multi_dev *smdev = _slp_multi_dev;
++
++	dev_dbg(smdev->dev, "usb: %s\n", __func__);
++
++	smdev->suspended = 1;
++
++	if (smdev->curr_latency != PM_QOS_DEFAULT_VALUE)
++		schedule_work(&smdev->qos_work);
++}
++
++static struct usb_composite_driver slp_multi_composite = {
++	.name = "slp_multi_composite",
++	.dev = &device_desc,
++	.strings = slp_dev_strings,
++	.bind = slp_multi_bind,
++	.unbind = slp_multi_usb_unbind,
++	.max_speed = USB_SPEED_HIGH,
++	.resume = slp_multi_usb_resume,
++	.suspend = slp_multi_usb_suspend,
++};
++
++/* HACK: android needs to override setup for accessory to work */
++static int (*composite_setup_func)(struct usb_gadget *gadget,
++				   const struct usb_ctrlrequest *c);
++
++static int
++slp_multi_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
++{
++	struct slp_multi_dev *smdev = _slp_multi_dev;
++	struct usb_composite_dev *cdev = get_gadget_data(gadget);
++	u8 b_requestType = ctrl->bRequestType;
++	struct slp_multi_usb_function *f;
++	int value = -EOPNOTSUPP;
++
++	if ((b_requestType & USB_TYPE_MASK) == USB_TYPE_VENDOR) {
++		struct usb_request *req = cdev->req;
++
++		req->zero = 0;
++		req->length = 0;
++		gadget->ep0->driver_data = cdev;
++
++		/* To check & report it to platform , we check it all */
++		list_for_each_entry(f, &smdev->available_functions,
++			available_list) {
++			if (f->ctrlrequest) {
++				value = f->ctrlrequest(f, cdev, ctrl);
++				if (value >= 0)
++					break;
++			}
++		}
++	}
++
++	if (value < 0)
++		value = composite_setup_func(gadget, ctrl);
++
++	return value;
++}
++
++static int slp_multi_create_device(struct slp_multi_dev *smdev)
++{
++	struct device_attribute **attrs = slp_multi_usb_attributes;
++	struct device_attribute *attr;
++	int err;
++
++	smdev->dev = device_create(slp_multi_class, NULL,
++				  MKDEV(0, 0), NULL, "usb0");
++	if (IS_ERR(smdev->dev))
++		return PTR_ERR(smdev->dev);
++
++	dev_set_drvdata(smdev->dev, smdev);
++
++	while ((attr = *attrs++)) {
++		err = device_create_file(smdev->dev, attr);
++		if (err) {
++			device_destroy(slp_multi_class, smdev->dev->devt);
++			return err;
++		}
++	}
++	return 0;
++}
++
++static void slp_multi_destroy_device(struct slp_multi_dev *smdev)
++{
++	struct device_attribute **attrs = slp_multi_usb_attributes;
++	struct device_attribute *attr;
++
++	while ((attr = *attrs++))
++		device_destroy(slp_multi_class, smdev->dev->devt);
++
++	dev_set_drvdata(smdev->dev, NULL);
++
++	device_unregister(smdev->dev);
++}
++
++static CLASS_ATTR_STRING(version, S_IRUSR | S_IRGRP | S_IROTH,
++			 USB_MODE_VERSION);
++
++static int __init slp_multi_init(void)
++{
++	int err, i;
++	struct slp_multi_dev *smdev;
++	struct slp_multi_usb_function *f;
++	struct slp_multi_usb_function **functions = supported_functions;
++
++	slp_multi_class = class_create(THIS_MODULE, "usb_mode");
++	if (IS_ERR(slp_multi_class)) {
++		pr_err("failed to create slp_multi class --> %ld\n",
++				PTR_ERR(slp_multi_class));
++		return PTR_ERR(slp_multi_class);
++	}
++
++	err = class_create_file(slp_multi_class, &class_attr_version.attr);
++	if (err) {
++		pr_err("usb_mode: can't create sysfs version file\n");
++		goto err_class;
++	}
++
++	smdev = kzalloc(sizeof(*smdev), GFP_KERNEL);
++	if (!smdev) {
++		pr_err("usb_mode: can't alloc for smdev\n");
++		err = -ENOMEM;
++		goto err_attr;
++	}
++
++	INIT_LIST_HEAD(&smdev->available_functions);
++	INIT_LIST_HEAD(&smdev->funcs_fconf);
++	INIT_LIST_HEAD(&smdev->funcs_sconf);
++	INIT_WORK(&smdev->qos_work, slp_multi_qos_work);
++
++	mutex_init(&smdev->mutex);
++
++	while ((f = *functions++)) {
++		for (i = 0; i < sizeof(default_funcs) / sizeof(char *); i++)
++			if (!strcmp(default_funcs[i], f->name))
++				list_add_tail(&f->available_list,
++					      &smdev->available_functions);
++	}
++
++	err = slp_multi_create_device(smdev);
++	if (err) {
++		pr_err("usb_mode: can't create device\n");
++		goto err_alloc;
++	}
++
++	slp_multi_nluns = 1;
++	_slp_multi_dev = smdev;
++
++	err = usb_composite_probe(&slp_multi_composite);
++	if (err) {
++		pr_err("usb_mode: can't probe composite\n");
++		goto err_create;
++	}
++
++	/* HACK: exchange composite's setup with ours */
++	composite_setup_func = slp_multi_composite.gadget_driver.setup;
++	slp_multi_composite.gadget_driver.setup = slp_multi_setup;
++
++	smdev->swfi_latency = PM_QOS_DEFAULT_VALUE;
++	strlcpy(smdev->pm_qos, "NONE", sizeof(smdev->pm_qos));
++	smdev->curr_latency = PM_QOS_DEFAULT_VALUE;
++
++	pr_info("usb_mode driver, version:" USB_MODE_VERSION
++		"," " init Ok\n");
++
++	return 0;
++
++err_create:
++	slp_multi_destroy_device(smdev);
++
++err_alloc:
++	kfree(smdev);
++
++err_attr:
++	class_remove_file(slp_multi_class, &class_attr_version.attr);
++err_class:
++	class_destroy(slp_multi_class);
++
++	return err;
++}
++late_initcall(slp_multi_init);
++
++static void __exit slp_multi_exit(void)
++{
++	usb_composite_unregister(&slp_multi_composite);
++	slp_multi_destroy_device(_slp_multi_dev);
++
++	kfree(_slp_multi_dev);
++	_slp_multi_dev = NULL;
++
++	class_remove_file(slp_multi_class, &class_attr_version.attr);
++	class_destroy(slp_multi_class);
++}
++module_exit(slp_multi_exit);
+-- 
+1.8.3.2
+

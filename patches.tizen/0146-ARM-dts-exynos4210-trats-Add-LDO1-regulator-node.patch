@@ -1,0 +1,35 @@
+From b7a29cebc57e548d3ea757013199c404f9d036c8 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 28 Feb 2013 19:42:08 +0100
+Subject: [PATCH 0146/1302] ARM: dts: exynos4210-trats: Add LDO1 regulator node
+
+This patch adds missing node for LDO1 regulator required by audio
+components.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index a399016..d87f19a 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -305,6 +305,13 @@
+ 							 <1200000>, <1200000>;
+ 
+ 			regulators {
++				vadc_reg: LDO1 {
++					regulator-name = "VADC_3.3V_C210";
++					regulator-min-microvolt = <3300000>;
++					regulator-max-microvolt = <3300000>;
++					regulator-always-on;
++				};
++
+ 				valive_reg: LDO2 {
+ 				     regulator-name = "VALIVE_1.1V_C210";
+ 				     regulator-min-microvolt = <1100000>;
+-- 
+1.8.3.2
+

@@ -1,0 +1,49 @@
+From 9059c9d772c69bd74a053ad44df9dc8a315ee911 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Tue, 28 May 2013 16:01:21 +0900
+Subject: [PATCH 0544/1302] drm/exynos: fix WINDOWS_NR checking to vidi driver
+
+This patch just checks if win_data array range is valid
+or not correctly.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_vidi.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_vidi.c b/drivers/gpu/drm/exynos/exynos_drm_vidi.c
+index ebe332b..3d3ecea 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_vidi.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_vidi.c
+@@ -289,7 +289,7 @@ static void vidi_win_mode_set(struct device *dev,
+ 	if (win == DEFAULT_ZPOS)
+ 		win = ctx->default_win;
+ 
+-	if (win < 0 || win > WINDOWS_NR)
++	if (win < 0 || win >= WINDOWS_NR)
+ 		return;
+ 
+ 	offset = overlay->fb_x * (overlay->bpp >> 3);
+@@ -339,7 +339,7 @@ static void vidi_win_commit(struct device *dev, int zpos)
+ 	if (win == DEFAULT_ZPOS)
+ 		win = ctx->default_win;
+ 
+-	if (win < 0 || win > WINDOWS_NR)
++	if (win < 0 || win >= WINDOWS_NR)
+ 		return;
+ 
+ 	win_data = &ctx->win_data[win];
+@@ -363,7 +363,7 @@ static void vidi_win_disable(struct device *dev, int zpos)
+ 	if (win == DEFAULT_ZPOS)
+ 		win = ctx->default_win;
+ 
+-	if (win < 0 || win > WINDOWS_NR)
++	if (win < 0 || win >= WINDOWS_NR)
+ 		return;
+ 
+ 	win_data = &ctx->win_data[win];
+-- 
+1.8.3.2
+

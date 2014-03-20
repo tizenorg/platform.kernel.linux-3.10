@@ -1,0 +1,118 @@
+From b56a6d0959d745a23464f33ee9ae754d6c1b4606 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Wed, 9 Oct 2013 10:05:57 +0200
+Subject: [PATCH 1132/1302] usb: gadget: f_mass_storage: create
+ fsg_common_set_cdev for use in fsg_common_init
+
+fsg_common_init is a lengthy function. Factor a portion of it out.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 50 +++++++++++++++++++++----------------
+ drivers/usb/gadget/f_mass_storage.h |  3 +++
+ 2 files changed, 32 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index cb789fa..e61c066 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -2810,6 +2810,33 @@ int fsg_common_set_nluns(struct fsg_common *common, int nluns)
+ 	return 0;
+ }
+ 
++int fsg_common_set_cdev(struct fsg_common *common,
++			 struct usb_composite_dev *cdev, bool can_stall)
++{
++	struct usb_string *us;
++
++	common->gadget = cdev->gadget;
++	common->ep0 = cdev->gadget->ep0;
++	common->ep0req = cdev->req;
++	common->cdev = cdev;
++
++	us = usb_gstrings_attach(cdev, fsg_strings_array,
++				 ARRAY_SIZE(fsg_strings));
++	if (IS_ERR(us))
++		return PTR_ERR(us);
++
++	fsg_intf_desc.iInterface = us[FSG_STRING_INTERFACE].id;
++
++	/*
++	 * Some peripheral controllers are known not to be able to
++	 * halt bulk endpoints correctly.  If one of them is present,
++	 * disable stalls.
++	 */
++	common->can_stall = can_stall && !(gadget_is_at91(common->gadget));
++
++	return 0;
++}
++
+ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 				   struct usb_composite_dev *cdev,
+ 				   struct fsg_config *cfg)
+@@ -2817,7 +2844,6 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 	struct usb_gadget *gadget = cdev->gadget;
+ 	struct fsg_lun **curlun_it;
+ 	struct fsg_lun_config *lcfg;
+-	struct usb_string *us;
+ 	int nluns, i, rc;
+ 	char *pathbuf;
+ 
+@@ -2837,19 +2863,9 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 	common->ops = cfg->ops;
+ 	common->private_data = cfg->private_data;
+ 
+-	common->gadget = gadget;
+-	common->ep0 = gadget->ep0;
+-	common->ep0req = cdev->req;
+-	common->cdev = cdev;
+-
+-	us = usb_gstrings_attach(cdev, fsg_strings_array,
+-				 ARRAY_SIZE(fsg_strings));
+-	if (IS_ERR(us)) {
+-		rc = PTR_ERR(us);
++	rc = fsg_common_set_cdev(common, cdev, cfg->can_stall);
++	if (rc)
+ 		goto error_release;
+-	}
+-	fsg_intf_desc.iInterface = us[FSG_STRING_INTERFACE].id;
+-
+ 
+ 	rc = fsg_common_set_nluns(common, cfg->nluns);
+ 	if (rc)
+@@ -2925,14 +2941,6 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 				     : "File-Stor Gadget"),
+ 		 i);
+ 
+-	/*
+-	 * Some peripheral controllers are known not to be able to
+-	 * halt bulk endpoints correctly.  If one of them is present,
+-	 * disable stalls.
+-	 */
+-	common->can_stall = cfg->can_stall &&
+-		!(gadget_is_at91(common->gadget));
+-
+ 
+ 	/* Tell the thread to start working */
+ 	common->thread_task =
+diff --git a/drivers/usb/gadget/f_mass_storage.h b/drivers/usb/gadget/f_mass_storage.h
+index f98c792..de7aa32 100644
+--- a/drivers/usb/gadget/f_mass_storage.h
++++ b/drivers/usb/gadget/f_mass_storage.h
+@@ -106,6 +106,9 @@ void fsg_common_set_sysfs(struct fsg_common *common, bool sysfs);
+ 
+ int fsg_common_set_num_buffers(struct fsg_common *common, unsigned int n);
+ 
++int fsg_common_set_cdev(struct fsg_common *common,
++			struct usb_composite_dev *cdev, bool can_stall);
++
+ void fsg_common_remove_lun(struct fsg_lun *lun, bool sysfs);
+ 
+ void fsg_common_remove_luns(struct fsg_common *common);
+-- 
+1.8.3.2
+

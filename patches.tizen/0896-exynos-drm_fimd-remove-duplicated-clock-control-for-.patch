@@ -1,0 +1,57 @@
+From 56a5eef6800074f5673e7efe4693d43a2b45113a Mon Sep 17 00:00:00 2001
+From: Donghwa Lee <dh09.lee@samsung.com>
+Date: Tue, 29 Oct 2013 16:46:33 +0900
+Subject: [PATCH 0896/1302] exynos: drm_fimd: remove duplicated clock control
+ for fimd_dpms
+
+Signed-off-by: Donghwa Lee <dh09.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_fimd.c | 17 +++--------------
+ 1 file changed, 3 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimd.c b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+index f2db91f..7d6f3cd 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimd.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+@@ -895,7 +895,6 @@ static int fimd_activate(struct fimd_context *ctx, bool enable)
+ static void fimd_dpms(struct device *subdrv_dev, int mode)
+ {
+ 	struct fimd_context *ctx = get_fimd_context(subdrv_dev);
+-	int ret;
+ 
+ 	DRM_DEBUG_KMS("%d\n", mode);
+ 
+@@ -909,26 +908,16 @@ static void fimd_dpms(struct device *subdrv_dev, int mode)
+ 		 * P.S. fimd_dpms function would be called at booting time so
+ 		 * clk_enable could be called double time.
+ 		 */
+-		if (ctx->suspended) {
++		if (ctx->suspended)
+ 			pm_runtime_get_sync(subdrv_dev);
+ 
+-			ret = fimd_activate(ctx, true);
+-			if (ret < 0) {
+-				DRM_ERROR("failed to activate.\n");
+-				pm_runtime_put_sync(subdrv_dev);
+-			}
+-		}
+ 		break;
+ 	case DRM_MODE_DPMS_STANDBY:
+ 	case DRM_MODE_DPMS_SUSPEND:
+ 	case DRM_MODE_DPMS_OFF:
+-		if (!ctx->suspended) {
+-			ret = fimd_activate(ctx, false);
+-			if (ret < 0)
+-				DRM_ERROR("failed to deactivate.\n");
+-
++		if (!ctx->suspended)
+ 			pm_runtime_put_sync(subdrv_dev);
+-		}
++
+ 		break;
+ 	default:
+ 		DRM_DEBUG_KMS("unspecified mode %d\n", mode);
+-- 
+1.8.3.2
+

@@ -1,0 +1,41 @@
+From 84707d3e02c2d4db6b5d65928dc9ea6cdc4fc737 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Thu, 26 Sep 2013 10:04:02 +0200
+Subject: [PATCH 0835/1302] ehci-s5p: Use device tree to get name of desired
+ phy
+
+With this patch the name of the phy that should be used is read from
+the device tree. This gives more flexibility to use the driver without
+recompiling.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/host/ehci-s5p.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/host/ehci-s5p.c b/drivers/usb/host/ehci-s5p.c
+index c0b3ebd..49ec64c 100644
+--- a/drivers/usb/host/ehci-s5p.c
++++ b/drivers/usb/host/ehci-s5p.c
+@@ -196,6 +196,7 @@ static int s5p_ehci_probe(struct platform_device *pdev)
+ 	struct usb_hcd *hcd;
+ 	struct ehci_hcd *ehci;
+ 	struct resource *res;
++	const char *phy_name;
+ 	int irq;
+ 	int err;
+ 
+@@ -218,7 +219,8 @@ static int s5p_ehci_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 	}
+ 	s5p_ehci = to_s5p_ehci(hcd);
+-	phy =  devm_phy_get(&pdev->dev, "hsic0");
++	phy_name = of_get_property(pdev->dev.of_node, "phy-names", NULL);
++	phy =  devm_phy_get(&pdev->dev, phy_name);
+ 	if (IS_ERR(phy)) {
+ 		/* Fallback to pdata */
+ 		if (!pdata) {
+-- 
+1.8.3.2
+

@@ -1,0 +1,60 @@
+From b9ca3843017d7ea99a25db73198257b05f090217 Mon Sep 17 00:00:00 2001
+From: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Date: Tue, 15 Oct 2013 17:59:11 +0200
+Subject: [PATCH 1221/1302] clk: propagate parent change up one level
+
+This patch adds support for propagation of setup of clock's parent one level
+up.
+
+This feature is helpful when a driver changes topology of its clocks using
+clk_set_parent().  The problem occurs when on one platform/SoC driver's clock
+is located at MUX output but on the other platform/SoC there is a gated proxy
+clock between the MUX and driver's clock.  In such a case, driver's code has to
+be modified to use one clock for enabling and the other clock for setup of a
+parent.
+
+The code updates are avoided by propagating setup of a parent up one level.
+
+Additionally, this patch adds CLK_SET_PARENT_PARENT (sorry for naming) flag to
+inform clk-core that clk_set_parent() should be propagated.
+
+Signed-off-by: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Change-Id: I206d23fb86cc09bce943ef9971a710876e3a7744
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/clk.c            | 6 ++++++
+ include/linux/clk-provider.h | 1 +
+ 2 files changed, 7 insertions(+)
+
+diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
+index a9abf1b..ba2f31b 100644
+--- a/drivers/clk/clk.c
++++ b/drivers/clk/clk.c
+@@ -1506,6 +1506,12 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
+ 
+ 	/* try finding the new parent index */
+ 	if (parent) {
++		if ((clk->flags & CLK_SET_PARENT_PARENT)
++		    && clk->num_parents == 1) {
++			ret = clk_set_parent(clk->parent, parent);
++			goto out;
++		}
++
+ 		p_index = clk_fetch_parent_index(clk, parent);
+ 		p_rate = parent->rate;
+ 		if (p_index == clk->num_parents) {
+diff --git a/include/linux/clk-provider.h b/include/linux/clk-provider.h
+index 1186098..061052f 100644
+--- a/include/linux/clk-provider.h
++++ b/include/linux/clk-provider.h
+@@ -27,6 +27,7 @@
+ #define CLK_IS_ROOT		BIT(4) /* root clk, has no parent */
+ #define CLK_IS_BASIC		BIT(5) /* Basic clk, can't do a to_clk_foo() */
+ #define CLK_GET_RATE_NOCACHE	BIT(6) /* do not use the cached clk rate */
++#define CLK_SET_PARENT_PARENT	BIT(7) /* propagate parent change up one level */
+ 
+ struct clk_hw;
+ 
+-- 
+1.8.3.2
+

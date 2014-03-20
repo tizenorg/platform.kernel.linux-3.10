@@ -1,0 +1,28 @@
+From 646f42ecfd19a10e2b13580b916546e74860d522 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 8 Mar 2013 18:14:17 +0100
+Subject: [PATCH 0305/1302] ARM: dts: exynos4x12: Extend usbphy reg property to
+ cover HSIC registers
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index be4adc2..b336bd5 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -194,7 +194,7 @@
+ 		status = "disabled";
+ 
+ 		usbphy-sys {
+-			reg = <0x10020704 0x8>, <0x1001021C 0x4>;
++			reg = <0x10020704 0x0c>;
+ 		};
+ 	};
+ 
+-- 
+1.8.3.2
+

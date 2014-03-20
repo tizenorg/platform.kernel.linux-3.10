@@ -1,0 +1,40 @@
+From 64ac3deeec4782902618a6568f4e4914ba0f89f6 Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk.kim@samsung.com>
+Date: Wed, 3 Jul 2013 10:55:52 +0900
+Subject: [PATCH 0507/1302] f2fs: recover date requested by fdatasync
+
+In order to support SQLite that uses fdatasync instead of fsync, we should
+guarantee the data requested by fdatasync can be recovered after sudden-power-
+off.
+
+So, let's remove the fdatasync condition in f2fs_sync_file.
+Otherwise, we can restore the data after sudden-power-off due to nonexistence
+of any fsync mark'ed node blocks.
+
+Signed-off-by: Jaegeuk Kim <jaegeuk.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ fs/f2fs/file.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/fs/f2fs/file.c b/fs/f2fs/file.c
+index d2d2b7d..157a635 100644
+--- a/fs/f2fs/file.c
++++ b/fs/f2fs/file.c
+@@ -147,9 +147,10 @@ int f2fs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
+ 
+ 	mutex_lock(&inode->i_mutex);
+ 
+-	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC))
+-		goto out;
+-
++	/*
++	 * Both of fdatasync() and fsync() are able to be recovered from
++	 * sudden-power-off.
++	 */
+ 	if (!S_ISREG(inode->i_mode) || inode->i_nlink != 1)
+ 		need_cp = true;
+ 	else if (file_wrong_pino(inode))
+-- 
+1.8.3.2
+

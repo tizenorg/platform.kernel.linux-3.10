@@ -1,0 +1,59 @@
+From 94e048e1e7c0100d229793e0c34bb42ec18d4d9a Mon Sep 17 00:00:00 2001
+From: David Ahern <dsahern@gmail.com>
+Date: Sat, 25 May 2013 22:47:10 -0600
+Subject: [PATCH 0388/1302] perf  tools: Save parent pid in thread struct
+
+Information is available, so why not save it in case some command wants
+to use it.
+
+Signed-off-by: David Ahern <dsahern@gmail.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Jiri Olsa <jolsa@redhat.com>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369543631-5106-1-git-send-email-dsahern@gmail.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/util/thread.c | 4 ++++
+ tools/perf/util/thread.h | 1 +
+ 2 files changed, 5 insertions(+)
+
+diff --git a/tools/perf/util/thread.c b/tools/perf/util/thread.c
+index 632e40e..40399cb 100644
+--- a/tools/perf/util/thread.c
++++ b/tools/perf/util/thread.c
+@@ -14,6 +14,7 @@ struct thread *thread__new(pid_t pid)
+ 	if (self != NULL) {
+ 		map_groups__init(&self->mg);
+ 		self->pid = pid;
++		self->ppid = -1;
+ 		self->comm = malloc(32);
+ 		if (self->comm)
+ 			snprintf(self->comm, 32, ":%d", self->pid);
+@@ -82,5 +83,8 @@ int thread__fork(struct thread *self, struct thread *parent)
+ 	for (i = 0; i < MAP__NR_TYPES; ++i)
+ 		if (map_groups__clone(&self->mg, &parent->mg, i) < 0)
+ 			return -ENOMEM;
++
++	self->ppid = parent->pid;
++
+ 	return 0;
+ }
+diff --git a/tools/perf/util/thread.h b/tools/perf/util/thread.h
+index 5ad2664..eeb7ac6 100644
+--- a/tools/perf/util/thread.h
++++ b/tools/perf/util/thread.h
+@@ -13,6 +13,7 @@ struct thread {
+ 	};
+ 	struct map_groups	mg;
+ 	pid_t			pid;
++	pid_t			ppid;
+ 	char			shortname[3];
+ 	bool			comm_set;
+ 	char			*comm;
+-- 
+1.8.3.2
+

@@ -1,0 +1,85 @@
+From 13abd305c654983547b8cd6a1e13641a570ddd74 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 7 Jan 2013 17:13:58 +0100
+Subject: [PATCH 0049/1302] ARM: dts: Add FIMC and MIPI CSIS device nodes for
+ Exynos4x12
+
+Add common camera node and fimc nodes specific to Exynos4212 and
+Exynos4412 SoCs. fimc-is is a node for the Exynos4x12 FIMC-IS
+subsystem and fimc-lite nodes are created as its child nodes,
+among others due to FIMC-LITE device dependencies on FIMC-IS
+related clocks.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 47 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 47 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 2a5ac7b..3b4a16b 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -26,6 +26,8 @@
+ 		pinctrl1 = &pinctrl_1;
+ 		pinctrl2 = &pinctrl_2;
+ 		pinctrl3 = &pinctrl_3;
++		fimc-lite0 = &fimc_lite_0;
++		fimc-lite1 = &fimc_lite_1;
+ 	};
+ 
+ 	pd_isp: isp-power-domain@10023CA0 {
+@@ -179,4 +181,49 @@
+ 			reg = <0x10020704 0x8>;
+ 		};
+ 	};
++
++	camera {
++		fimc_0: fimc@11800000 {
++			compatible = "samsung,exynos4212-fimc";
++		};
++
++		fimc_1: fimc@11810000 {
++			compatible = "samsung,exynos4212-fimc";
++		};
++
++		fimc_2: fimc@11820000 {
++			compatible = "samsung,exynos4212-fimc";
++		};
++
++		fimc_3: fimc@11830000 {
++			compatible = "samsung,exynos4212-fimc";
++		};
++
++		fimc_is: fimc-is@12000000 {
++			compatible = "samsung,exynos4212-fimc-is", "simple-bus";
++			reg = <0x12000000 0x260000>;
++			interrupts = <0 90 0>, <0 95 0>;
++			samsung,power-domain = <&pd_isp>;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <1>;
++			ranges;
++
++			fimc_lite_0: fimc-lite@12390000 {
++				compatible = "samsung,exynos4212-fimc-lite";
++				reg = <0x12390000 0x1000>;
++				interrupts = <0 105 0>;
++				samsung,power-domain = <&pd_isp>;
++				status = "disabled";
++			};
++
++			fimc_lite_1: fimc-lite@123A0000 {
++				compatible = "samsung,exynos4212-fimc-lite";
++				reg = <0x123A0000 0x1000>;
++				interrupts = <0 106 0>;
++				samsung,power-domain = <&pd_isp>;
++				status = "disabled";
++			};
++		};
++	};
+ };
+-- 
+1.8.3.2
+

@@ -1,0 +1,89 @@
+From 50fd9898bd016ee18b87642eab7356a5eca7cb27 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 6 Feb 2013 17:16:35 +0100
+Subject: [PATCH 0077/1302] ARM: dts: exynos4210-trats: Update display nodes
+ for CDF
+
+This patch updates DSI controller and LCD panel nodes in device tree
+source of exynos4210-trats board for new exynos-dsi and s6e8ax0 drivers
+using Common Display Framework.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 52 ++++++++++++++++++++--------------
+ 1 file changed, 30 insertions(+), 22 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index f9a57fd..c339f2a 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -325,35 +325,43 @@
+ 	};
+ 
+ 	fimd0_lcd: panel {
+-		compatible = "s6e8ax0";
+-		panel-reverse;
++		compatible = "samsung,s6e8aa0";
+ 		reset-gpio = <&gpy4 5 0>;
+-		reset-delay = <25>;
+-		power-off-delay = <0>;
+-		power-on-delay= <0>;
++		power-on-delay= <50>;
++		reset-delay = <100>;
++		init-delay = <100>;
+ 		vdd3-supply = <&vcclcd_reg>;
+ 		vci-supply = <&vlcd_reg>;
+-		lcd-htiming = <5 5 5 720>;
+-		lcd-vtiming = <1 13 2 1280>;
+-		supports-mipi-panel;
++		video-source = <&dsi_0>;
++		flip-horizontal;
++		flip-vertical;
++
++		display-timings {
++			native-mode = <&timing0>;
++
++			timing0: timing-0 {
++				clock-frequency = <0>;
++				hactive = <720>;
++				vactive = <1280>;
++				hfront-porch = <5>;
++				hback-porch = <5>;
++				hsync-len = <5>;
++				vfront-porch = <13>;
++				vback-porch = <1>;
++				vsync-len = <2>;
++			};
++		};
+ 	};
+ 
+-	mipi-dsim@11C80000 {
+-		video-interface;
+-		virtual-channel = <0>;
+-		pixel-format = <7>;
+-		burst-mode = <1>;
+-		bus-width = <4>;
+-		cmd-allow = <0xf>;
+-		pms-setting = <12 250 0>;
+-		pll-stable-time = <500>;
+-		escape-clock = <10000000>;
+-		stop-holding-count = <0x7ff>;
+-		bta-timeout = <0xff>;
+-		rx-timeout = <0xffff>;
++	dsi_0: dsi@11C80000 {
++		samsung,pll-stable-time = <500>;
++		samsung,stop-holding-count = <0x7ff>;
++		samsung,bta-timeout = <0xff>;
++		samsung,rx-timeout = <0xffff>;
++		samsung,pll-clk-freq = <24000000>;
++		samsung,cmd-allow = <0xf>;
+ 		vdd11-supply = <&vusb_reg>;
+ 		vdd18-supply = <&vmipi_reg>;
+-		panel-info = <&fimd0_lcd>;
+ 		status = "okay";
+ 	};
+ 
+-- 
+1.8.3.2
+

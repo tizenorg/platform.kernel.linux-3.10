@@ -1,0 +1,135 @@
+From f6c78ba97c3cc2ffd42f3acb43a7b373256363a7 Mon Sep 17 00:00:00 2001
+From: Karol Lewandowski <k.lewandowsk@samsung.com>
+Date: Thu, 31 Oct 2013 19:56:58 +0100
+Subject: [PATCH 1024/1302] mali: Support build to different objdir (O=...).
+
+Change-Id: I3b76381af1ec083c41e321e55c10eb1e75e42155
+Signed-off-by: Karol Lewandowski <k.lewandowsk@samsung.com>
+Signed-off-by: Jacek Pielaszkiewicz <j.pielaszkie@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/arm/mali400/mali/Kbuild | 22 +++++++++++-----------
+ drivers/gpu/arm/mali400/ump/Kbuild  | 15 +++++++--------
+ 2 files changed, 18 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/gpu/arm/mali400/mali/Kbuild b/drivers/gpu/arm/mali400/mali/Kbuild
+index 58c8d05..b17fbc5 100644
+--- a/drivers/gpu/arm/mali400/mali/Kbuild
++++ b/drivers/gpu/arm/mali400/mali/Kbuild
+@@ -23,15 +23,15 @@ MALI_UPPER_HALF_SCHEDULING ?= 1
+ # MALI_SEC 
+ # Include the mapping between TARGET_PLATFORM and KDIR + MALI_PLATFORM
+ TARGET_PLATFORM=exynos4
+-include $(src)/MALI_CONFIGURATION
++include $(srctree)/$(src)/MALI_CONFIGURATION
+ MALI_PLATFORM = $(MALI_PLATFORM-$(TARGET_PLATFORM))
+-MALI_PLATFORM_FILES = $(subst $(src)/,,$(wildcard $(src)/platform/$(MALI_PLATFORM)/*.c))
++MALI_PLATFORM_FILES = $(subst $(srctree)/$(src)/,,$(wildcard $(srctree)/$(src)/platform/$(MALI_PLATFORM)/*.c))
+ 
+ # For customer releases the Linux Device Drivers will be provided as ARM proprietary and GPL releases:
+ # The ARM proprietary product will only include the license/proprietary directory
+ # The GPL product will only include the license/gpl directory
+-ifeq ($(wildcard $(src)/linux/license/gpl/*),)
+-    ccflags-y += -I$(src)/linux/license/proprietary
++ifeq ($(wildcard $(srctree)/$(src)/linux/license/gpl/*),)
++    ccflags-y += -I$(srctree)/$(src)/linux/license/proprietary
+     ifeq ($(CONFIG_MALI400_PROFILING),y)
+         $(error Profiling is incompatible with non-GPL license)
+     endif
+@@ -43,7 +43,7 @@ ifeq ($(wildcard $(src)/linux/license/gpl/*),)
+     endif
+     $(error Linux Device integration is incompatible with non-GPL license)
+ else
+-    ccflags-y += -I$(src)/linux/license/gpl
++    ccflags-y += -I$(srctree)/$(src)/linux/license/gpl
+ endif
+ 
+ mali-y += \
+@@ -112,7 +112,7 @@ mali-$(CONFIG_MALI400_PROFILING) += linux/mali_ukk_profiling.o
+ mali-$(CONFIG_MALI400_PROFILING) += linux/mali_osk_profiling.o
+ 
+ mali-$(CONFIG_MALI400_INTERNAL_PROFILING) += linux/mali_profiling_internal.o timestamp-$(TIMESTAMP)/mali_timestamp.o
+-ccflags-$(CONFIG_MALI400_INTERNAL_PROFILING) += -I$(src)/timestamp-$(TIMESTAMP)
++ccflags-$(CONFIG_MALI400_INTERNAL_PROFILING) += -I$(srctree)/$(src)/timestamp-$(TIMESTAMP)
+ 
+ mali-$(CONFIG_DMA_SHARED_BUFFER) += linux/mali_dma_buf.o
+ mali-$(CONFIG_SYNC) += linux/mali_sync.o linux/mali_sync_user.o
+@@ -137,16 +137,16 @@ ifeq ($(MALI_UPPER_HALF_SCHEDULING),1)
+ 	ccflags-y += -DMALI_UPPER_HALF_SCHEDULING
+ endif
+ 
+-ccflags-$(CONFIG_MALI400_UMP) += -I$(src)/../../ump/include/ump
++ccflags-$(CONFIG_MALI400_UMP) += -I$(srctree)/$(src)/../../ump/include/ump
+ ccflags-$(CONFIG_MALI400_DEBUG) += -DDEBUG
+ 
+ # Use our defines when compiling
+-ccflags-y += -I$(src) -I$(src)/include -I$(src)/common -I$(src)/linux -I$(src)/platform
++ccflags-y += -I$(srctree)/$(src) -I$(srctree)/$(src)/include -I$(srctree)/$(src)/common -I$(srctree)/$(src)/linux -I$(srctree)/$(src)/platform
+ # MALI_SEC 
+-ccflags-y += -I$(src)/../ump/include
++ccflags-y += -I$(srctree)/$(src)/../ump/include
+ 
+ # Get subversion revision number, fall back to only ${MALI_RELEASE_NAME} if no svn info is available
+-MALI_RELEASE_NAME=$(shell cat $(src)/.version 2> /dev/null)
++MALI_RELEASE_NAME=$(shell cat $(srctree)/$(src)/.version 2> /dev/null)
+ 
+ SVN_INFO = (cd $(src); (svn info || git svn info || \
+ 	echo -e "\nURL: $(MALI_RELEASE_NAME)\n" \
+@@ -163,7 +163,7 @@ endif
+ ccflags-y += -DSVN_REV_STRING=\"$(SVN_REV)\"
+ 
+ VERSION_STRINGS :=
+-VERSION_STRINGS += API_VERSION=$(shell cd $(src); grep "\#define _MALI_API_VERSION" $(FILES_PREFIX)include/linux/mali/mali_utgard_uk_types.h | cut -d' ' -f 3 )
++VERSION_STRINGS += API_VERSION=$(shell cd $(srctree)/$(src); grep "\#define _MALI_API_VERSION" $(FILES_PREFIX)include/linux/mali/mali_utgard_uk_types.h | cut -d' ' -f 3 )
+ VERSION_STRINGS += REPO_URL=$(shell $(SVN_INFO) | grep '^URL: ' | cut -d: -f2- | cut -b2-)
+ VERSION_STRINGS += REVISION=$(SVN_REV)
+ VERSION_STRINGS += CHANGED_REVISION=$(shell $(SVN_INFO) | grep '^Last Changed Rev: ' | cut -d: -f2- | cut -b2-)
+diff --git a/drivers/gpu/arm/mali400/ump/Kbuild b/drivers/gpu/arm/mali400/ump/Kbuild
+index 5b3150b..c5505fa 100644
+--- a/drivers/gpu/arm/mali400/ump/Kbuild
++++ b/drivers/gpu/arm/mali400/ump/Kbuild
+@@ -15,13 +15,12 @@
+ CONFIG ?= release
+ 
+ # Validate selected config
+-ifneq ($(shell [ -d $(src)/arch-$(CONFIG) ] && [ -f  $(src)/arch-$(CONFIG)/config.h ] && echo "OK"), OK)
+-$(warning Current directory is $(src))
++ifneq ($(shell [ -d $(srctree)/$(src)/arch-$(CONFIG) ] && [ -f  $(srctree)/$(src)/arch-$(CONFIG)/config.h ] && echo "OK"), OK)
+ $(error No configuration found for config $(CONFIG). Check that arch-$(CONFIG)/config.h exists)
+ else
+ # Link arch to the selected arch-config directory
+ $(shell [ -L $(src)/arch ] && rm $(src)/arch)
+-$(shell ln -sf arch-$(CONFIG) $(src)/arch)
++$(shell ln -sf arch-$(CONFIG) $(srctree)/$(src)/arch)
+ endif
+ 
+ UDD_FILE_PREFIX = ../mali/
+@@ -32,9 +31,9 @@ SVN_REV := $(shell ((svnversion | grep -qv "\(exported\|Unversioned\)" && echo -
+ ccflags-y += -DSVN_REV=$(SVN_REV)
+ ccflags-y += -DSVN_REV_STRING=\"$(SVN_REV)\"
+ 
+-ccflags-y += -I$(src) -I$(src)/common -I$(src)/linux -I$(src)/../mali/common -I$(src)/../mali/linux -I$(src)/../../ump/include/ump
++ccflags-y += -I$(srctree)/$(src) -I$(srctree)/$(src)/common -I$(srctree)/$(src)/linux -I$(srctree)/$(src)/../mali/common -I$(srctree)/$(src)/../mali/linux -I$(srctree)/$(src)/../../ump/include/ump
+ # MALI_SEC
+-ccflags-y += -I$(src)/include
++ccflags-y += -I$(srctree)/$(src)/include
+ ccflags-y += -DUSING_MEMORY=1 -DUMP_MEM_SIZE=512
+ 
+ ccflags-y += -DMALI_STATE_TRACKING=0
+@@ -44,10 +43,10 @@ ccflags-$(CONFIG_UMP_DEBUG) += -DDEBUG
+ # The ARM proprietary product will only include the license/proprietary directory
+ # The GPL product will only include the license/gpl directory
+ 
+-ifeq ($(wildcard $(src)/linux/license/gpl/*),)
+-ccflags-y += -I$(src)/linux/license/proprietary
++ifeq ($(wildcard $(srctree)/$(src)/linux/license/gpl/*),)
++ccflags-y += -I$(srctree)/$(src)/linux/license/proprietary
+ else
+-ccflags-y += -I$(src)/linux/license/gpl
++ccflags-y += -I$(srctree)/$(src)/linux/license/gpl
+ endif
+ 
+ ump-y = common/ump_kernel_common.o \
+-- 
+1.8.3.2
+

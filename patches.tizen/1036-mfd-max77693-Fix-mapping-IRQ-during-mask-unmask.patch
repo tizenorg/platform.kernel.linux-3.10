@@ -1,0 +1,33 @@
+From d5d7c6aa9bc065ab5531808297cb6cd4aa06bbd4 Mon Sep 17 00:00:00 2001
+From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
+Date: Tue, 3 Dec 2013 15:49:13 +0100
+Subject: [PATCH 1036/1302] mfd: max77693: Fix mapping IRQ during mask/unmask
+
+Use hwirq in max77693_irq_mask() and max77693_irq_unmask() for accessing
+irq array. Previously the virtual irq was used which resulted in
+out-of-bounds access.
+
+Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
+Change-Id: I6e2e6751d07427072e90d9f4dfef921108485f29
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mfd/max77693-irq.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mfd/max77693-irq.c b/drivers/mfd/max77693-irq.c
+index 1029d01..66b58fe 100644
+--- a/drivers/mfd/max77693-irq.c
++++ b/drivers/mfd/max77693-irq.c
+@@ -128,7 +128,8 @@ static void max77693_irq_sync_unlock(struct irq_data *data)
+ static const inline struct max77693_irq_data *
+ irq_to_max77693_irq(struct max77693_dev *max77693, int irq)
+ {
+-	return &max77693_irqs[irq];
++	struct irq_data *data = irq_get_irq_data(irq);
++	return &max77693_irqs[data->hwirq];
+ }
+ 
+ static void max77693_irq_mask(struct irq_data *data)
+-- 
+1.8.3.2
+

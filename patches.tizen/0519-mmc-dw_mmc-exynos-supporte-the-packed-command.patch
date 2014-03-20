@@ -1,0 +1,34 @@
+From 5a80faf7024655a942e7d45f56e5937936f72657 Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Thu, 1 Aug 2013 22:39:50 +0900
+Subject: [PATCH 0519/1302] mmc: dw_mmc-exynos: supporte the packed command
+
+To increase the performance, use the packed command
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/dw_mmc-exynos.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/mmc/host/dw_mmc-exynos.c b/drivers/mmc/host/dw_mmc-exynos.c
+index f013e7e..1d0291b 100644
+--- a/drivers/mmc/host/dw_mmc-exynos.c
++++ b/drivers/mmc/host/dw_mmc-exynos.c
+@@ -161,8 +161,13 @@ static unsigned long exynos_dwmmc_caps[4] = {
+ 	MMC_CAP_CMD23,
+ };
+ 
++static unsigned long exynos_dwmmc_caps2[4] = {
++	MMC_CAP2_PACKED_CMD,
++};
++
+ static const struct dw_mci_drv_data exynos_drv_data = {
+ 	.caps			= exynos_dwmmc_caps,
++	.caps2			= exynos_dwmmc_caps2,
+ 	.init			= dw_mci_exynos_priv_init,
+ 	.setup_clock		= dw_mci_exynos_setup_clock,
+ 	.prepare_command	= dw_mci_exynos_prepare_command,
+-- 
+1.8.3.2
+

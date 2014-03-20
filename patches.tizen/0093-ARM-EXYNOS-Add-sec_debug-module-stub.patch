@@ -1,0 +1,87 @@
+From 3ce7d0062c9797b19935b780390036f995bc876a Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Thu, 21 Feb 2013 16:25:00 +0100
+Subject: [PATCH 0093/1302] ARM: EXYNOS: Add sec_debug module stub
+
+This patch adds simple stub for sec_debug module to allow unmodified
+Tizen images to be booted.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/Kconfig     |  5 +++++
+ arch/arm/mach-exynos/Makefile    |  1 +
+ arch/arm/mach-exynos/sec_debug.c | 33 +++++++++++++++++++++++++++++++++
+ 3 files changed, 39 insertions(+)
+ create mode 100644 arch/arm/mach-exynos/sec_debug.c
+
+diff --git a/arch/arm/mach-exynos/Kconfig b/arch/arm/mach-exynos/Kconfig
+index 3ea8c7d..549cb32 100644
+--- a/arch/arm/mach-exynos/Kconfig
++++ b/arch/arm/mach-exynos/Kconfig
+@@ -183,6 +183,11 @@ config EXYNOS_SETUP_SPI
+ 	help
+ 	  Common setup code for SPI GPIO configurations.
+ 
++config SEC_DEBUG
++	bool "Enable sec_debug stub"
++	help
++	  Stub module for sec_debug functionality required in Tizen.
++
+ # machine support
+ 
+ if ARCH_EXYNOS4
+diff --git a/arch/arm/mach-exynos/Makefile b/arch/arm/mach-exynos/Makefile
+index b09b027..9e63a19 100644
+--- a/arch/arm/mach-exynos/Makefile
++++ b/arch/arm/mach-exynos/Makefile
+@@ -26,6 +26,7 @@ obj-$(CONFIG_HOTPLUG_CPU)	+= hotplug.o
+ 
+ obj-$(CONFIG_ARCH_EXYNOS)	+= exynos-smc.o
+ obj-$(CONFIG_ARCH_EXYNOS)	+= firmware.o
++obj-$(CONFIG_SEC_DEBUG)		+= sec_debug.o
+ 
+ plus_sec := $(call as-instr,.arch_extension sec,+sec)
+ AFLAGS_exynos-smc.o		:=-Wa,-march=armv7-a$(plus_sec)
+diff --git a/arch/arm/mach-exynos/sec_debug.c b/arch/arm/mach-exynos/sec_debug.c
+new file mode 100644
+index 0000000..3973858
+--- /dev/null
++++ b/arch/arm/mach-exynos/sec_debug.c
+@@ -0,0 +1,33 @@
++/*
++ * Copyright (c) 2013 Samsung Electronics Co., Ltd.
++ *		http://www.samsung.com
++ *
++ * sec_debug module stub for Tizen compatibility
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++
++union sec_debug_level_t {
++	struct {
++		u16 kernel_fault;
++		u16 user_fault;
++	} en;
++	u32 uint_val;
++};
++
++/* enable/disable sec_debug feature
++ * level = 0 when enable = 0 && enable_user = 0
++ * level = 1 when enable = 1 && enable_user = 0
++ * level = 0x10001 when enable = 1 && enable_user = 1
++ * The other cases are not considered
++ */
++union sec_debug_level_t sec_debug_level = { .en.kernel_fault = 1, };
++
++module_param_named(enable, sec_debug_level.en.kernel_fault, ushort, 0644);
++module_param_named(enable_user, sec_debug_level.en.user_fault, ushort, 0644);
++module_param_named(level, sec_debug_level.uint_val, uint, 0644);
+-- 
+1.8.3.2
+

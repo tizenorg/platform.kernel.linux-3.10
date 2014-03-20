@@ -1,0 +1,49 @@
+From df253edb02860be7a984e507286caa3bc6f3aa45 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Fri, 31 May 2013 11:37:23 -0300
+Subject: [PATCH 0217/1302] [media] exynos4-is: Remove WARN_ON() from
+ __fimc_pipeline_close()
+
+It's not a critical error to call __fimc_pipeline_close() with missing
+sensor subdev entity. Replace WARN_ON() with pr_warn() and return 0
+instead of -EINVAL to fix control flow in some conditions.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/media-dev.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/media/platform/exynos4-is/media-dev.c b/drivers/media/platform/exynos4-is/media-dev.c
+index 4062af2..0b5a7ef 100644
+--- a/drivers/media/platform/exynos4-is/media-dev.c
++++ b/drivers/media/platform/exynos4-is/media-dev.c
+@@ -220,16 +220,16 @@ static int __fimc_pipeline_close(struct exynos_media_pipeline *ep)
+ 	struct fimc_pipeline *p = to_fimc_pipeline(ep);
+ 	struct v4l2_subdev *sd = p ? p->subdevs[IDX_SENSOR] : NULL;
+ 	struct fimc_md *fmd;
+-	int ret = 0;
+-
+-	if (WARN_ON(sd == NULL))
+-		return -EINVAL;
++	int ret;
+ 
+-	if (p->subdevs[IDX_SENSOR]) {
+-		ret = fimc_pipeline_s_power(p, 0);
+-		fimc_md_set_camclk(sd, false);
++	if (sd == NULL) {
++		pr_warn("%s(): No sensor subdev\n", __func__);
++		return 0;
+ 	}
+ 
++	ret = fimc_pipeline_s_power(p, 0);
++	fimc_md_set_camclk(sd, false);
++
+ 	fmd = entity_to_fimc_mdev(&sd->entity);
+ 
+ 	/* Disable PXLASYNC clock if this pipeline includes FIMC-IS */
+-- 
+1.8.3.2
+

@@ -1,0 +1,94 @@
+From 35bd5b1de8345de5276fc259d16e364bebb612dd Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Tue, 26 Feb 2013 17:40:10 +0100
+Subject: [PATCH 0160/1302] ARM: dts: Move isp-i2c node to root level
+
+There is no need for the ISP I2C controller nodes to be children
+of the fimc-is node. The I2C controllers could be also used as
+standalone devices, without relation to FIMC-IS.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 38 +++++++++++++++------------------
+ arch/arm/boot/dts/exynos4x12.dtsi       |  8 +++++++
+ 2 files changed, 25 insertions(+), 21 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 08e45b1..214b35b 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -651,6 +651,23 @@
+ 		};
+ 	};
+ 
++	i2c0_isp: i2c-isp@12130000 {
++		s5k6a3@10 {
++			compatible = "samsung,s5k6a3";
++			reg = <0x10>;
++			svdda-supply = <&cam_io_reg>;
++			svddio-supply = <&ldo19_reg>;
++			clock-frequency = <24000000>;
++			gpios = <&gpm1 6 0>;
++			port {
++				is_s5k6a3_ep: endpoint {
++					remote-endpoint = <&csis1_ep>;
++					data-lanes = <1>;
++				};
++			};
++		};
++	};
++
+ 	camera {
+ 		status = "okay";
+ 
+@@ -729,27 +746,6 @@
+ 			fimc_lite_1: fimc-lite@123A0000 {
+ 				status = "okay";
+ 			};
+-
+-			fimc-is-i2c@0 {
+-				/* compatible = "samsung,exynos4212-is-i2c"; */
+-				#address-cells = <1>;
+-				#size-cells = <0>;
+-
+-				s5k6a3@10 {
+-					compatible = "samsung,s5k6a3";
+-					reg = <0x10>;
+-					svdda-supply = <&cam_io_reg>;
+-					svddio-supply = <&ldo19_reg>;
+-					clock-frequency = <24000000>;
+-					gpios = <&gpm1 6 0>;
+-					port {
+-						is_s5k6a3_ep: endpoint {
+-							remote-endpoint = <&csis1_ep>;
+-							data-lanes = <1>;
+-						};
+-					};
+-				};
+-			};
+ 		};
+ 	};
+ 
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index 1e7784e..a85d168 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -194,6 +194,14 @@
+ 		};
+ 	};
+ 
++	i2c0_isp: i2c-isp@12130000 {
++		compatible = "samsung,exynos4212-is-i2c",
++			     "samsung,s3c2440-i2c";
++		reg = <0x12130000 0x100>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++	};
++
+ 	camera {
+ 		clocks = <&clock 132>, <&clock 133>, <&clock 351>, <&clock 352>,
+ 		         <&clock 388>, <&clock 389>, <&clock 17>;
+-- 
+1.8.3.2
+

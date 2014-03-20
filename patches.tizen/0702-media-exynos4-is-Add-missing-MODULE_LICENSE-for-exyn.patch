@@ -1,0 +1,30 @@
+From 86a45ad881ff767fd6db21cdf84c64d9b74f2983 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 31 Jul 2013 11:08:19 -0300
+Subject: [PATCH 0702/1302] [media] exynos4-is: Add missing MODULE_LICENSE for
+ exynos-fimc-is.ko
+
+This fixes compilation warning:
+WARNING: modpost: missing MODULE_LICENSE() in
+drivers/media/platform/exynos4-is/exynos-fimc-is.o
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/platform/exynos4-is/fimc-is.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/media/platform/exynos4-is/fimc-is.c b/drivers/media/platform/exynos4-is/fimc-is.c
+index 0b641b5..76794f1 100644
+--- a/drivers/media/platform/exynos4-is/fimc-is.c
++++ b/drivers/media/platform/exynos4-is/fimc-is.c
+@@ -1018,3 +1018,4 @@ module_exit(fimc_is_module_exit);
+ MODULE_ALIAS("platform:" FIMC_IS_DRV_NAME);
+ MODULE_AUTHOR("Younghwan Joo <yhwan.joo@samsung.com>");
+ MODULE_AUTHOR("Sylwester Nawrocki <s.nawrocki@samsung.com>");
++MODULE_LICENSE("GPL v2");
+-- 
+1.8.3.2
+

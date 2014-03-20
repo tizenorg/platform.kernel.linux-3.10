@@ -1,0 +1,35 @@
+From d3caeb1f0d6e21cd545eb14aec19d534769d0703 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 5 Aug 2013 16:10:52 +0200
+Subject: [PATCH 0780/1302] ARM: EXYNOS: Avoid potential invalid genpd pointer
+ dereference
+
+dev_to_gend() may return an invalid pointer. Make
+exynos_remove_device_from_domain() function return and do
+nothing is such case. This prevents an invalid pointer
+dereference further in the function.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/pm_domains.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm/mach-exynos/pm_domains.c b/arch/arm/mach-exynos/pm_domains.c
+index 9f1351d..435e396 100644
+--- a/arch/arm/mach-exynos/pm_domains.c
++++ b/arch/arm/mach-exynos/pm_domains.c
+@@ -107,6 +107,9 @@ static void exynos_remove_device_from_domain(struct device *dev)
+ 	struct generic_pm_domain *genpd = dev_to_genpd(dev);
+ 	int ret;
+ 
++	if (IS_ERR(genpd))
++		return;
++
+ 	dev_dbg(dev, "removing from power domain %s\n", genpd->name);
+ 
+ 	while (1) {
+-- 
+1.8.3.2
+

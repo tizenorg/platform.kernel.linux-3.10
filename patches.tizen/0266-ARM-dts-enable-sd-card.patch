@@ -1,0 +1,38 @@
+From 376a2908c1c5c89ea457d7a9109f0bf05e8a67c9 Mon Sep 17 00:00:00 2001
+From: Jaehoon Chung <jh80.chung@samsung.com>
+Date: Thu, 20 Jun 2013 13:39:35 +0900
+Subject: [PATCH 0266/1302] ARM: dts: enable sd-card
+
+In oreder to use the SD-card, enabled the sd-card into devicetree.
+
+Signed-off-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index c6a543b..d274e36 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -98,6 +98,17 @@
+ 		status = "okay";
+ 	};
+ 
++	sdhci_sd: sdhci@12530000 {
++		bus-width = <4>;
++		cd-gpios = <&gpx3 4 0>;
++		cd-inverted;
++		interrupts = <0 75 0>;
++		pinctrl-0 = <&sd2_clk &sd2_cmd &sd2_bus4>;
++		pinctrl-names = "default";
++		vmmc-supply = <&ldo21_reg>;
++		status = "okay";
++	};
++
+ 	serial@13800000 {
+ 		status = "okay";
+ 	};
+-- 
+1.8.3.2
+

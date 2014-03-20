@@ -1,0 +1,30 @@
+From 60c20313e213ca00ecff63d79eb718777149f935 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Thu, 23 Jan 2014 11:18:36 +0100
+Subject: [PATCH 1202/1302] usb: gadget: eliminate memory leak in slp gadget
+
+Free the allocated acm_function_config struct in case of error.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Change-Id: Ie935cf67beccc2071d1ecd74437cffbe6a6827b8
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/slp.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/usb/gadget/slp.c b/drivers/usb/gadget/slp.c
+index 3ca9202..70b7d2f 100644
+--- a/drivers/usb/gadget/slp.c
++++ b/drivers/usb/gadget/slp.c
+@@ -282,6 +282,8 @@ err_usb_get_function_instance:
+ err_usb_get_function:
+ 		usb_put_function_instance(config->f_acm_inst[i]);
+ 	}
++	kfree(f->config);
++	f->config = NULL;
+ 	return ret;
+ }
+ 
+-- 
+1.8.3.2
+

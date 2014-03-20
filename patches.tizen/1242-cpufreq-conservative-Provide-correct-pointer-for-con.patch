@@ -1,0 +1,41 @@
+From 140eb39b9b6630a667f14aa50601b607a5fc25a4 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Fri, 21 Feb 2014 17:42:57 +0100
+Subject: [PATCH 1242/1302] cpufreq: conservative: Provide correct pointer for
+ conservative governor
+
+This patch restores correct value of cs_dbs_info pointer for conservative
+governor at CPUFREQ_GOV_STOP event.
+
+Without this patch the NULL pointer dereference error shows up and cpufreq
+subsystem hangs.
+To trigger the behavior one needs to compile ondemand as default one. Then
+enable conservative governor and afterwards enable ondemand again.
+
+Change-Id: Iefd933f5984abb1a46d15357b9ea5f8492deeb08
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/cpufreq_governor.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/cpufreq/cpufreq_governor.c b/drivers/cpufreq/cpufreq_governor.c
+index dabb888..a393e2a 100644
+--- a/drivers/cpufreq/cpufreq_governor.c
++++ b/drivers/cpufreq/cpufreq_governor.c
+@@ -409,9 +409,10 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
+ 		break;
+ 
+ 	case CPUFREQ_GOV_STOP:
+-		if (governor == GOV_CONSERVATIVE)
++		if (governor == GOV_CONSERVATIVE) {
++			cs_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(cpu);
+ 			cs_dbs_info->enable = 0;
+-
++		}
+ 		gov_cancel_work(dbs_data, policy);
+ 
+ 		mutex_lock(&dbs_data->mutex);
+-- 
+1.8.3.2
+

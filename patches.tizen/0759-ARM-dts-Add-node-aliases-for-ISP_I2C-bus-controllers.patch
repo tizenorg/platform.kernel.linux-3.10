@@ -1,0 +1,30 @@
+From 7796049fafea06738c2f3003fcdbbbd8f74b1e60 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 5 Sep 2013 19:09:51 +0200
+Subject: [PATCH 0759/1302] ARM: dts: Add node aliases for ISP_I2C bus
+ controllers
+
+Ensure the ISP I2C bus adapters have always same id.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 4291f0c..f99f2c2 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -189,6 +189,8 @@
+ 		i2c10 = &i2c_if_pmic;
+ 		i2c11 = &i2c_fuel;
+ 		i2c12 = &i2c_gp2ap020a00f;
++		/* 15...16 reserved for i2c0_isp, i2c1_isp */
++		i2c16 = &i2c1_isp;
+ 	};
+ 
+ 	memory {
+-- 
+1.8.3.2
+

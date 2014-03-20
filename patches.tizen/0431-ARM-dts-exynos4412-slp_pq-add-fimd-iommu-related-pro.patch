@@ -1,0 +1,28 @@
+From b0f23dd65ec947fcf7a83b5c1cf866949ba72a0f Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Tue, 23 Jul 2013 17:26:35 +0900
+Subject: [PATCH 0431/1302] ARM: dts: exynos4412-slp_pq: add fimd iommu related
+ properties
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index ab09bd2..44f1c3a 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -1015,6 +1015,8 @@
+ 	};
+ 
+ 	sysmmu-fimd0 {
++		clock-names = "sysmmu";
++		clocks = <&clock 287>;
+ 		mmu-master = <&fimd>;
+ 	};
+ 
+-- 
+1.8.3.2
+

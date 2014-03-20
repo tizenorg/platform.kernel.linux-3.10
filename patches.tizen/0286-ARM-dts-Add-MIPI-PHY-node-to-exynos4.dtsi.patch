@@ -1,0 +1,60 @@
+From 553013e754ed1aeaa38328609014053c2e539ba4 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 4 Apr 2013 13:23:27 +0200
+Subject: [PATCH 0286/1302] ARM: dts: Add MIPI PHY node to exynos4.dtsi
+
+Add PHY provider node for the MIPI CSIS and MIPI DSIM PHYs.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index a18cba6..2f2a5f4 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -120,12 +120,20 @@
+ 		reg = <0x10010000 0x400>;
+ 	};
+ 
++	mipi_phy: video-phy@10020710 {
++		compatible = "samsung,s5pv210-mipi-video-phy";
++		reg = <0x10020710 8>;
++		#phy-cells = <1>;
++	};
++
+ 	dsi_0: dsi@11C80000 {
+ 		compatible = "samsung,exynos4210-mipi-dsi";
+ 		reg = <0x11C80000 0x10000>;
+ 		interrupts = <0 79 0>;
+ 		samsung,phy-type = <0>;
+ 		samsung,power-domain = <&pd_lcd0>;
++		phys = <&mipi_phy 1>;
++		phy-names = "dsim";
+ 		clocks = <&clock 286>, <&clock 143>;
+ 		clock-names = "bus_clk", "pll_clk";
+ 		status = "disabled";
+@@ -204,6 +212,8 @@
+ 			interrupts = <0 78 0>;
+ 			bus-width = <4>;
+ 			samsung,power-domain = <&pd_cam>;
++			phys = <&mipi_phy 0>;
++			phy-names = "csis";
+ 			status = "disabled";
+ 		};
+ 
+@@ -213,6 +223,8 @@
+ 			interrupts = <0 80 0>;
+ 			bus-width = <2>;
+ 			samsung,power-domain = <&pd_cam>;
++			phys = <&mipi_phy 2>;
++			phy-names = "csis";
+ 			status = "disabled";
+ 		};
+ 	};
+-- 
+1.8.3.2
+

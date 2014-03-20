@@ -1,0 +1,34 @@
+From 07cdf3292ef20771bf6b9c3f640a6cf6758d4ec2 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Tue, 25 Jun 2013 20:23:35 +0200
+Subject: [PATCH 0297/1302] ARM: dts: Remove redundant sysreg node from
+ exynos4.dtsi
+
+Remove the incorrect sysreg node, which is likely in this file
+due to wrong merge conflict resolution.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 2f2a5f4..7620fce 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -115,11 +115,6 @@
+ 		arm,tag-latency = <1 1 0>;
+ 	};
+ 
+-	sys_reg: sysreg {
+-		compatible = "exynos4-sysreg", "syscon";
+-		reg = <0x10010000 0x400>;
+-	};
+-
+ 	mipi_phy: video-phy@10020710 {
+ 		compatible = "samsung,s5pv210-mipi-video-phy";
+ 		reg = <0x10020710 8>;
+-- 
+1.8.3.2
+

@@ -1,0 +1,173 @@
+From 930ef02a3a92e960c8bf281654ce5282cbf3270d Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Mon, 7 Oct 2013 17:02:15 +0900
+Subject: [PATCH 0834/1302] regulator: max77686: Support DVS control in
+ max77686 regulator.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 10 ++++
+ drivers/regulator/max77686.c            | 95 ++++++++++++++++++++++++++++++++-
+ include/linux/mfd/max77686.h            |  2 +
+ 3 files changed, 106 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 3021f27..4cf3f59 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -560,6 +560,16 @@
+ 			reg = <0x09>;
+ 			#clock-cells = <1>;
+ 
++			max77686,dvs_gpios = <&gpf3 1 0>,
++					     <&gpf3 2 0>,
++					     <&gpf3 3 0>;
++
++			max77686,selb_gpios = <&gpm3 0 0>,
++					      <&gpm3 1 0>,
++					      <&gpm3 2 0>;
++
++			max77686,default_dvs_idx = <1>;
++
+ 			voltage-regulators {
+ 				ldo1_reg: ldo@1 {
+ 					regulator-compatible = "LDO1";
+diff --git a/drivers/regulator/max77686.c b/drivers/regulator/max77686.c
+index 3b9b342..4d40e54 100644
+--- a/drivers/regulator/max77686.c
++++ b/drivers/regulator/max77686.c
+@@ -34,6 +34,7 @@
+ #include <linux/regulator/of_regulator.h>
+ #include <linux/mfd/max77686.h>
+ #include <linux/mfd/max77686-private.h>
++#include <linux/of_gpio.h>
+ 
+ #define MAX77686_LDO_MINUV	800000
+ #define MAX77686_LDO_UVSTEP	50000
+@@ -495,9 +496,36 @@ static int max77686_pmic_dt_parse_pdata(struct platform_device *pdev,
+ 	struct device_node *pmic_np, *regulators_np;
+ 	struct max77686_regulator_data *rdata;
+ 	struct of_regulator_match rmatch;
+-	unsigned int i;
++	unsigned int i, gpio;
+ 
+ 	pmic_np = iodev->dev->of_node;
++
++	for (i = 0; i < 3; i++) {
++		/* GPIO-DVS */
++		gpio = of_get_named_gpio(pmic_np, "max77686,dvs_gpios", i);
++		if (!gpio_is_valid(gpio)) {
++			dev_err(&pdev->dev, "could not find gpio-dvs\n");
++			while (i--)
++				pdata->buck234_gpio_dvs[i] = 0;
++			break;
++		}
++		pdata->buck234_gpio_dvs[i] = gpio;
++
++		/* GPIO-SELB */
++		gpio = of_get_named_gpio(pmic_np, "max77686,selb_gpios", i);
++		if (!gpio_is_valid(gpio)) {
++			dev_err(&pdev->dev, "could not find gpio-selb\n");
++			while (i--)
++				pdata->buck234_gpio_selb[i] = 0;
++			break;
++		}
++		pdata->buck234_gpio_selb[i] = gpio;
++	}
++
++	if (of_property_read_u32(pmic_np, "max77686,default_dvs_idx",
++				 &pdata->dvs_idx))
++		pdata->dvs_idx = 0;
++
+ 	regulators_np = of_find_node_by_name(pmic_np, "voltage-regulators");
+ 	if (!regulators_np) {
+ 		dev_err(&pdev->dev, "could not find regulators sub-node\n");
+@@ -571,6 +599,71 @@ static int max77686_pmic_probe(struct platform_device *pdev)
+ 	config.driver_data = max77686;
+ 	platform_set_drvdata(pdev, max77686);
+ 
++	/* GPIO-DVS, SELB */
++	if (pdata->buck234_gpio_dvs[0]) {
++		int ret, i;
++		for (i = 0 ; i < 3; i++) {
++			char label[20];
++			unsigned long flag;
++
++			sprintf(label, "MAX77686_DVS%d", i);
++
++			flag = (test_bit(i, (unsigned long *) &pdata->dvs_idx)) ?
++					 GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW;
++
++			ret = devm_gpio_request_one(&pdev->dev,
++						pdata->buck234_gpio_dvs[i], flag, label);
++			if (ret) {
++				dev_err(&pdev->dev, "failed to request gpio-dvs\n");
++				while (i--)
++					gpio_set_value(pdata->buck234_gpio_dvs[i], 0);
++
++				pdata->dvs_idx = 0;
++				break;
++			}
++		}
++	}
++
++	if (pdata->buck234_gpio_selb[0]) {
++		int ret, i;
++		for (i = 0 ; i < 3; i++) {
++			char label[20];
++			unsigned long flag;
++
++			sprintf(label, "MAX77686_SELB%d", i);
++
++			flag = GPIOF_OUT_INIT_LOW;
++
++			ret = devm_gpio_request_one(&pdev->dev,
++						pdata->buck234_gpio_selb[i], flag, label);
++			if (ret) {
++				dev_err(&pdev->dev, "failed to request gpio-dvs\n");
++				while (i--)
++					gpio_set_value(pdata->buck234_gpio_dvs[i], 0);
++				break;
++			}
++		}
++	}
++
++	/* Initialize DVS voltage table */
++	for (i = 0; i < 8; i++) {
++		unsigned int buck2_dvs = pdata->buck2_voltage[i];
++		unsigned int buck3_dvs = pdata->buck3_voltage[i];
++		unsigned int buck4_dvs = pdata->buck4_voltage[i];
++		unsigned int reg[3];
++
++		regmap_write(iodev->regmap, MAX77686_REG_BUCK2DVS1 + i,
++				buck2_dvs ? : 0x28);
++		regmap_write(iodev->regmap, MAX77686_REG_BUCK3DVS1 + i,
++					buck3_dvs ? : 0x28);
++		regmap_write(iodev->regmap, MAX77686_REG_BUCK4DVS1 + i,
++				buck4_dvs ? : 0x28);
++	}
++
++	regulators[MAX77686_BUCK2].vsel_reg += pdata->dvs_idx;
++	regulators[MAX77686_BUCK3].vsel_reg += pdata->dvs_idx;
++	regulators[MAX77686_BUCK4].vsel_reg += pdata->dvs_idx;
++
+ 	for (i = 0; i < MAX77686_REGULATORS; i++) {
+ 		config.init_data = pdata->regulators[i].initdata;
+ 		config.of_node = pdata->regulators[i].of_node;
+diff --git a/include/linux/mfd/max77686.h b/include/linux/mfd/max77686.h
+index 46c0f32..f7dc5f1 100644
+--- a/include/linux/mfd/max77686.h
++++ b/include/linux/mfd/max77686.h
+@@ -110,6 +110,8 @@ struct max77686_platform_data {
+ 	unsigned int buck2_voltage[8]; /* buckx_voltage in uV */
+ 	unsigned int buck3_voltage[8];
+ 	unsigned int buck4_voltage[8];
++
++	unsigned int dvs_idx;
+ };
+ 
+ #endif /* __LINUX_MFD_MAX77686_H */
+-- 
+1.8.3.2
+

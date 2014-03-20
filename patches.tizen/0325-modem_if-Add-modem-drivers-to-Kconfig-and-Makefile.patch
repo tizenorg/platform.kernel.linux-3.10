@@ -1,0 +1,38 @@
+From 1e4b4a64bc2b22783068b96fff8ec0fca41887fb Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Thu, 23 May 2013 12:03:23 +0200
+Subject: [PATCH 0325/1302] modem_if: Add modem drivers to Kconfig and Makefile
+
+Add modem_if to Kconfig and Makefile to enable compilation.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/misc/Kconfig  | 1 +
+ drivers/misc/Makefile | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index 378b0f3..0341677 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -540,5 +540,6 @@ source "drivers/misc/lis3lv02d/Kconfig"
+ source "drivers/misc/carma/Kconfig"
+ source "drivers/misc/altera-stapl/Kconfig"
+ source "drivers/misc/mei/Kconfig"
++source "drivers/misc/modem_if/Kconfig"
+ source "drivers/misc/vmw_vmci/Kconfig"
+ endmenu
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index 0cadf27..97e46bb 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -54,3 +54,4 @@ obj-$(CONFIG_VMWARE_VMCI)	+= vmw_vmci/
+ obj-$(CONFIG_LATTICE_ECP3_CONFIG)	+= lattice-ecp3-config.o
+ obj-$(CONFIG_SLP_GLOBAL_LOCK)	+= slp_global_lock.o
+ obj-$(CONFIG_SRAM)		+= sram.o
++obj-$(CONFIG_SEC_MODEM)		+= modem_if/
+-- 
+1.8.3.2
+

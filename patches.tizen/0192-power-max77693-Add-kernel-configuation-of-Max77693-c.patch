@@ -1,0 +1,49 @@
+From 2931c0cbbae766b5153c3b36197c337a0bc0866c Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Fri, 5 Apr 2013 18:01:53 +0900
+Subject: [PATCH 0192/1302] power: max77693: Add kernel configuation of
+ Max77693 charger
+
+The patch 'power: max77693: Add max77693 charger driver.'
+omitted CHARGER_MAX77693 kerenel configuration.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/power/Kconfig  | 7 +++++++
+ drivers/power/Makefile | 1 -
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/power/Kconfig b/drivers/power/Kconfig
+index 7b8979c..164a146 100644
+--- a/drivers/power/Kconfig
++++ b/drivers/power/Kconfig
+@@ -324,6 +324,13 @@ config CHARGER_MAX8998
+ 	  Say Y to enable support for the battery charger control sysfs and
+ 	  platform data of MAX8998/LP3974 PMICs.
+ 
++config CHARGER_MAX77693
++	tristate "Maxim MAX77693 PMIC battery charger driver"
++	depends on MFD_MAX77693 && REGULATOR_MAX77693
++	help
++	  Say Y to enable support for the battery charger control sysfs and
++	  platform data of MAX77693 PMICs.
++
+ config CHARGER_BQ2415X
+ 	tristate "TI BQ2415x battery charger driver"
+ 	depends on I2C
+diff --git a/drivers/power/Makefile b/drivers/power/Makefile
+index a917c98..ff4d1d3 100644
+--- a/drivers/power/Makefile
++++ b/drivers/power/Makefile
+@@ -50,7 +50,6 @@ obj-$(CONFIG_CHARGER_MANAGER)	+= charger-manager.o
+ obj-$(CONFIG_CHARGER_MAX8997)	+= max8997_charger.o
+ obj-$(CONFIG_CHARGER_MAX8998)	+= max8998_charger.o
+ obj-$(CONFIG_CHARGER_MAX77693)	+= max77693_charger.o
+-obj-y				+= max77693_charger.o
+ obj-$(CONFIG_CHARGER_BQ2415X)	+= bq2415x_charger.o
+ obj-$(CONFIG_POWER_AVS)		+= avs/
+ obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
+-- 
+1.8.3.2
+

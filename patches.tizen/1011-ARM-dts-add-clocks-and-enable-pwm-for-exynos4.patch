@@ -1,0 +1,34 @@
+From b9d60b42a2ca9dd47a57b3f50006d60b3e3ec2bf Mon Sep 17 00:00:00 2001
+From: Sangjung Woo <sangjung.woo@samsung.com>
+Date: Tue, 5 Nov 2013 10:48:07 +0900
+Subject: [PATCH 1011/1302] ARM: dts: add clocks and enable pwm for exynos4
+
+This patch adds clocks for PWM(Pulse width modulation) timer and enable
+it.
+
+Signed-off-by: Sangjung Woo <sangjung.woo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index 64c93e5..47605f1 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -489,8 +489,11 @@
+ 		compatible = "samsung,exynos4210-pwm";
+ 		reg = <0x139D0000 0x1000>;
+ 		interrupts = <0 37 0>, <0 38 0>, <0 39 0>, <0 40 0>, <0 41 0>;
++		clocks = <&clock 336>;
++		clock-names = "timers";
+ 		#pwm-cells = <2>;
+-		status = "disabled";
++		samsung,pwm-outputs = <0>;
++		status = "ok";
+ 	};
+ 
+ 	hsotg@12480000 {
+-- 
+1.8.3.2
+

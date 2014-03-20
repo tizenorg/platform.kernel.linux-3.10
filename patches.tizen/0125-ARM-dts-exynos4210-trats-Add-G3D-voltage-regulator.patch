@@ -1,0 +1,35 @@
+From d21cbc163ffbc772510ff231421c962d28acfe9c Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 20 Feb 2013 10:57:42 +0100
+Subject: [PATCH 0125/1302] ARM: dts: exynos4210-trats: Add G3D voltage
+ regulator
+
+This patch adds G3D voltage regulator, which is needed for voltage
+scaling in Mali driver, to PMIC node.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index 4b90ae3..fca0c16 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -292,6 +292,12 @@
+ 				     regulator-always-on;
+ 				};
+ 
++				vg3d_breg: BUCK3 {
++					regulator-name = "VG3D_1.1V_C210";
++					regulator-min-microvolt = <850000>;
++					regulator-max-microvolt = <1100000>;
++				};
++
+ 				camisp_breg: BUCK4 {
+ 				     regulator-name = "CAM_ISP_CORE_1.2V";
+ 				     regulator-min-microvolt = <1200000>;
+-- 
+1.8.3.2
+

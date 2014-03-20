@@ -1,0 +1,27 @@
+From 6c69ec59de88161d1b9117f5dedce17b1738e42e Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 12 Feb 2013 11:51:18 +0100
+Subject: [PATCH 0080/1302] USB: s3c-hsotg: fix Kconfig dependency
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index f41aa0d..cefb5d6 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -271,7 +271,7 @@ config USB_PXA27X
+ 
+ config USB_S3C_HSOTG
+ 	tristate "S3C HS/OtG USB Device controller"
+-	depends on S3C_DEV_USB_HSOTG
++	depends on PLAT_SAMSUNG
+ 	help
+ 	  The Samsung S3C64XX USB2.0 high-speed gadget controller
+ 	  integrated into the S3C64XX series SoC.
+-- 
+1.8.3.2
+

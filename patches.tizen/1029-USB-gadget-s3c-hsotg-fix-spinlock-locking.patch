@@ -1,0 +1,45 @@
+From 5408146904f463333ba3987401dce3398ed000a9 Mon Sep 17 00:00:00 2001
+From: Robert Baldyga <r.baldyga@samsung.com>
+Date: Thu, 14 Nov 2013 12:07:29 +0100
+Subject: [PATCH 1029/1302] USB: gadget: s3c-hsotg: fix spinlock locking
+
+This patch adds missing spinlock locking in s3c_hsotg_complete_setup function,
+and unlocking for gadget setup call.
+
+Change-Id: I73dc683a9df16872d9d6ba2b6b7c98a48418c500
+Signed-off-by: Robert Baldyga <r.baldyga@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 943a9e5..6cfb562 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -1232,7 +1232,9 @@ static void s3c_hsotg_process_control(struct s3c_hsotg *hsotg,
+ 	/* as a fallback, try delivering it to the driver to deal with */
+ 
+ 	if (ret == 0 && hsotg->driver) {
++		spin_unlock(&hsotg->lock);
+ 		ret = hsotg->driver->setup(&hsotg->gadget, ctrl);
++		spin_lock(&hsotg->lock);
+ 		if (ret < 0)
+ 			dev_dbg(hsotg->dev, "driver->setup() ret %d\n", ret);
+ 	}
+@@ -1292,10 +1294,12 @@ static void s3c_hsotg_complete_setup(struct usb_ep *ep,
+ 		return;
+ 	}
+ 
++	spin_lock(&hsotg->lock);
+ 	if (req->actual == 0)
+ 		s3c_hsotg_enqueue_setup(hsotg);
+ 	else
+ 		s3c_hsotg_process_control(hsotg, req->buf);
++	spin_unlock(&hsotg->lock);
+ }
+ 
+ /**
+-- 
+1.8.3.2
+

@@ -1,0 +1,45 @@
+From 755ab53f5e93de77d367bc77a1fb1f0cd2464663 Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Thu, 11 Jul 2013 09:50:30 -0700
+Subject: [PATCH 0946/1302] Thermal: x86 package temp thermal crash
+
+On systems with no package MSR support this caused crash as there
+is a bug in the logic to check presence of DTHERM and PTS feature
+together. Added a change so that when there is no PTS support, module
+doesn't get loaded. Even if some CPU comes online with the PTS
+feature disabled, and other CPUs has this support, this patch
+will still prevent such MSR accesses.
+
+Signed-off-by: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Reported-by: Daniel Walker <dwalker@fifo99.com>
+Signed-off-by: Zhang Rui <rui.zhang@intel.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/x86_pkg_temp_thermal.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/thermal/x86_pkg_temp_thermal.c b/drivers/thermal/x86_pkg_temp_thermal.c
+index 61c9e9f..8c4a8ce 100644
+--- a/drivers/thermal/x86_pkg_temp_thermal.c
++++ b/drivers/thermal/x86_pkg_temp_thermal.c
+@@ -511,7 +511,7 @@ static int get_core_online(unsigned int cpu)
+ 
+ 	/* Check if there is already an instance for this package */
+ 	if (!phdev) {
+-		if (!cpu_has(c, X86_FEATURE_DTHERM) &&
++		if (!cpu_has(c, X86_FEATURE_DTHERM) ||
+ 					!cpu_has(c, X86_FEATURE_PTS))
+ 			return -ENODEV;
+ 		if (pkg_temp_thermal_device_add(cpu))
+@@ -562,7 +562,7 @@ static struct notifier_block pkg_temp_thermal_notifier __refdata = {
+ };
+ 
+ static const struct x86_cpu_id __initconst pkg_temp_thermal_ids[] = {
+-	{ X86_VENDOR_INTEL, X86_FAMILY_ANY, X86_MODEL_ANY, X86_FEATURE_DTHERM },
++	{ X86_VENDOR_INTEL, X86_FAMILY_ANY, X86_MODEL_ANY, X86_FEATURE_PTS },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(x86cpu, pkg_temp_thermal_ids);
+-- 
+1.8.3.2
+

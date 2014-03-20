@@ -1,0 +1,39 @@
+From 726a78d5afd4b950950540ed04de45d4c4381478 Mon Sep 17 00:00:00 2001
+From: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Date: Mon, 26 Aug 2013 13:49:50 +0200
+Subject: [PATCH 0718/1302] [media] s5c73m3: Change SPI write packet size
+
+This path changes s5c73m3_spi_write() packet size from 64 B
+to 16 kB. Packet length bigger than the TX FIFO buffer enables
+DMA mode for transfer.
+
+Signed-off-by: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/s5c73m3/s5c73m3-core.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/i2c/s5c73m3/s5c73m3-core.c b/drivers/media/i2c/s5c73m3/s5c73m3-core.c
+index b379111..6a75a68a 100644
+--- a/drivers/media/i2c/s5c73m3/s5c73m3-core.c
++++ b/drivers/media/i2c/s5c73m3/s5c73m3-core.c
+@@ -47,6 +47,7 @@ static int update_fw;
+ module_param(update_fw, int, 0644);
+ 
+ #define S5C73M3_EMBEDDED_DATA_MAXLEN	SZ_4K
++#define S5C73M3_SPI_TX_SIZE		(16 * SZ_1K)
+ 
+ static const char * const s5c73m3_supply_names[S5C73M3_MAX_SUPPLIES] = {
+ 	"vdd-int",	/* Digital Core supply (1.2V), CAM_ISP_CORE_1.2V */
+@@ -360,7 +361,7 @@ static int s5c73m3_load_fw(struct v4l2_subdev *sd)
+ 
+ 	v4l2_info(sd, "Loading firmware (%s, %zu B)\n", fw_name, fw->size);
+ 
+-	ret = s5c73m3_spi_write(state, fw->data, fw->size, 64);
++	ret = s5c73m3_spi_write(state, fw->data, fw->size, S5C73M3_SPI_TX_SIZE);
+ 
+ 	if (ret >= 0)
+ 		state->isp_ready = 1;
+-- 
+1.8.3.2
+

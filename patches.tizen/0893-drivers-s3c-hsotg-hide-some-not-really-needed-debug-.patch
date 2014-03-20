@@ -1,0 +1,28 @@
+From ff93e4747f8a292ab14c0a334c3f5ac51fbe9648 Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 22 Oct 2013 15:23:24 +0200
+Subject: [PATCH 0893/1302] drivers: s3c-hsotg: hide some not really needed
+ debug messages
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 60c9216..943a9e5 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -2689,7 +2689,7 @@ static int s3c_hsotg_ep_disable(struct usb_ep *ep)
+ 	u32 epctrl_reg;
+ 	u32 ctrl;
+ 
+-	dev_info(hsotg->dev, "%s(ep %p)\n", __func__, ep);
++	dev_dbg(hsotg->dev, "%s(ep %p)\n", __func__, ep);
+ 
+ 	if (ep == &hsotg->eps[0].ep) {
+ 		dev_err(hsotg->dev, "%s: called for ep0\n", __func__);
+-- 
+1.8.3.2
+

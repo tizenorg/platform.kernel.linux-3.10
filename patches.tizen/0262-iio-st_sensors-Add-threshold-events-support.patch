@@ -1,0 +1,469 @@
+From 74ed2b4642c43e0963465998c64fcc7bfd3b4a98 Mon Sep 17 00:00:00 2001
+From: Lukasz Czerwinski <l.czerwinski@samsung.com>
+Date: Thu, 23 May 2013 16:02:45 +0200
+Subject: [PATCH 0262/1302] iio: st_sensors Add threshold events support
+
+This patch adds threshold events support for the ST common
+library.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/iio/common/st_sensors/st_sensors_core.c | 213 ++++++++++++++++++++++++
+ drivers/iio/common/st_sensors/st_sensors_i2c.c  |   8 +
+ drivers/iio/common/st_sensors/st_sensors_spi.c  |   8 +
+ include/linux/iio/common/st_sensors.h           |  75 +++++++++
+ 4 files changed, 304 insertions(+)
+
+diff --git a/drivers/iio/common/st_sensors/st_sensors_core.c b/drivers/iio/common/st_sensors/st_sensors_core.c
+index ed9bc8a..53fbc50 100644
+--- a/drivers/iio/common/st_sensors/st_sensors_core.c
++++ b/drivers/iio/common/st_sensors/st_sensors_core.c
+@@ -13,7 +13,9 @@
+ #include <linux/slab.h>
+ #include <linux/delay.h>
+ #include <linux/iio/iio.h>
++#include <linux/iio/events.h>
+ #include <asm/unaligned.h>
++#include <linux/interrupt.h>
+ 
+ #include <linux/iio/common/st_sensors.h>
+ 
+@@ -442,6 +444,217 @@ ssize_t st_sensors_sysfs_scale_avail(struct device *dev,
+ }
+ EXPORT_SYMBOL(st_sensors_sysfs_scale_avail);
+ 
++static struct st_sensor_event *st_sensor_find_event_data(struct
++		st_sensor_data * sdata, u64 event_code)
++{
++	int i;
++	int mod = IIO_EVENT_CODE_EXTRACT_MODIFIER(event_code);
++	int type = IIO_EVENT_CODE_EXTRACT_TYPE(event_code);
++	int chan_type = IIO_EVENT_CODE_EXTRACT_CHAN_TYPE(event_code);
++	int dir = IIO_EVENT_CODE_EXTRACT_DIR(event_code);
++	struct st_sensor_event_irq *irq = &sdata->sensor->event_irq;
++	struct st_sensor_event *event;
++
++	if (irq->event_count == 0)
++		return NULL;
++
++	for (i = 0; i < irq->event_count; i++) {
++		event = &irq->events[i];
++
++		if (event->modifier == mod &&
++			event->event_type == type &&
++			event->direction == dir &&
++			event->chan_type == chan_type)
++				return event;
++	}
++
++	return NULL;
++}
++
++int st_sensors_read_event_config(struct iio_dev *indio_dev,
++				u64 event_code)
++{
++	struct st_sensor_data *sdata  = iio_priv(indio_dev);
++	struct st_sensor_event *event =
++		st_sensor_find_event_data(sdata, event_code);
++
++	if (event)
++		return (bool)(sdata->events_flag & (1 << event->bit));
++
++	return -EINVAL;
++}
++EXPORT_SYMBOL(st_sensors_read_event_config);
++
++int st_sensors_write_event_config(struct iio_dev *indio_dev,
++				  u64 event_code,
++				  int state)
++{
++	struct st_sensor_data *sdata = iio_priv(indio_dev);
++	struct st_sensor_event *event =
++		st_sensor_find_event_data(sdata, event_code);
++	int unsigned mask;
++	int err = -EINVAL;
++
++	mutex_lock(&indio_dev->mlock);
++
++	if (!event)
++		goto error;
++
++	mask = (1 << event->bit);
++	err =  st_sensors_write_data_with_mask(indio_dev,
++			sdata->sensor->event_irq.ctrl_reg.addr,
++			mask, (bool)state);
++	if (err < 0)
++		goto error;
++
++	if (state)
++		sdata->events_flag |= mask;
++	else
++		sdata->events_flag &= ~mask;
++
++	mutex_unlock(&indio_dev->mlock);
++
++	return 0;
++
++error:
++	mutex_unlock(&indio_dev->mlock);
++	return err;
++}
++EXPORT_SYMBOL(st_sensors_write_event_config);
++
++int st_sensors_read_event_value(struct iio_dev *indio_dev,
++				  u64 event_code,
++				  int *val)
++{
++	struct st_sensor_data *sdata = iio_priv(indio_dev);
++	struct st_sensor_event *event =
++		st_sensor_find_event_data(sdata, event_code);
++	u8 byte;
++	int err;
++
++	if (!event)
++		goto error;
++
++	mutex_lock(&indio_dev->mlock);
++
++	err = sdata->tf->read_byte(&sdata->tb, sdata->dev,
++			event->event_ths_reg.addr, &byte);
++	if (!err)
++		*val = byte;
++
++	mutex_unlock(&indio_dev->mlock);
++	return err;
++
++error:
++	return -EINVAL;
++
++}
++EXPORT_SYMBOL(st_sensors_read_event_value);
++
++int st_sensors_write_event_value(struct iio_dev *indio_dev,
++				  u64 event_code,
++				  int val)
++{
++	struct st_sensor_data *sdata = iio_priv(indio_dev);
++	struct st_sensor_event *event =
++		st_sensor_find_event_data(sdata, event_code);
++	int err;
++
++	if (!event)
++		goto error;
++
++	mutex_lock(&indio_dev->mlock);
++
++	err =  st_sensors_write_data_with_mask(indio_dev,
++			event->event_ths_reg.addr,
++			event->event_ths_reg.mask,
++			(u8)val);
++
++	mutex_unlock(&indio_dev->mlock);
++
++	return err;
++error:
++	return -EINVAL;
++
++}
++EXPORT_SYMBOL(st_sensors_write_event_value);
++
++static irqreturn_t st_sensor_event_handler(int irq, void *private)
++{
++	struct iio_dev *indio_dev = private;
++	struct st_sensor_data *sdata = iio_priv(indio_dev);
++	struct st_sensor_event_irq *irq_data =
++		&sdata->sensor->event_irq;
++	struct st_sensor_event *event;
++	s64 timestamp = iio_get_time_ns();
++	u8 status, mask, i;
++	int err = -EIO;
++
++	if (sdata)
++		err = sdata->tf->read_byte(&sdata->tb,
++				sdata->dev,
++				irq_data->status_reg.addr,
++				&status);
++
++	if (err < 0)
++		goto exit;
++
++	for (i = 0; i < irq_data->event_count; i++) {
++		event = &irq_data->events[i];
++		mask = (1 << event->bit);
++		if (status & mask)
++			iio_push_event(indio_dev,
++				IIO_MOD_EVENT_CODE(event->chan_type,
++					0,
++					event->modifier,
++					event->event_type,
++					event->direction),
++				timestamp);
++	}
++
++exit:
++
++	return IRQ_HANDLED;
++}
++
++int st_sensors_request_event_irq(struct iio_dev *indio_dev)
++{
++	int err;
++	struct st_sensor_data *sdata = iio_priv(indio_dev);
++
++	err = request_threaded_irq(sdata->get_irq_event(indio_dev),
++			NULL,
++			st_sensor_event_handler,
++			IRQF_TRIGGER_RISING | IRQF_ONESHOT,
++			dev_name(&indio_dev->dev),
++			indio_dev);
++
++	return err;
++}
++
++int st_sensors_enable_events(struct iio_dev *indio_dev)
++{
++	int err;
++	struct st_sensor_data *sdata = iio_priv(indio_dev);
++	struct st_sensor_event_irq *irq = &sdata->sensor->event_irq;
++
++	err = st_sensors_write_data_with_mask(indio_dev,
++			irq->addr,
++			irq->mask,
++			1);
++
++	if (err < 0)
++		goto error;
++
++	err = st_sensors_write_data_with_mask(indio_dev,
++			irq->ctrl_reg.addr,
++			irq->ctrl_reg.mask,
++			irq->ctrl_reg.val);
++error:
++	return err;
++}
++EXPORT_SYMBOL(st_sensors_enable_events);
++
+ MODULE_AUTHOR("Denis Ciocca <denis.ciocca@st.com>");
+ MODULE_DESCRIPTION("STMicroelectronics ST-sensors core");
+ MODULE_LICENSE("GPL v2");
+diff --git a/drivers/iio/common/st_sensors/st_sensors_i2c.c b/drivers/iio/common/st_sensors/st_sensors_i2c.c
+index 5ef7682..0ab9b90 100644
+--- a/drivers/iio/common/st_sensors/st_sensors_i2c.c
++++ b/drivers/iio/common/st_sensors/st_sensors_i2c.c
+@@ -27,6 +27,13 @@ static unsigned int st_sensors_i2c_get_data_rdy_irq(struct iio_dev *indio_dev)
+ 	return sdata->irq_map[ST_SENSORS_INT1];
+ }
+ 
++static unsigned int st_sensors_i2c_get_event_irq(struct iio_dev *indio_dev)
++{
++	struct st_sensor_data *sdata = iio_priv(indio_dev);
++
++	return sdata->irq_map[ST_SENSORS_INT2];
++}
++
+ static void st_sensors_i2c_map_irqs(struct i2c_client *client,
+ 		struct iio_dev *indio_dev)
+ {
+@@ -99,6 +106,7 @@ void st_sensors_i2c_configure(struct iio_dev *indio_dev,
+ 
+ 	st_sensors_i2c_map_irqs(client, indio_dev);
+ 	sdata->get_irq_data_ready = st_sensors_i2c_get_data_rdy_irq;
++	sdata->get_irq_event = st_sensors_i2c_get_event_irq;
+ }
+ EXPORT_SYMBOL(st_sensors_i2c_configure);
+ 
+diff --git a/drivers/iio/common/st_sensors/st_sensors_spi.c b/drivers/iio/common/st_sensors/st_sensors_spi.c
+index 69c7069..b4a03f6 100644
+--- a/drivers/iio/common/st_sensors/st_sensors_spi.c
++++ b/drivers/iio/common/st_sensors/st_sensors_spi.c
+@@ -28,6 +28,13 @@ static unsigned int st_sensors_spi_get_data_rdy_irq(struct iio_dev *indio_dev)
+ 	return sdata->irq_map[ST_SENSORS_INT1];
+ }
+ 
++static unsigned int st_sensors_spi_get_event_irq(struct iio_dev *indio_dev)
++{
++	struct st_sensor_data *sdata = iio_priv(indio_dev);
++
++	return sdata->irq_map[ST_SENSORS_INT2];
++}
++
+ static void st_sensors_spi_map_irqs(struct spi_device *spi,
+ 		struct iio_dev *indio_dev)
+ {
+@@ -140,6 +147,7 @@ void st_sensors_spi_configure(struct iio_dev *indio_dev,
+ 
+ 	st_sensors_spi_map_irqs(spi, indio_dev);
+ 	sdata->get_irq_data_ready = st_sensors_spi_get_data_rdy_irq;
++	sdata->get_irq_event = st_sensors_spi_get_event_irq;
+ }
+ EXPORT_SYMBOL(st_sensors_spi_configure);
+ 
+diff --git a/include/linux/iio/common/st_sensors.h b/include/linux/iio/common/st_sensors.h
+index 2fd12a6..45862fc 100644
+--- a/include/linux/iio/common/st_sensors.h
++++ b/include/linux/iio/common/st_sensors.h
+@@ -14,6 +14,7 @@
+ #include <linux/i2c.h>
+ #include <linux/spi/spi.h>
+ #include <linux/irqreturn.h>
++#include <linux/iio/events.h>
+ #include <linux/iio/trigger.h>
+ #include <linux/bitops.h>
+ 
+@@ -22,6 +23,7 @@
+ 
+ #define ST_SENSORS_ODR_LIST_MAX			10
+ #define ST_SENSORS_FULLSCALE_AVL_MAX		10
++#define ST_SENSORS_EVENTS_MAX			10
+ 
+ #define ST_SENSORS_NUMBER_ALL_CHANNELS		4
+ #define ST_SENSORS_NUMBER_DATA_CHANNELS		3
+@@ -48,6 +50,9 @@
+ #define ST_SENSORS_MAP_ONLY_DRDY_IRQ		1
+ #define ST_SENSORS_MAP_ONLY_EVENT_IRQ		2
+ 
++#define ST_SENSORS_LSM_EVENTS_MASK \
++		(IIO_EV_BIT(IIO_EV_TYPE_THRESH, IIO_EV_DIR_RISING) | \
++		IIO_EV_BIT(IIO_EV_TYPE_THRESH, IIO_EV_DIR_FALLING))
+ 
+ #define ST_SENSORS_LSM_CHANNELS(device_type, index, mod, endian, bits, addr) \
+ { \
+@@ -56,6 +61,7 @@
+ 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
+ 			BIT(IIO_CHAN_INFO_SCALE), \
+ 	.scan_index = index, \
++	.channel = mod, \
+ 	.channel2 = mod, \
+ 	.address = addr, \
+ 	.scan_type = { \
+@@ -65,6 +71,7 @@
+ 		.storagebits = 16, \
+ 		.endianness = endian, \
+ 	}, \
++	.event_mask = ST_SENSORS_LSM_EVENTS_MASK, \
+ }
+ 
+ #define ST_SENSOR_DEV_ATTR_SAMP_FREQ() \
+@@ -116,6 +123,12 @@ struct st_sensor_fullscale {
+ 	struct st_sensor_fullscale_avl fs_avl[ST_SENSORS_FULLSCALE_AVL_MAX];
+ };
+ 
++struct st_sensor_register {
++	u8 addr;
++	u8 mask;
++	u8 val;
++};
++
+ /**
+  * struct st_sensor_bdu - ST sensor device block data update
+  * @addr: address of the register.
+@@ -144,6 +157,47 @@ struct st_sensor_data_ready_irq {
+ };
+ 
+ /**
++ * struct st_sensor_event - event data.
++ * @bit: position of bit in status register related to event
++ * @chan: channel number.
++ * @chan_type: channel type.
++ * @modifier: modifier for the channel.
++ * @event_type: type of the event.
++ * @direction: direction of the event.
++ * @event_ths_reg:  represents the threshold
++ *	register of event.
++ */
++struct st_sensor_event {
++	u8 bit;
++	u8 chan;
++	enum iio_chan_type chan_type;
++	enum iio_modifier modifier;
++	enum iio_event_type event_type;
++	enum iio_event_direction direction;
++	struct st_sensor_register event_ths_reg;
++};
++
++/**
++ * struct st_sensor_event_irq -ST sensor event interrupt.
++ * @addr: address of the interrupt register.
++ * @mask: mask to write on/off value.
++ * @event_count: number of events declared in @events array.
++ * @ctrl_reg: represents the control register
++ *	of event system
++ * @status_reg: status register of event subsystem.
++ * @events array: of driver events declared by user
++ */
++struct st_sensor_event_irq {
++	u8 addr;
++	u8 mask;
++	u8 event_count;
++	struct st_sensor_register ctrl_reg;
++	struct st_sensor_register status_reg;
++	struct st_sensor_event events[ST_SENSORS_EVENTS_MAX];
++};
++
++
++/**
+  * struct st_sensor_transfer_buffer - ST sensor device I/O buffer
+  * @buf_lock: Mutex to protect rx and tx buffers.
+  * @tx_buf: Buffer used by SPI transfer function to send data to the sensors.
+@@ -184,6 +238,7 @@ struct st_sensor_transfer_function {
+  * @fs: Full scale register and full scale list available.
+  * @bdu: Block data update register.
+  * @drdy_irq: Data ready register of the sensor.
++ * @event_irq: Event register of the sensor
+  * @multi_read_bit: Use or not particular bit for [I2C/SPI] multi-read.
+  * @bootime: samples to discard when sensor passing from power-down to power-up.
+  */
+@@ -197,6 +252,7 @@ struct st_sensors {
+ 	struct st_sensor_fullscale fs;
+ 	struct st_sensor_bdu bdu;
+ 	struct st_sensor_data_ready_irq drdy_irq;
++	struct st_sensor_event_irq event_irq;
+ 	bool multi_read_bit;
+ 	unsigned int bootime;
+ };
+@@ -211,8 +267,10 @@ struct st_sensors {
+  * @multiread_bit: Use or not particular bit for [I2C/SPI] multiread.
+  * @buffer_data: Data used by buffer part.
+  * @odr: Output data rate of the sensor [Hz].
++ * @events_flag: Data used by event part.
+  * @irq_map: Container of mapped IRQs.
+  * @get_irq_data_ready: Function to get the IRQ used for data ready signal.
++ * @get_irq_event: Function to get the IRQ used for event signal.
+  * @tf: Transfer function structure used by I/O operations.
+  * @tb: Transfer buffers and mutex used by I/O operations.
+  */
+@@ -228,9 +286,11 @@ struct st_sensor_data {
+ 	char *buffer_data;
+ 
+ 	unsigned int odr;
++	unsigned int events_flag;
+ 	unsigned int irq_map[ST_SENSORS_INT_MAX];
+ 
+ 	unsigned int (*get_irq_data_ready) (struct iio_dev *indio_dev);
++	unsigned int (*get_irq_event) (struct iio_dev *indio_dev);
+ 
+ 	const struct st_sensor_transfer_function *tf;
+ 	struct st_sensor_transfer_buffer tb;
+@@ -290,4 +350,19 @@ ssize_t st_sensors_sysfs_sampling_frequency_avail(struct device *dev,
+ ssize_t st_sensors_sysfs_scale_avail(struct device *dev,
+ 				struct device_attribute *attr, char *buf);
+ 
++int st_sensors_read_event_config(struct iio_dev *indio_dev,
++				u64 event_code);
++
++int st_sensors_write_event_config(struct iio_dev *indio_dev,
++				  u64 event_code, int state);
++
++int st_sensors_read_event_value(struct iio_dev *indio_dev,
++				  u64 event_code, int *val);
++
++int st_sensors_write_event_value(struct iio_dev *indio_dev,
++				  u64 event_code, int val);
++
++int st_sensors_request_event_irq(struct iio_dev *indio_dev);
++
++int st_sensors_enable_events(struct iio_dev *indio_dev);
+ #endif /* ST_SENSORS_H */
+-- 
+1.8.3.2
+

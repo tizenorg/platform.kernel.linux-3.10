@@ -1,0 +1,47 @@
+From 4e6e6fddf7fafde43a84200ff26f676e553b0769 Mon Sep 17 00:00:00 2001
+From: David Cohen <david.a.cohen@linux.intel.com>
+Date: Fri, 4 Oct 2013 15:30:21 -0700
+Subject: [PATCH 1119/1302] usb: g_ffs: fix compilation warning
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+If USB_FUNCTIONFS is selected without USB_FUNCTIONFS_ETH and
+USB_FUNCTIONFS_RNIS, u_ether.h won't be included and then
+USB_ETHERNET_MODULE_PARAMAETERS macro won't be available causing the
+following warning compilation:
+
+drivers/usb/gadget/g_ffs.c:81:1: warning: data definition has no type or
+storage class [enabled by default]
+drivers/usb/gadget/g_ffs.c:81:1: warning: type defaults to ‘int’ in
+declaration of ‘USB_ETHERNET_MODULE_PARAMETERS’ [-Wimplicit-int]
+drivers/usb/gadget/g_ffs.c:81:1: warning: function declaration isn’t a
+prototype [-Wstrict-prototypes]
+
+This patch fixes the warning by making USB_ETHERNET_MODULE_PARAMETERS to
+be used iff u_ether.h is included, otherwise it is not needed.
+
+Signed-off-by: David Cohen <david.a.cohen@linux.intel.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/g_ffs.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/usb/gadget/g_ffs.c b/drivers/usb/gadget/g_ffs.c
+index 5327c82..2344efe 100644
+--- a/drivers/usb/gadget/g_ffs.c
++++ b/drivers/usb/gadget/g_ffs.c
+@@ -76,7 +76,9 @@ struct gfs_ffs_obj {
+ 
+ USB_GADGET_COMPOSITE_OPTIONS();
+ 
++#if defined CONFIG_USB_FUNCTIONFS_ETH || defined CONFIG_USB_FUNCTIONFS_RNDIS
+ USB_ETHERNET_MODULE_PARAMETERS();
++#endif
+ 
+ static struct usb_device_descriptor gfs_dev_desc = {
+ 	.bLength		= sizeof gfs_dev_desc,
+-- 
+1.8.3.2
+

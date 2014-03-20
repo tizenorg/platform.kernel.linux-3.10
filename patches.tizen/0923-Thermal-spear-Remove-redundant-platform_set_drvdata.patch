@@ -1,0 +1,35 @@
+From 6ed2eb06ec925f59dd8358feff5efbfb389f87a0 Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Fri, 3 May 2013 09:57:13 +0000
+Subject: [PATCH 0923/1302] Thermal: spear: Remove redundant
+ platform_set_drvdata()
+
+Commit 0998d06310 (device-core: Ensure drvdata = NULL when no
+driver is bound) removes the need to set driver data field to
+NULL.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Cc: Vincenzo Frascino <vincenzo.frascino@st.com>
+Acked-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Acked-by: Viresh Kumar <viresh.kumar@linaro.org>
+Signed-off-by: Zhang Rui <rui.zhang@intel.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/spear_thermal.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/thermal/spear_thermal.c b/drivers/thermal/spear_thermal.c
+index 3c5ee56..1a14eaa 100644
+--- a/drivers/thermal/spear_thermal.c
++++ b/drivers/thermal/spear_thermal.c
+@@ -174,7 +174,6 @@ static int spear_thermal_exit(struct platform_device *pdev)
+ 	struct spear_thermal_dev *stdev = spear_thermal->devdata;
+ 
+ 	thermal_zone_device_unregister(spear_thermal);
+-	platform_set_drvdata(pdev, NULL);
+ 
+ 	/* Disable SPEAr Thermal Sensor */
+ 	actual_mask = readl_relaxed(stdev->thermal_base);
+-- 
+1.8.3.2
+

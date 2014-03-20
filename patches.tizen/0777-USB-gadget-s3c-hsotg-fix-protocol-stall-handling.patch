@@ -1,0 +1,51 @@
+From e9c756a7fc70defec57389d9447baaf391d6127d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Robert=20Ba=C5=82dyga?= <r.baldyga@samsung.com>
+Date: Mon, 9 Sep 2013 10:44:28 +0200
+Subject: [PATCH 0777/1302] USB: gadget: s3c-hsotg: fix "protocol stall"
+ handling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+After normal handling of SetupDone interrupt, XferCompl interrupt occurs, and
+then we enqueue new setup request. But when ep0 is stalled, there is no
+XferCompl, so we have to enqueue setup request immediately after stalling ep.
+Otherwise incoming control requests won't be processed correctly.
+
+Signed-off-by: Robert Bałdyga <r.baldyga@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index da11a07..8eb41d3 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -1151,6 +1151,8 @@ static int s3c_hsotg_process_req_feature(struct s3c_hsotg *hsotg,
+ 	return 1;
+ }
+ 
++static void s3c_hsotg_enqueue_setup(struct s3c_hsotg *hsotg);
++
+ /**
+  * s3c_hsotg_process_control - process a control request
+  * @hsotg: The device state
+@@ -1250,11 +1252,12 @@ static void s3c_hsotg_process_control(struct s3c_hsotg *hsotg,
+ 		 * don't believe we need to anything more to get the EP
+ 		 * to reply with a STALL packet
+ 		 */
++
++		 /* complete won't by called, so we enqueue setup request here */
++		 s3c_hsotg_enqueue_setup(hsotg);
+ 	}
+ }
+ 
+-static void s3c_hsotg_enqueue_setup(struct s3c_hsotg *hsotg);
+-
+ /**
+  * s3c_hsotg_complete_setup - completion of a setup transfer
+  * @ep: The endpoint the request was on.
+-- 
+1.8.3.2
+

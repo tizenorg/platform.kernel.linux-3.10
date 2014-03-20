@@ -1,0 +1,132 @@
+From e02734be29c03cab7367c507891b2e00557c6cdd Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 8 Oct 2013 10:50:53 +0200
+Subject: [PATCH 0837/1302] dts: arm: Add support for new Exynos USB phy driver
+ to origen and universal
+
+This patch adds support for the new Exynos USB PHY driver. It also removes
+remnants of the old driver's presence in the dts files.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-origen.dts         | 16 +++++++++++++---
+ arch/arm/boot/dts/exynos4210-universal_c210.dts | 22 ++++++++++++++++++----
+ arch/arm/boot/dts/exynos4210.dtsi               | 15 ---------------
+ 3 files changed, 31 insertions(+), 22 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4210-origen.dts b/arch/arm/boot/dts/exynos4210-origen.dts
+index 95bb61f..40fd476 100644
+--- a/arch/arm/boot/dts/exynos4210-origen.dts
++++ b/arch/arm/boot/dts/exynos4210-origen.dts
+@@ -165,18 +165,19 @@
+ 		};
+ 	};
+ 
+-	usbphy@125B0000 {
+-		status = "okay";
+-	};
+ 
+ 	hsotg@12480000 {
+ 		status = "okay";
+ 		vusb_d-supply = <&ldo8_reg>;
+ 		vusb_a-supply = <&ldo3_reg>;
++		phys = <&exynos_usbphy 0>;
++		phy-names = "device";
+ 	};
+ 
+ 	ehci@12580000 {
+ 		status = "okay";
++		phys = <&exynos_usbphy 1>;
++		phy-names = "host";
+ 	};
+ 
+ 	i2c@13860000 {
+@@ -328,4 +329,13 @@
+ 		};
+ 	};
+ 
++	exynos_usbphy: exynos-usbphy@125B0000 {
++		compatible = "samsung,exynos4210-usbphy";
++		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
++		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
++								<&clock 2>;
++		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++		status = "okay";
++		#phy-cells = <1>;
++	};
+ };
+diff --git a/arch/arm/boot/dts/exynos4210-universal_c210.dts b/arch/arm/boot/dts/exynos4210-universal_c210.dts
+index 2c91861..e063602 100644
+--- a/arch/arm/boot/dts/exynos4210-universal_c210.dts
++++ b/arch/arm/boot/dts/exynos4210-universal_c210.dts
+@@ -77,6 +77,8 @@
+ 	hsotg@12480000 {
+ 		vusb_d-supply = <&ldo3_reg>;
+ 		vusb_a-supply = <&ldo8_reg>;
++		phys = <&exynos_usbphy 0>;
++		phy-names = "device";
+ 		status = "okay";
+ 	};
+ 
+@@ -89,10 +91,6 @@
+ 		status = "okay";
+ 	};
+ 
+-	usbphy@125B0000 {
+-		status = "okay";
+-	};
+-
+ 	serial@13800000 {
+ 		status = "okay";
+ 	};
+@@ -442,4 +440,20 @@
+ 			memory-region = <&mfc_r_mem>;
+ 		};
+ 	};
++
++	ehci@12580000 {
++		status = "okay";
++		phys = <&exynos_usbphy 1>;
++		phy-names = "host";
++	};
++
++	exynos_usbphy: exynos-usbphy@125B0000 {
++		compatible = "samsung,exynos4210-usbphy";
++		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
++		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
++								<&clock 2>;
++		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++		status = "okay";
++		#phy-cells = <1>;
++	};
+ };
+diff --git a/arch/arm/boot/dts/exynos4210.dtsi b/arch/arm/boot/dts/exynos4210.dtsi
+index 0fa11d3..165e1e7 100644
+--- a/arch/arm/boot/dts/exynos4210.dtsi
++++ b/arch/arm/boot/dts/exynos4210.dtsi
+@@ -150,21 +150,6 @@
+ 		status = "ok";
+ 	};
+ 
+-	usbphy@125B0000 {
+-		compatible = "samsung,exynos4210-usb2phy";
+-		reg = <0x125B0000 0x100>;
+-		ranges;
+-		#address-cells = <1>;
+-		#size-cells = <1>;
+-		clocks = <&clock 305>;
+-		clock-names = "otg";
+-		status = "disabled";
+-
+-		usbphy-sys {
+-			reg = <0x10020704 0x8>;
+-		};
+-	};
+-
+ 	camera {
+ 		clocks = <&clock 132>, <&clock 133>, <&clock 351>, <&clock 352>,
+ 		         <&clock 388>, <&clock 389>, <&clock 9>;
+-- 
+1.8.3.2
+

@@ -1,0 +1,29 @@
+From aa5c9aaec82a37aaf6942262ad9e1fb20038925e Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Fri, 31 May 2013 18:59:03 +0900
+Subject: [PATCH 0246/1302] ARM: dts: enable rotator node for redwood
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index 6ceeb8d..63efffa 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -599,6 +599,10 @@
+ 		};
+ 	};
+ 
++	rotator: rotator@12810000 {
++		status = "okay";
++	};
++
+ 	camera {
+ 		status = "okay";
+ 
+-- 
+1.8.3.2
+

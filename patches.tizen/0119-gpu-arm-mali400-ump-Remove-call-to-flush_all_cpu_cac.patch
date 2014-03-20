@@ -1,0 +1,33 @@
+From 635d09bc272f044badeb14c0edcf29f9472c3590 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 10 May 2013 19:06:39 +0200
+Subject: [PATCH 0119/1302] gpu: arm: mali400: ump: Remove call to
+ flush_all_cpu_caches()
+
+This function is not available anymore in Linux 3.8.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/arm/mali400/ump/linux/ump_osk_low_level_mem.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/arm/mali400/ump/linux/ump_osk_low_level_mem.c b/drivers/gpu/arm/mali400/ump/linux/ump_osk_low_level_mem.c
+index c47be67..3a01220 100644
+--- a/drivers/gpu/arm/mali400/ump/linux/ump_osk_low_level_mem.c
++++ b/drivers/gpu/arm/mali400/ump/linux/ump_osk_low_level_mem.c
+@@ -231,10 +231,7 @@ void _ump_osk_msync( ump_dd_mem * mem, void * virt, u32 offset, u32 size, ump_uk
+ 		/*  There is no dmac_clean_range, so the L1 is always flushed,
+ 		 *  also for UMP_MSYNC_CLEAN. */
+ 		/* MALI_SEC */
+-		if (size >= SZ_64K)
+-			flush_all_cpu_caches();
+-		else
+-			dmac_flush_range(start_v, end_v);
++		dmac_flush_range(start_v, end_v);
+ 
+ 		DBG_MSG(3, ("UMP[%02u] Flushing CPU L1 Cache. Cpu address: %x-%x\n", mem->secure_id, start_v,end_v));
+ 	}
+-- 
+1.8.3.2
+

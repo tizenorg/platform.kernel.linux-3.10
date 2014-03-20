@@ -1,0 +1,69 @@
+From b10fd659d83cf58d7edb6d5f773ec09034483438 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Mon, 9 Sep 2013 16:43:47 +0200
+Subject: [PATCH 0768/1302] ARM: dts: Add new USB PHY driver to dts of
+ exynos4412-slp_pq
+
+This patch adds device tree nodes supporting new USB PHY driver using the
+Generic PHY Framework to slp_pq target.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index f99f2c2..796c0c3 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -1053,20 +1053,21 @@
+ 		mmu-master = <&g2d>;
+ 	};
+ 
+-	usbphy@125B0000 {
+-		status = "okay";
+-	};
+-
+ 	hsotg@12480000 {
+ 		status = "okay";
+ 		vusb_d-supply = <&ldo15_reg>;
+ 		vusb_a-supply = <&ldo12_reg>;
++		phys = <&exynos_usbphy 0>;
++		phy-names = "device";
+ 	};
+ 
+ 	ehci@12580000 {
+ 		status = "okay";
++		phys = <&exynos_usbphy 2>;
++		phy-names = "hsic0";
+ 	};
+ 
++
+ 	spi_1: spi@13930000 {
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&spi1_bus>;
+@@ -1299,6 +1300,20 @@
+ 		pinctrl-names = "default";
+ 		status = "okay";
+ 	};
++
++
++	exynos_usbphy: exynos-usbphy@125B0000 {
++		compatible = "samsung,exynos4212-usbphy";
++		reg = <0x125B0000 0x100 0x10020704 0x0c 0x1001021c 0x4>;
++		ranges;
++		#address-cells = <1>;
++		#size-cells = <1>;
++		clocks = <&clock 305>, <&clock 2>, <&clock 2>, <&clock 2>,
++								<&clock 2>;
++		clock-names = "phy", "device", "host", "hsic0", "hsic1";
++		status = "okay";
++		#phy-cells = <1>;
++	};
+ };
+ 
+ &pinctrl_1 {
+-- 
+1.8.3.2
+

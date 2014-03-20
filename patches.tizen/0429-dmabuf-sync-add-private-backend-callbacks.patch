@@ -1,0 +1,117 @@
+From 31f5922a1b8094cdad94336b87178765165b0a35 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Mon, 22 Jul 2013 12:52:01 +0900
+Subject: [PATCH 0429/1302] dmabuf-sync: add private backend callbacks
+
+This ops has just a free callback to release resource for each
+device driver. free callback will be called when device driver's
+sync object is freed. So device drivers should implement this callback
+so that their own contexts can be cleaned up regarding sync object.
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/base/dmabuf-sync.c  |  8 +++++++-
+ include/linux/dmabuf-sync.h | 32 ++++++++++++++++++++------------
+ 2 files changed, 27 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/base/dmabuf-sync.c b/drivers/base/dmabuf-sync.c
+index fdf3bce..abfd8e3 100644
+--- a/drivers/base/dmabuf-sync.c
++++ b/drivers/base/dmabuf-sync.c
+@@ -320,7 +320,9 @@ EXPORT_SYMBOL(is_dmabuf_sync_supported);
+  * The caller can get a new sync object for buffer synchronization
+  * through this function.
+  */
+-struct dmabuf_sync *dmabuf_sync_init(void *priv, const char *name)
++struct dmabuf_sync *dmabuf_sync_init(const char *name,
++					struct dmabuf_sync_priv_ops *ops,
++					void *priv)
+ {
+ 	struct dmabuf_sync *sync;
+ 
+@@ -330,6 +332,7 @@ struct dmabuf_sync *dmabuf_sync_init(void *priv, const char *name)
+ 
+ 	strncpy(sync->name, name, ARRAY_SIZE(sync->name) - 1);
+ 
++	sync->ops = ops;
+ 	sync->priv = priv;
+ 	INIT_LIST_HEAD(&sync->syncs);
+ 	mutex_init(&sync->lock);
+@@ -353,6 +356,9 @@ void dmabuf_sync_fini(struct dmabuf_sync *sync)
+ 	if (WARN_ON(!sync))
+ 		return;
+ 
++	if (sync->ops && sync->ops->free)
++		sync->ops->free(sync->priv);
++
+ 	kfree(sync);
+ }
+ EXPORT_SYMBOL(dmabuf_sync_fini);
+diff --git a/include/linux/dmabuf-sync.h b/include/linux/dmabuf-sync.h
+index 963ba99..d4dcf4f 100644
+--- a/include/linux/dmabuf-sync.h
++++ b/include/linux/dmabuf-sync.h
+@@ -43,6 +43,10 @@ struct dmabuf_sync_object {
+ 	unsigned int			access_type;
+ };
+ 
++struct dmabuf_sync_priv_ops {
++	void (*free)(void *priv);
++};
++
+ /*
+  * A structure for dmabuf_sync.
+  *
+@@ -57,15 +61,16 @@ struct dmabuf_sync_object {
+  * @status: Indicate current status (DMABUF_SYNC_GOT or DMABUF_SYNC_LOCKED).
+  */
+ struct dmabuf_sync {
+-	struct list_head	syncs;
+-	struct list_head	list;
+-	struct mutex		lock;
+-	struct ww_acquire_ctx	ctx;
+-	struct work_struct	work;
+-	void			*priv;
+-	char			name[64];
+-	struct timer_list	timer;
+-	unsigned int		status;
++	struct list_head		syncs;
++	struct list_head		list;
++	struct mutex			lock;
++	struct ww_acquire_ctx		ctx;
++	struct work_struct		work;
++	void				*priv;
++	struct dmabuf_sync_priv_ops	*ops;
++	char				name[64];
++	struct timer_list		timer;
++	unsigned int			status;
+ };
+ 
+ #ifdef CONFIG_DMABUF_SYNC
+@@ -104,7 +109,9 @@ static inline void dmabuf_sync_reservation_fini(struct dma_buf *dmabuf)
+ 
+ extern bool is_dmabuf_sync_supported(void);
+ 
+-extern struct dmabuf_sync *dmabuf_sync_init(void *priv, const char *name);
++extern struct dmabuf_sync *dmabuf_sync_init(const char *name,
++					struct dmabuf_sync_priv_ops *ops,
++					void *priv);
+ 
+ extern void dmabuf_sync_fini(struct dmabuf_sync *sync);
+ 
+@@ -132,8 +139,9 @@ static inline void dmabuf_sync_reservation_fini(struct dma_buf *dmabuf) { }
+ 
+ static inline bool is_dmabuf_sync_supported(void) { return false; }
+ 
+-static inline struct dmabuf_sync *dmabuf_sync_init(void *priv,
+-					const char *names)
++static inline  struct dmabuf_sync *dmabuf_sync_init(const char *name,
++					struct dmabuf_sync_priv_ops *ops,
++					void *priv)
+ {
+ 	return ERR_PTR(0);
+ }
+-- 
+1.8.3.2
+

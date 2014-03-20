@@ -1,0 +1,58 @@
+From 7be9ebfd16952dce645c49825ae40bd1a20591b8 Mon Sep 17 00:00:00 2001
+From: Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>
+Date: Fri, 26 Apr 2013 10:17:56 -0700
+Subject: [PATCH 0372/1302] perf tests: Fix compile errors in bp_signal files
+
+When building on powerpc,  we get compile errors in bp_signal.c and
+bp_signal_overflow.c due to __u64 and '%llx'.
+
+Powerpc, needs __SANE_USERSPACE_TYPES__ to be defined so we pick up
+<asm-generic/int-ll64.h> and define __u64 as unsigned long long.
+
+Signed-off-by: Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>
+Cc: Jiri Olsa <jolsa@redhat.com>
+Link: http://lkml.kernel.org/r/20130426173320.GA7029@us.ibm.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/tests/bp_signal.c          | 6 ++++++
+ tools/perf/tests/bp_signal_overflow.c | 6 ++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/tools/perf/tests/bp_signal.c b/tools/perf/tests/bp_signal.c
+index 68daa28..aba0954 100644
+--- a/tools/perf/tests/bp_signal.c
++++ b/tools/perf/tests/bp_signal.c
+@@ -4,6 +4,12 @@
+  * (git://github.com/deater/perf_event_tests)
+  */
+ 
++/*
++ * Powerpc needs __SANE_USERSPACE_TYPES__ before <linux/types.h> to select
++ * 'int-ll64.h' and avoid compile warnings when printing __u64 with %llu.
++ */
++#define __SANE_USERSPACE_TYPES__
++
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <unistd.h>
+diff --git a/tools/perf/tests/bp_signal_overflow.c b/tools/perf/tests/bp_signal_overflow.c
+index fe7ed28..44ac821 100644
+--- a/tools/perf/tests/bp_signal_overflow.c
++++ b/tools/perf/tests/bp_signal_overflow.c
+@@ -3,6 +3,12 @@
+  * perf_event_tests (git://github.com/deater/perf_event_tests)
+  */
+ 
++/*
++ * Powerpc needs __SANE_USERSPACE_TYPES__ before <linux/types.h> to select
++ * 'int-ll64.h' and avoid compile warnings when printing __u64 with %llu.
++ */
++#define __SANE_USERSPACE_TYPES__
++
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <unistd.h>
+-- 
+1.8.3.2
+

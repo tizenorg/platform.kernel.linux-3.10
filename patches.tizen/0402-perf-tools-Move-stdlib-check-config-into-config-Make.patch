@@ -1,0 +1,84 @@
+From 4d1eec6de3dbfa04b2ba57a5777f6b53512f20c6 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 18 Mar 2013 00:41:04 +0100
+Subject: [PATCH 0402/1302] perf tools: Move stdlib check config into
+ config/Makefile
+
+Moving stdlib check config into config/Makefile.
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-15-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile        | 18 ------------------
+ tools/perf/config/Makefile | 18 ++++++++++++++++++
+ 2 files changed, 18 insertions(+), 18 deletions(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index e4d99c4..9276576 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -544,24 +544,6 @@ ifeq ($(NO_PERF_REGS),0)
+ 	endif
+ endif
+ 
+-ifndef NO_STRLCPY
+-	ifeq ($(call try-cc,$(SOURCE_STRLCPY),,-DHAVE_STRLCPY),y)
+-		BASIC_CFLAGS += -DHAVE_STRLCPY
+-	endif
+-endif
+-
+-ifndef NO_ON_EXIT
+-	ifeq ($(call try-cc,$(SOURCE_ON_EXIT),,-DHAVE_ON_EXIT),y)
+-		BASIC_CFLAGS += -DHAVE_ON_EXIT
+-	endif
+-endif
+-
+-ifndef NO_BACKTRACE
+-       ifeq ($(call try-cc,$(SOURCE_BACKTRACE),,-DBACKTRACE_SUPPORT),y)
+-               BASIC_CFLAGS += -DBACKTRACE_SUPPORT
+-       endif
+-endif
+-
+ ifndef NO_LIBNUMA
+ 	FLAGS_LIBNUMA = $(ALL_CFLAGS) $(ALL_LDFLAGS) -lnuma
+ 	ifneq ($(call try-cc,$(SOURCE_LIBNUMA),$(FLAGS_LIBNUMA),libnuma),y)
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index 317dafe..8c0e43f 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -361,3 +361,21 @@ else
+ 		endif
+ 	endif
+ endif
++
++ifndef NO_STRLCPY
++	ifeq ($(call try-cc,$(SOURCE_STRLCPY),,-DHAVE_STRLCPY),y)
++		BASIC_CFLAGS += -DHAVE_STRLCPY
++	endif
++endif
++
++ifndef NO_ON_EXIT
++	ifeq ($(call try-cc,$(SOURCE_ON_EXIT),,-DHAVE_ON_EXIT),y)
++		BASIC_CFLAGS += -DHAVE_ON_EXIT
++	endif
++endif
++
++ifndef NO_BACKTRACE
++       ifeq ($(call try-cc,$(SOURCE_BACKTRACE),,-DBACKTRACE_SUPPORT),y)
++		BASIC_CFLAGS += -DBACKTRACE_SUPPORT
++       endif
++endif
+-- 
+1.8.3.2
+

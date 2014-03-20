@@ -1,0 +1,51 @@
+From 2e9cc80a04c3f5c46640f7a4d347ce37c6f26953 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Wed, 3 Jul 2013 14:38:53 +0200
+Subject: [PATCH 0668/1302] usb/gadget: f_mass_storage: use
+ fsg_common_set_inquiry_string in fsg_common_init
+
+fsg_common_init is a lengthy function. Now there are helper functions
+which cover all parts of it. Use them.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_mass_storage.c | 13 +++----------
+ 1 file changed, 3 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_mass_storage.c b/drivers/usb/gadget/f_mass_storage.c
+index 41a94a1..fcc6409 100644
+--- a/drivers/usb/gadget/f_mass_storage.c
++++ b/drivers/usb/gadget/f_mass_storage.c
+@@ -2999,7 +2999,7 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 				   struct usb_composite_dev *cdev,
+ 				   struct fsg_config *cfg)
+ {
+-	int i, rc;
++	int rc;
+ 
+ 	common = fsg_common_setup(common, !!common);
+ 	if (IS_ERR(common))
+@@ -3029,16 +3029,9 @@ struct fsg_common *fsg_common_init(struct fsg_common *common,
+ 	if (rc)
+ 		goto error_release;
+ 
+-	/* Prepare inquiryString */
+-	i = get_default_bcdDevice();
+-	snprintf(common->inquiry_string, sizeof common->inquiry_string,
+-		 "%-8s%-16s%04x", cfg->vendor_name ?: "Linux",
+-		 /* Assume product name dependent on the first LUN */
+-		 cfg->product_name ?: ((*common->luns)->cdrom
+-				     ? "File-CD Gadget"
+-				     : "File-Stor Gadget"),
+-		 i);
+ 
++	fsg_common_set_inquiry_string(common, cfg->vendor_name,
++				      cfg->product_name);
+ 	/* Tell the thread to start working */
+ 	common->thread_task =
+ 		kthread_create(fsg_main_thread, common, "file-storage");
+-- 
+1.8.3.2
+

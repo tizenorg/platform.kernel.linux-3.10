@@ -1,0 +1,31 @@
+From 38d50de50f84d82065bb3c94aa0bfe70740c5d79 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 1 Mar 2013 18:16:30 +0100
+Subject: [PATCH 0108/1302] ARM: dts: exynos4210-trats: Use board name for
+ BUCK1 regulator
+
+This patch removes the workaround originally required for cpufreq and
+sets BUCK1 regulator name to name specified in board schematics.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index 6f444d2..4b90ae3 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -279,7 +279,7 @@
+ 				};
+ 
+ 				varm_breg: BUCK1 {
+-				     regulator-name = "vdd_arm";
++				     regulator-name = "VARM_1.2V_C210";
+ 				     regulator-min-microvolt = <900000>;
+ 				     regulator-max-microvolt = <1350000>;
+ 				     regulator-always-on;
+-- 
+1.8.3.2
+

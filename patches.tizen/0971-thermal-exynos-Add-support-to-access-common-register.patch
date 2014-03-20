@@ -1,0 +1,68 @@
+From 78bb4f6bd30f67f996a9da1a1b51232b14dfb1e3 Mon Sep 17 00:00:00 2001
+From: Amit Daniel Kachhap <amit.daniel@samsung.com>
+Date: Mon, 24 Jun 2013 16:20:42 +0530
+Subject: [PATCH 0971/1302] thermal: exynos: Add support to access common
+ register for multistance
+
+This patch adds support to parse one more common set of TMU register. First
+set of register belongs to each instance of TMU and second set belongs to
+common TMU registers.
+
+Acked-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Acked-by: Kukjin Kim <kgene.kim@samsung.com>
+Acked-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: Amit Daniel Kachhap <amit.daniel@samsung.com>
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/samsung/exynos_tmu.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/thermal/samsung/exynos_tmu.c b/drivers/thermal/samsung/exynos_tmu.c
+index 05b95c6..31bf373 100644
+--- a/drivers/thermal/samsung/exynos_tmu.c
++++ b/drivers/thermal/samsung/exynos_tmu.c
+@@ -40,6 +40,7 @@
+  * @id: identifier of the one instance of the TMU controller.
+  * @pdata: pointer to the tmu platform/configuration data
+  * @base: base address of the single instance of the TMU controller.
++ * @base_common: base address of the common registers of the TMU controller.
+  * @irq: irq number of the TMU controller.
+  * @soc: id of the SOC type.
+  * @irq_work: pointer to the irq work structure.
+@@ -53,6 +54,7 @@ struct exynos_tmu_data {
+ 	int id;
+ 	struct exynos_tmu_platform_data *pdata;
+ 	void __iomem *base;
++	void __iomem *base_common;
+ 	int irq;
+ 	enum soc_type soc;
+ 	struct work_struct irq_work;
+@@ -478,6 +480,24 @@ static int exynos_map_dt_data(struct platform_device *pdev)
+ 		return -ENODEV;
+ 	}
+ 	data->pdata = pdata;
++	/*
++	 * Check if the TMU shares some registers and then try to map the
++	 * memory of common registers.
++	 */
++	if (!TMU_SUPPORTS(pdata, SHARED_MEMORY))
++		return 0;
++
++	if (of_address_to_resource(pdev->dev.of_node, 1, &res)) {
++		dev_err(&pdev->dev, "failed to get Resource 1\n");
++		return -ENODEV;
++	}
++
++	data->base_common = devm_ioremap(&pdev->dev, res.start,
++					resource_size(&res));
++	if (!data->base) {
++		dev_err(&pdev->dev, "Failed to ioremap memory\n");
++		return -ENOMEM;
++	}
+ 
+ 	return 0;
+ }
+-- 
+1.8.3.2
+

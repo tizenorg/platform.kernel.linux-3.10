@@ -1,0 +1,52 @@
+From 1da8b9f83d70850381e95fe2a09f1a3ecf2d5890 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Thu, 31 Oct 2013 16:52:55 +0100
+Subject: [PATCH 0902/1302] regulator:max77686: Correct GPIOs for BUCK2 DVS
+ setting
+
+Before this patch SELB and DVS pins were wrongly defined in the DTS.
+
+As a result MAX77686 always used BUCK2_DVS1 register (the DVS pins were
+set all to 0). However the default DVS index (default_dvs_idx) was set to 1.
+
+Therefore, the default value of BUCK2_DVS1 register (1.1V) was always
+setup. Wrongly the driver was changing BUCK2_DVS2 register. Due to that
+voltage was NOT changed at all.
+
+The problem appeared when BOOST was ported to v3.10-mobile. It requires
+around 1.3V, but default voltage is set to 1.1V (0x28). Too small voltage
+resulted in OOPs at random places.
+
+As a side note:
+The MAX77686 is NOT using DVS with GPIO. It changes the value of current
+voltage with I2C utilization.
+
+Tested at: REDWOOD - Exynos4412 - rev1.
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 5c3bedd..e05f3fa 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -561,11 +561,11 @@
+ 			reg = <0x09>;
+ 			#clock-cells = <1>;
+ 
+-			max77686,dvs_gpios = <&gpf3 1 0>,
++			max77686,selb_gpios = <&gpf3 1 0>,
+ 					     <&gpf3 2 0>,
+ 					     <&gpf3 3 0>;
+ 
+-			max77686,selb_gpios = <&gpm3 0 0>,
++			max77686,dvs_gpios = <&gpm3 0 0>,
+ 					      <&gpm3 1 0>,
+ 					      <&gpm3 2 0>;
+ 
+-- 
+1.8.3.2
+

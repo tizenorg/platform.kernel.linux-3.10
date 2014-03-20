@@ -1,0 +1,42 @@
+From ffd9522281988a6c1fe84960de3cc6092b8693d4 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 4 Dec 2013 14:09:46 +0100
+Subject: [PATCH 1042/1302] clk: samsung: exynos4: Propagate rate change of SPI
+ dividers
+
+This patch adds missing CLK_SET_RATE_PARENT flag to div_spi{0,1,2} clocks
+to allow rate change propagation to div_spi{0,1,2}_pre. This fixes the
+problem with SPI bus clock rate setting.
+
+Change-Id: I26ef7028297914d5c99e55f0e9fa6dc6a9292e94
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/samsung/clk-exynos4.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/clk/samsung/clk-exynos4.c b/drivers/clk/samsung/clk-exynos4.c
+index ee932d4..a9be318 100644
+--- a/drivers/clk/samsung/clk-exynos4.c
++++ b/drivers/clk/samsung/clk-exynos4.c
+@@ -534,11 +534,14 @@ struct samsung_div_clock exynos4_div_clks[] __initdata = {
+ 	DIV(none, "div_uart3", "mout_uart3", DIV_PERIL0, 12, 4),
+ 	DIV(none, "div_uart4", "mout_uart4", DIV_PERIL0, 16, 4),
+ 	DIV(none, "div_spi0", "mout_spi0", DIV_PERIL1, 0, 4),
+-	DIV(none, "div_spi_pre0", "div_spi0", DIV_PERIL1, 8, 8),
++	DIV_F(none, "div_spi_pre0", "div_spi0", DIV_PERIL1, 8, 8,
++			CLK_SET_RATE_PARENT, 0),
+ 	DIV(none, "div_spi1", "mout_spi1", DIV_PERIL1, 16, 4),
+-	DIV(none, "div_spi_pre1", "div_spi1", DIV_PERIL1, 24, 8),
++	DIV_F(none, "div_spi_pre1", "div_spi1", DIV_PERIL1, 24, 8,
++			CLK_SET_RATE_PARENT, 0),
+ 	DIV(none, "div_spi2", "mout_spi2", DIV_PERIL2, 0, 4),
+-	DIV(none, "div_spi_pre2", "div_spi2", DIV_PERIL2, 8, 8),
++	DIV_F(none, "div_spi_pre2", "div_spi2", DIV_PERIL2, 8, 8,
++			CLK_SET_RATE_PARENT, 0),
+ 	DIV(none, "div_audio1", "mout_audio1", DIV_PERIL4, 0, 4),
+ 	DIV(none, "div_audio2", "mout_audio2", DIV_PERIL4, 16, 4),
+ 	DIV_A(arm_clk, "arm_clk", "div_core2", DIV_CPU0, 28, 3, "arm_clk"),
+-- 
+1.8.3.2
+

@@ -1,0 +1,88 @@
+From 0daeffbd599f6770a98797a68e4ab532886c12d7 Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 18 Feb 2014 09:07:33 +0100
+Subject: [PATCH 1243/1302] dts: odroid x2: add support for multimedia blocks
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-id: I7332d504ad79e866ee5e12cca09f8da3416101d5
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-odroidx2.dts | 54 +++++++++++++++++++++++++++++--
+ 1 file changed, 52 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-odroidx2.dts b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+index c522ee6..814f943 100644
+--- a/arch/arm/boot/dts/exynos4412-odroidx2.dts
++++ b/arch/arm/boot/dts/exynos4412-odroidx2.dts
+@@ -23,6 +23,27 @@
+ 			0x50000000 0x10000000
+ 			0x60000000 0x10000000
+ 			0x70000000 0x10000000>;
++
++		reserved-memory {
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			contig_mem: region@0 {
++				compatible = "linux,contiguous-memory-region";
++				reg = <0x0 0x4000000>;
++				linux,default-contiguous-region;
++			};
++
++			mfc_l_mem: mfc_l_region@43000000 {
++				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
++				reg = <0x43000000 0x1000000>;
++			};
++
++			mfc_r_mem: mfc_r_region@51000000 {
++				compatible = "linux,contiguous-memory-region", "reserved-memory-region";
++				reg = <0x51000000 0x1000000>;
++			};
++		};
+ 	};
+ 
+ 	chosen {
+@@ -452,9 +473,38 @@
+ 		status = "okay";
+ 	};
+ 
++	camera {
++		status = "okay";
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&cam_port_a_clk_idle>;
++
++		fimc_0: fimc@11800000 {
++			status = "okay";
++		};
++
++		fimc_1: fimc@11810000 {
++			status = "okay";
++		};
++
++		fimc_2: fimc@11820000 {
++			status = "okay";
++		};
++
++		fimc_3: fimc@11830000 {
++			status = "okay";
++		};
++	};
++
+ 	mfc: codec@13400000 {
+ 		status = "okay";
+-		samsung,mfc-r = <0x43000000 0x800000>;
+-		samsung,mfc-l = <0x51000000 0x800000>;
++
++		memport@0 {
++			memory-region = <&mfc_l_mem>;
++		};
++
++		memport@1 {
++			memory-region = <&mfc_r_mem>;
++		};
+ 	};
+ };
+-- 
+1.8.3.2
+

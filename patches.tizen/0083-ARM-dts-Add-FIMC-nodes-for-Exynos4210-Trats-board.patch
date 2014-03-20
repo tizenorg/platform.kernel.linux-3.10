@@ -1,0 +1,43 @@
+From fa53fcf03220a1f330f4b98abfdef8ccda53a21a Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 13 Feb 2013 12:26:45 +0100
+Subject: [PATCH 0083/1302] ARM: dts: Add FIMC nodes for Exynos4210 Trats board
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index c339f2a..64e0775 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -374,4 +374,24 @@
+ 		samsung,fimd-win-bpp = <32>;
+ 		status = "okay";
+ 	};
++
++	camera {
++		status = "okay";
++
++		fimc_0: fimc@11800000 {
++			status = "okay";
++		};
++
++		fimc_1: fimc@11810000 {
++			status = "okay";
++		};
++
++		fimc_2: fimc@11820000 {
++			status = "okay";
++		};
++
++		fimc_3: fimc@11830000 {
++			status = "okay";
++		};
++	};
+ };
+-- 
+1.8.3.2
+

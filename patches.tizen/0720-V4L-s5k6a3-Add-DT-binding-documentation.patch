@@ -1,0 +1,85 @@
+From da14e052e0621407ad534991d1a6a3f349e5cadb Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Tue, 27 Aug 2013 11:15:41 +0200
+Subject: [PATCH 0720/1302] V4L: s5k6a3: Add DT binding documentation
+
+This patch adds binding documentation for the Samsung S5K6A3(YX)
+raw image sensor.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+---
+
+The binding of this sensors shows some issue in the generic video-interfaces
+binding. Namely The video bus type (serial MIPI CSI-2, parallel ITU-R BT.656,
+etc.) is being determined by the binding parser (v4l2-of.c) depending on what
+properties are found in an enddpoint node.
+
+Please have a look at the data-lanes property description. The sensor supports
+MIPI CSI-2 and SMIA CCP2 interfaces which both use one data lane. One data lane
+is everything this sensors supports. During our discussions on the generic
+bidings in the past I proposed to introduce a property in the endpoint node
+that would indicate what bus type (standard/protocol) is used, e.g. MIPI CSI-2,
+ITU-R BT.656, SMIA CCP2, etc. It was argued though that we can well determine
+bus type based on properties found in the endpoint node.
+
+So now in case of this sensor I'm not sure how it can be differentiated
+whether MIPI CSI-2 or CCP2 bus is used. There is no CCP2 specific generic
+properties yet. Anyway I'm not really happy there is no property like bus_type
+that would clearly indicate what data bus type is used. Then would would for
+instance not specify "data-lanes" in endpoint node just to differentiate
+between MIPI CSI-2 and the parallel busses.
+
+The main issue for this particular binding is that even with data-lanes = <1>;
+it is still impossible to figure out whether MIPI CSI-2 or SMIA CCP2 data bus
+is used.
+
+So how about introducing, e.g. a string type "bus_type" common property ?
+I'm considering starting a separate thread for discussing this.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../devicetree/bindings/media/samsung-s5k6a3.txt   | 31 ++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/media/samsung-s5k6a3.txt
+
+diff --git a/Documentation/devicetree/bindings/media/samsung-s5k6a3.txt b/Documentation/devicetree/bindings/media/samsung-s5k6a3.txt
+new file mode 100644
+index 0000000..a51fbe8
+--- /dev/null
++++ b/Documentation/devicetree/bindings/media/samsung-s5k6a3.txt
+@@ -0,0 +1,31 @@
++Samsung S5K6A3(YX) raw image sensor
++---------------------------------
++
++S5K6A3YX is a raw image sensor with MIPI CSI-2 and CCP2 image data interfaces
++and CCI (I2C compatible) control bus.
++
++Required properties:
++
++- compatible	: "samsung,s5k6a3yx";
++- reg		: I2C slave address of the sensor;
++- svdda-supply	: core voltage supply;
++- svddio-supply	: I/O voltage supply;
++- gpios		: specifier of a GPIO connected to the RESET pin;
++- clocks	: should contain the sensor's EXTCLK clock specifier, from
++		  the common clock bindings.
++- clock-names	: should contain "extclk" entry;
++
++Optional properties:
++
++- clock-frequency : the frequency at which the "extclk" clock should be
++		    configured to operate, in Hz; if this property is not
++		    specified default 24 MHz value will be used.
++
++The common video interfaces bindings (see video-interfaces.txt) should be
++used to specify link to the image data receiver. The S5K6A3(YX) device
++node should contain one 'port' child node with an 'endpoint' subnode.
++
++Following properties are valid for the endpoint node:
++
++- data-lanes : (optional) specifies MIPI CSI-2 data lanes as covered in
++  video-interfaces.txt.  The sensor supports only one data lane.
+-- 
+1.8.3.2
+

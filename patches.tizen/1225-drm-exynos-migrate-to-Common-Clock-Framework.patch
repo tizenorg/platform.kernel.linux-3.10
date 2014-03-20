@@ -1,0 +1,113 @@
+From 0a704bea4be5d89d68f574630339c644cd5e0554 Mon Sep 17 00:00:00 2001
+From: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Date: Wed, 9 Oct 2013 15:51:00 +0200
+Subject: [PATCH 1225/1302] drm: exynos: migrate to Common Clock Framework
+
+Transform all clk_enable() to clk_prepare_enable() and
+all clk_disable() to clk_disable_unprepare().
+
+Signed-off-by: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Change-Id: Iaf66f2229677234273c7b66f6d9f0f17c74bf2ff
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_hdmi.c  | 20 ++++++++++----------
+ drivers/gpu/drm/exynos/exynos_mixer.c | 12 ++++++------
+ 2 files changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_hdmi.c b/drivers/gpu/drm/exynos/exynos_hdmi.c
+index 77f09ed..b8eca91 100644
+--- a/drivers/gpu/drm/exynos/exynos_hdmi.c
++++ b/drivers/gpu/drm/exynos/exynos_hdmi.c
+@@ -1112,9 +1112,9 @@ static void hdmi_v13_mode_apply(struct hdmi_context *hdata)
+ 		hdmi_regs_dump(hdata, "timing apply");
+ 	}
+ 
+-	clk_disable(hdata->res.sclk_hdmi);
++	clk_disable_unprepare(hdata->res.sclk_hdmi);
+ 	clk_set_parent(hdata->res.sclk_hdmi, hdata->res.sclk_hdmiphy);
+-	clk_enable(hdata->res.sclk_hdmi);
++	clk_prepare_enable(hdata->res.sclk_hdmi);
+ 
+ 	/* enable HDMI and timing generator */
+ 	hdmi_reg_writemask(hdata, HDMI_CON_0, ~0, HDMI_EN);
+@@ -1279,9 +1279,9 @@ static void hdmi_v14_mode_apply(struct hdmi_context *hdata)
+ 		hdmi_regs_dump(hdata, "timing apply");
+ 	}
+ 
+-	clk_disable(hdata->res.sclk_hdmi);
++	clk_disable_unprepare(hdata->res.sclk_hdmi);
+ 	clk_set_parent(hdata->res.sclk_hdmi, hdata->res.sclk_hdmiphy);
+-	clk_enable(hdata->res.sclk_hdmi);
++	clk_prepare_enable(hdata->res.sclk_hdmi);
+ 
+ 	/* enable HDMI and timing generator */
+ 	hdmi_reg_writemask(hdata, HDMI_CON_0, ~0, HDMI_EN);
+@@ -1305,9 +1305,9 @@ static void hdmiphy_conf_reset(struct hdmi_context *hdata)
+ 	u8 buffer[2];
+ 	u32 reg;
+ 
+-	clk_disable(hdata->res.sclk_hdmi);
++	clk_disable_unprepare(hdata->res.sclk_hdmi);
+ 	clk_set_parent(hdata->res.sclk_hdmi, hdata->res.sclk_pixel);
+-	clk_enable(hdata->res.sclk_hdmi);
++	clk_prepare_enable(hdata->res.sclk_hdmi);
+ 
+ 	/* operation mode */
+ 	buffer[0] = 0x1f;
+@@ -1685,8 +1685,8 @@ static void hdmi_poweron(struct hdmi_context *hdata)
+ 		DRM_DEBUG_KMS("failed to enable regulator bulk\n");
+ 
+ 	phy_power_on(res->hdmiphy);
+-	clk_enable(res->hdmi);
+-	clk_enable(res->sclk_hdmi);
++	clk_prepare_enable(res->hdmi);
++	clk_prepare_enable(res->sclk_hdmi);
+ 
+ 	hdmiphy_poweron(hdata);
+ }
+@@ -1707,8 +1707,8 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
+ 	hdmiphy_conf_reset(hdata);
+ 	hdmiphy_poweroff(hdata);
+ 
+-	clk_disable(res->sclk_hdmi);
+-	clk_disable(res->hdmi);
++	clk_disable_unprepare(res->sclk_hdmi);
++	clk_disable_unprepare(res->hdmi);
+ 	phy_power_off(res->hdmiphy);
+ 	regulator_bulk_disable(res->regul_count, res->regul_bulk);
+ 
+diff --git a/drivers/gpu/drm/exynos/exynos_mixer.c b/drivers/gpu/drm/exynos/exynos_mixer.c
+index 7b41942..f853e584 100644
+--- a/drivers/gpu/drm/exynos/exynos_mixer.c
++++ b/drivers/gpu/drm/exynos/exynos_mixer.c
+@@ -892,10 +892,10 @@ static void mixer_poweron(struct mixer_context *ctx)
+ 	ctx->powered = true;
+ 	mutex_unlock(&ctx->mixer_mutex);
+ 
+-	clk_enable(res->mixer);
++	clk_prepare_enable(res->mixer);
+ 	if (ctx->vp_enabled) {
+-		clk_enable(res->vp);
+-		clk_enable(res->sclk_mixer);
++		clk_prepare_enable(res->vp);
++		clk_prepare_enable(res->sclk_mixer);
+ 	}
+ 
+ 	mixer_reg_write(res, MXR_INT_EN, ctx->int_en);
+@@ -917,10 +917,10 @@ static void mixer_poweroff(struct mixer_context *ctx)
+ 
+ 	ctx->int_en = mixer_reg_read(res, MXR_INT_EN);
+ 
+-	clk_disable(res->mixer);
++	clk_disable_unprepare(res->mixer);
+ 	if (ctx->vp_enabled) {
+-		clk_disable(res->vp);
+-		clk_disable(res->sclk_mixer);
++		clk_disable_unprepare(res->vp);
++		clk_disable_unprepare(res->sclk_mixer);
+ 	}
+ 
+ 	mutex_lock(&ctx->mixer_mutex);
+-- 
+1.8.3.2
+

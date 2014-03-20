@@ -1,0 +1,201 @@
+From fce38954de801f6761e468d6df2f4b40e48f4289 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Wed, 26 Feb 2014 14:07:17 +0100
+Subject: [PATCH 1277/1302] cpufreq:LAB:ondemand: REMOVE from LAB governor code
+ duplicated at ondemand
+
+LAB is very similar to ondemand governor in its structure.
+Both use the same code for:
+- governor init and exit
+- demand based switching timer code
+- governor specific ops
+
+In this way the LAB can be stacked on top of ondemand governor and hence it
+is possible to reuse its logic when needed.
+
+Change-Id: I78e0da90bb2f07677fe6f8d451139107994f5a6f
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/cpufreq_governor.h |  8 ++++
+ drivers/cpufreq/cpufreq_lab.c      | 77 ++------------------------------------
+ drivers/cpufreq/cpufreq_ondemand.c | 10 ++---
+ 3 files changed, 17 insertions(+), 78 deletions(-)
+
+diff --git a/drivers/cpufreq/cpufreq_governor.h b/drivers/cpufreq/cpufreq_governor.h
+index 3886a18..2387f38 100644
+--- a/drivers/cpufreq/cpufreq_governor.h
++++ b/drivers/cpufreq/cpufreq_governor.h
+@@ -284,4 +284,12 @@ void od_register_powersave_bias_handler(unsigned int (*f)
+ 		(struct cpufreq_policy *, unsigned int, unsigned int),
+ 		unsigned int powersave_bias);
+ void od_unregister_powersave_bias_handler(void);
++
++/* COMMON CODE FOR DEMAND BASED SWITCHING */
++void od_dbs_timer(struct work_struct *work);
++int od_init(struct dbs_data *dbs_data);
++void od_exit(struct dbs_data *dbs_data);
++
++extern struct od_ops od_ops;
++
+ #endif /* _CPUFREQ_GOVERNOR_H */
+diff --git a/drivers/cpufreq/cpufreq_lab.c b/drivers/cpufreq/cpufreq_lab.c
+index 8549be2..e9aa1c9 100644
+--- a/drivers/cpufreq/cpufreq_lab.c
++++ b/drivers/cpufreq/cpufreq_lab.c
+@@ -150,35 +150,6 @@ static void lb_check_cpu(int cpu, unsigned int load_freq)
+ 	dbs_freq_increase(policy, freq);
+ }
+ 
+-static void lb_dbs_timer(struct work_struct *work)
+-{
+-	struct lb_cpu_dbs_info_s *dbs_info =
+-		container_of(work, struct lb_cpu_dbs_info_s, cdbs.work.work);
+-	unsigned int cpu = dbs_info->cdbs.cur_policy->cpu;
+-	struct lb_cpu_dbs_info_s *core_dbs_info = &per_cpu(lb_cpu_dbs_info,
+-			cpu);
+-	struct dbs_data *dbs_data = dbs_info->cdbs.cur_policy->governor_data;
+-	struct lb_dbs_tuners *lb_tuners = dbs_data->tuners;
+-	int delay;
+-
+-	/* Enable overclocking always for LAB governor */
+-	if (cpufreq_boost_supported() && unlikely(!cpufreq_boost_enabled())) {
+-		/* To avoid deadlock, mutex_lock() is called
+-		 * after cpufreq_boost_trigger_state().
+-		 */
+-		cpufreq_boost_trigger_state(1);
+-		mutex_lock(&core_dbs_info->cdbs.timer_mutex);
+-	} else {
+-		mutex_lock(&core_dbs_info->cdbs.timer_mutex);
+-		dbs_check_cpu(dbs_data, cpu);
+-	}
+-
+-	delay = delay_for_sampling_rate(lb_tuners->sampling_rate
+-						* core_dbs_info->rate_mult);
+-	gov_queue_work(dbs_data, dbs_info->cdbs.cur_policy, delay, false);
+-	mutex_unlock(&core_dbs_info->cdbs.timer_mutex);
+-}
+-
+ /************************** sysfs interface ************************/
+ static struct common_dbs_data lb_dbs_cdata;
+ 
+@@ -283,53 +254,12 @@ static struct attribute_group lb_attr_group_gov_pol = {
+ 
+ static int lb_init(struct dbs_data *dbs_data)
+ {
+-	struct lb_dbs_tuners *tuners;
+-	u64 idle_time;
+-	int cpu;
+ 
+-	tuners = kzalloc(sizeof(struct lb_dbs_tuners), GFP_KERNEL);
+-	if (!tuners) {
+-		pr_err("%s: kzalloc failed\n", __func__);
+-		return -ENOMEM;
+-	}
++	od_init(dbs_data);
+ 
+-	cpu = get_cpu();
+-	idle_time = get_cpu_idle_time_us(cpu, NULL);
+-	put_cpu();
+-	if (idle_time != -1ULL) {
+-		/* Idle micro accounting is supported. Use finer thresholds */
+-		tuners->up_threshold = MICRO_FREQUENCY_UP_THRESHOLD;
+-		tuners->adj_up_threshold = MICRO_FREQUENCY_UP_THRESHOLD -
+-			MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
+-		/*
+-		 * In nohz/micro accounting case we set the minimum frequency
+-		 * not depending on HZ, but fixed (very low). The deferred
+-		 * timer might skip some samples if idle/sleeping as needed.
+-		*/
+-		dbs_data->min_sampling_rate = MICRO_FREQUENCY_MIN_SAMPLE_RATE;
+-	} else {
+-		tuners->up_threshold = DEF_FREQUENCY_UP_THRESHOLD;
+-		tuners->adj_up_threshold = DEF_FREQUENCY_UP_THRESHOLD -
+-			DEF_FREQUENCY_DOWN_DIFFERENTIAL;
+-
+-		/* For correct statistics, we need 10 ticks for each measure */
+-		dbs_data->min_sampling_rate = MIN_SAMPLING_RATE_RATIO *
+-			jiffies_to_usecs(10);
+-	}
+-
+-	tuners->sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR;
+-	tuners->ignore_nice = 0;
+-
+-	dbs_data->tuners = tuners;
+-	mutex_init(&dbs_data->mutex);
+ 	return 0;
+ }
+ 
+-static void lb_exit(struct dbs_data *dbs_data)
+-{
+-	kfree(dbs_data->tuners);
+-}
+-
+ define_get_cpu_dbs_routines(lb_cpu_dbs_info);
+ 
+ static struct common_dbs_data lb_dbs_cdata = {
+@@ -338,10 +268,11 @@ static struct common_dbs_data lb_dbs_cdata = {
+ 	.attr_group_gov_pol = &lb_attr_group_gov_pol,
+ 	.get_cpu_cdbs = get_cpu_cdbs,
+ 	.get_cpu_dbs_info_s = get_cpu_dbs_info_s,
+-	.gov_dbs_timer = lb_dbs_timer,
++	.gov_dbs_timer = od_dbs_timer,
+ 	.gov_check_cpu = lb_check_cpu,
++	.gov_ops = &od_ops,
+ 	.init = lb_init,
+-	.exit = lb_exit,
++	.exit = od_exit,
+ };
+ 
+ static int lb_cpufreq_governor_dbs(struct cpufreq_policy *policy,
+diff --git a/drivers/cpufreq/cpufreq_ondemand.c b/drivers/cpufreq/cpufreq_ondemand.c
+index 25438bb..d49855d 100644
+--- a/drivers/cpufreq/cpufreq_ondemand.c
++++ b/drivers/cpufreq/cpufreq_ondemand.c
+@@ -39,7 +39,7 @@
+ 
+ static DEFINE_PER_CPU(struct od_cpu_dbs_info_s, od_cpu_dbs_info);
+ 
+-static struct od_ops od_ops;
++struct od_ops od_ops;
+ 
+ #ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND
+ static struct cpufreq_governor cpufreq_gov_ondemand;
+@@ -202,7 +202,7 @@ static void od_check_cpu(int cpu, unsigned int load)
+ 	}
+ }
+ 
+-static void od_dbs_timer(struct work_struct *work)
++void od_dbs_timer(struct work_struct *work)
+ {
+ 	struct od_cpu_dbs_info_s *dbs_info =
+ 		container_of(work, struct od_cpu_dbs_info_s, cdbs.work.work);
+@@ -486,7 +486,7 @@ static struct attribute_group od_attr_group_gov_pol = {
+ 
+ /************************** sysfs end ************************/
+ 
+-static int od_init(struct dbs_data *dbs_data)
++int od_init(struct dbs_data *dbs_data)
+ {
+ 	struct od_dbs_tuners *tuners;
+ 	u64 idle_time;
+@@ -528,14 +528,14 @@ static int od_init(struct dbs_data *dbs_data)
+ 	return 0;
+ }
+ 
+-static void od_exit(struct dbs_data *dbs_data)
++void od_exit(struct dbs_data *dbs_data)
+ {
+ 	kfree(dbs_data->tuners);
+ }
+ 
+ define_get_cpu_dbs_routines(od_cpu_dbs_info);
+ 
+-static struct od_ops od_ops = {
++struct od_ops od_ops = {
+ 	.powersave_bias_init_cpu = ondemand_powersave_bias_init_cpu,
+ 	.powersave_bias_target = generic_powersave_bias_target,
+ 	.freq_increase = dbs_freq_increase,
+-- 
+1.8.3.2
+

@@ -1,0 +1,33 @@
+From f12025a8ab2f8c93a2bcd2bf9c5fc5c35aaf0497 Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Tue, 11 Mar 2014 11:49:32 +0900
+Subject: [PATCH 1295/1302] ARM: odroidx2: update defconfig to enable
+ DRM_EXYNOS_FIMC
+
+DRM_EXYNOS_FIMC needs to use FIMC from DRM.
+
+Change-Id: I854807ae13d356761b68a19860a0d618eb4f14fc
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_odroidx2_defconfig | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/tizen_odroidx2_defconfig b/arch/arm/configs/tizen_odroidx2_defconfig
+index 7c4d7aa..387935c 100644
+--- a/arch/arm/configs/tizen_odroidx2_defconfig
++++ b/arch/arm/configs/tizen_odroidx2_defconfig
+@@ -1919,7 +1919,9 @@ CONFIG_DRM_EXYNOS_FIMD=y
+ CONFIG_DRM_EXYNOS_HDMI=y
+ # CONFIG_DRM_EXYNOS_VIDI is not set
+ # CONFIG_DRM_EXYNOS_G2D is not set
+-# CONFIG_DRM_EXYNOS_IPP is not set
++CONFIG_DRM_EXYNOS_IPP=y
++CONFIG_DRM_EXYNOS_FIMC=y
++# CONFIG_DRM_EXYNOS_ROTATOR is not set
+ # CONFIG_DRM_UDL is not set
+ # CONFIG_DRM_TILCDC is not set
+ # CONFIG_VGASTATE is not set
+-- 
+1.8.3.2
+

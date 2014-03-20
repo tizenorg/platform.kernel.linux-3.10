@@ -1,0 +1,35 @@
+From a42f038a8bcd28fd0ae154d8657bb892298d1bd4 Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Tue, 3 Sep 2013 09:35:30 +0200
+Subject: [PATCH 0741/1302] ARM: dts: exynos4210-trats: update clocks and gpios
+ in s5k5baf node
+
+This patch updates s5k5baf node according to changes in bindings
+of s5k5baf camera.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index 7dc92cf..6219b31 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -206,8 +206,10 @@
+ 			vdda-supply = <&cam_io_en_reg>;
+ 			vddreg-supply = <&vt_core_15v_reg>;
+ 			vddio-supply = <&vtcam_reg>;
+-			gpios = <&gpl2 0 1>,
+-				<&gpl2 1 1>;
++			clocks = <&camera 0>;
++			clock-names = "mclk";
++			stbyn-gpios = <&gpl2 0 1>;
++			rstn-gpios = <&gpl2 1 1>;
+ 			clock-frequency = <24000000>;
+ 
+ 			port {
+-- 
+1.8.3.2
+

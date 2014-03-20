@@ -1,0 +1,72 @@
+From 2d7fad82be005f639d82bd4f2c8afc99bc08b335 Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Thu, 18 Jul 2013 16:49:53 +0200
+Subject: [PATCH 0908/1302] cpufreq:exynos:Extend Exynos cpufreq driver to
+ support boost framework
+
+The struct cpufreq_driver has been extended to embrace the information
+related to boost support.
+
+When "boost_mode" device tree attribute is defined for a platform, the
+boost_supported flag is set. Moreover boost related attributes were
+exported.
+
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: Myungjoo Ham <myungjoo.ham@samsung.com>
+
+Changes for v6:
+- replace exynos_driver.boost_supported = 1 to = true
+
+Changes for v5:
+- None
+
+Changes for v4:
+- None
+
+Changes for v3:
+- Remove low level boost code
+- Move boost management code to cpufreq core code
+- Use boost_supported flag to indicate if driver supports over clocking
+
+Changes for v2:
+- Removal of struct cpufreq_boost
+- Removal of the CONFIG_CPU_FREQ_BOOST flag
+- low_level_boost with valid address when boost is supported
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/exynos-cpufreq.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/cpufreq/exynos-cpufreq.c b/drivers/cpufreq/exynos-cpufreq.c
+index aa869de..3704b51 100644
+--- a/drivers/cpufreq/exynos-cpufreq.c
++++ b/drivers/cpufreq/exynos-cpufreq.c
+@@ -264,6 +264,7 @@ static int exynos_cpufreq_cpu_exit(struct cpufreq_policy *policy)
+ 
+ static struct freq_attr *exynos_cpufreq_attr[] = {
+ 	&cpufreq_freq_attr_scaling_available_freqs,
++	&cpufreq_freq_attr_scaling_boost_freqs,
+ 	NULL,
+ };
+ 
+@@ -404,6 +405,7 @@ static struct of_device_id exynos_cpufreq_of_match[] = {
+ 
+ static int exynos_cpufreq_probe(struct platform_device *pdev)
+ {
++	struct device_node *node = pdev->dev.of_node;
+ 	int ret = -EINVAL;
+ 
+ 	exynos_info = kzalloc(sizeof(struct exynos_dvfs_info), GFP_KERNEL);
+@@ -436,6 +438,8 @@ static int exynos_cpufreq_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	locking_frequency = exynos_getspeed(0);
++	if (of_property_read_bool(node, "boost_mode"))
++		exynos_driver.boost_supported = true;
+ 
+ 	register_pm_notifier(&exynos_cpufreq_nb);
+ 
+-- 
+1.8.3.2
+

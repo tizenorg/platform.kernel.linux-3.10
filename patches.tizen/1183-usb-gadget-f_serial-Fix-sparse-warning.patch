@@ -1,0 +1,33 @@
+From 043f16d01229402cf8c74c1ea2836b9b8ce2acda Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Mon, 16 Dec 2013 18:44:25 +0900
+Subject: [PATCH 1183/1302] usb: gadget: f_serial: Fix sparse warning
+
+Make local symbol static in order to fix the following sparse
+warning.
+
+drivers/usb/gadget/f_serial.c:357:21: warning: symbol 'gser_alloc' was not declared. Should it be static?
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_serial.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/f_serial.c b/drivers/usb/gadget/f_serial.c
+index 981113c..9ecbcbf 100644
+--- a/drivers/usb/gadget/f_serial.c
++++ b/drivers/usb/gadget/f_serial.c
+@@ -354,7 +354,7 @@ static void gser_unbind(struct usb_configuration *c, struct usb_function *f)
+ 	usb_free_all_descriptors(f);
+ }
+ 
+-struct usb_function *gser_alloc(struct usb_function_instance *fi)
++static struct usb_function *gser_alloc(struct usb_function_instance *fi)
+ {
+ 	struct f_gser	*gser;
+ 	struct f_serial_opts *opts;
+-- 
+1.8.3.2
+

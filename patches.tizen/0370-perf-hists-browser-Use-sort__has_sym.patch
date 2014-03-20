@@ -1,0 +1,67 @@
+From 95d57c480be9b15000d571e4e77e297d7e6b5e41 Mon Sep 17 00:00:00 2001
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Date: Fri, 26 Apr 2013 14:28:46 -0300
+Subject: [PATCH 0370/1302] perf hists browser: Use sort__has_sym
+
+The TUI hist browser had a similar variable has_symbols for the same
+purpose.  Let's get rid of the duplication.
+
+Signed-off-by: Namhyung Kim <namhyung@kernel.org>
+Cc: Andi Kleen <andi@firstfloor.org>
+Cc: David Ahern <dsahern@gmail.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Jiri Olsa <jolsa@redhat.com>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1365125198-8334-9-git-send-email-namhyung@kernel.org
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/ui/browsers/hists.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/tools/perf/ui/browsers/hists.c b/tools/perf/ui/browsers/hists.c
+index cad8e37..a4268ca 100644
+--- a/tools/perf/ui/browsers/hists.c
++++ b/tools/perf/ui/browsers/hists.c
+@@ -25,7 +25,6 @@ struct hist_browser {
+ 	struct map_symbol   *selection;
+ 	int		     print_seq;
+ 	bool		     show_dso;
+-	bool		     has_symbols;
+ };
+ 
+ extern void hist_browser__init_hpp(void);
+@@ -1155,10 +1154,6 @@ static struct hist_browser *hist_browser__new(struct hists *hists)
+ 		browser->b.refresh = hist_browser__refresh;
+ 		browser->b.seek = ui_browser__hists_seek;
+ 		browser->b.use_navkeypressed = true;
+-		if (sort__mode == SORT_MODE__BRANCH)
+-			browser->has_symbols = sort_sym_from.list.next != NULL;
+-		else
+-			browser->has_symbols = sort_sym.list.next != NULL;
+ 	}
+ 
+ 	return browser;
+@@ -1386,7 +1381,7 @@ static int perf_evsel__hists_browse(struct perf_evsel *evsel, int nr_events,
+ 			 */
+ 			goto out_free_stack;
+ 		case 'a':
+-			if (!browser->has_symbols) {
++			if (!sort__has_sym) {
+ 				ui_browser__warning(&browser->b, delay_secs * 2,
+ 			"Annotation is only available for symbolic views, "
+ 			"include \"sym*\" in --sort to use it.");
+@@ -1485,7 +1480,7 @@ static int perf_evsel__hists_browse(struct perf_evsel *evsel, int nr_events,
+ 			continue;
+ 		}
+ 
+-		if (!browser->has_symbols)
++		if (!sort__has_sym)
+ 			goto add_exit_option;
+ 
+ 		if (sort__mode == SORT_MODE__BRANCH) {
+-- 
+1.8.3.2
+

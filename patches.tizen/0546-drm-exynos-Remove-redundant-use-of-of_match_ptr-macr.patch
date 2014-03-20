@@ -1,0 +1,33 @@
+From 9abc28917ccdf9dc31deb6c07ccfff25d47f3b02 Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Wed, 5 Jun 2013 16:00:23 +0900
+Subject: [PATCH 0546/1302] drm/exynos: Remove redundant use of of_match_ptr
+ macro
+
+'mixer_match_types' is always compiled in. Hence of_match_ptr is not
+necessary.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_mixer.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_mixer.c b/drivers/gpu/drm/exynos/exynos_mixer.c
+index 7bd57b5..4a4ff8b 100644
+--- a/drivers/gpu/drm/exynos/exynos_mixer.c
++++ b/drivers/gpu/drm/exynos/exynos_mixer.c
+@@ -1182,8 +1182,7 @@ static int mixer_probe(struct platform_device *pdev)
+ 
+ 	if (dev->of_node) {
+ 		const struct of_device_id *match;
+-		match = of_match_node(of_match_ptr(mixer_match_types),
+-							  dev->of_node);
++		match = of_match_node(mixer_match_types, dev->of_node);
+ 		drv = (struct mixer_drv_data *)match->data;
+ 	} else {
+ 		drv = (struct mixer_drv_data *)
+-- 
+1.8.3.2
+

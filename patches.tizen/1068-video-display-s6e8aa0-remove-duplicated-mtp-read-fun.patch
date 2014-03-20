@@ -1,0 +1,75 @@
+From 1142ee7900b30882b771259413d7ce584cd46be3 Mon Sep 17 00:00:00 2001
+From: Donghwa Lee <dh09.lee@samsung.com>
+Date: Fri, 10 Jan 2014 11:24:33 +0900
+Subject: [PATCH 1068/1302] video: display: s6e8aa0: remove duplicated mtp read
+ function
+
+There is no need to call mtp check function whenever lcd power on.
+It is sufficient just called once at booting time because mtp data
+is fixed values.
+
+Change-Id: I3f37633821c83089cb516eeb9810c4ae435d5cc1
+Signed-off-by: Donghwa Lee <dh09.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/video/display/panel-s6e8aa0.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/video/display/panel-s6e8aa0.c b/drivers/video/display/panel-s6e8aa0.c
+index 9f82a9c..dce22d9 100644
+--- a/drivers/video/display/panel-s6e8aa0.c
++++ b/drivers/video/display/panel-s6e8aa0.c
+@@ -116,6 +116,8 @@ struct s6e8aa0 {
+ 	int power;
+ 	int brightness;
+ 	struct mutex mutex;
++
++	bool probed;
+ };
+ 
+ struct s6e8aa0_variant {
+@@ -1101,10 +1103,11 @@ static int s6e8aa0_set_sequence(struct s6e8aa0 *lcd)
+ {
+ 	int ret;
+ 
+-	ret = s6e8aa0_check_mtp(lcd);
+-	if (ret < 0)
+-		return ret;
+-
++	if (!lcd->probed) {
++		ret = s6e8aa0_check_mtp(lcd);
++		if (ret < 0)
++			return ret;
++	}
+ 	s6e8aa0_panel_init(lcd);
+ 	s6e8aa0_display_on(lcd);
+ 
+@@ -1212,14 +1215,14 @@ static void s6e8aa0_power_on(struct s6e8aa0 *panel)
+ 
+ 	msleep(panel->pdata->power_on_delay);
+ 
++	src->ops.dsi->enable(src);
++
+ 	/* lcd reset */
+ 	if (panel->pdata->reset)
+ 		panel->pdata->reset(panel->dev);
+ 
+ 	msleep(panel->pdata->reset_delay);
+ 
+-	src->ops.dsi->enable(src);
+-
+ 	s6e8aa0_set_sequence(panel);
+ }
+ 
+@@ -1370,6 +1373,8 @@ static int s6e8aa0_probe(struct platform_device *pdev)
+ 
+ 	display_entity_set_state(&lcd->entity, DISPLAY_ENTITY_STATE_ON);
+ 
++	lcd->probed = true;
++
+ 	dev_dbg(&pdev->dev, "probed s6e8aa0 panel driver.\n");
+ 
+ 	return 0;
+-- 
+1.8.3.2
+

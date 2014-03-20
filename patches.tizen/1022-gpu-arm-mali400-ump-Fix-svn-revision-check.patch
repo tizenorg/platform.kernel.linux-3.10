@@ -1,0 +1,28 @@
+From 142295478b0e9c929188dcda50421dac82bbdbfc Mon Sep 17 00:00:00 2001
+From: Nikita Kalyazin <n.kalyazin@samsung.com>
+Date: Thu, 14 Nov 2013 09:05:32 +0400
+Subject: [PATCH 1022/1302] gpu: arm: mali400: ump: Fix svn revision check
+
+Change-Id: Ic5a3d69518be56a800d4233a48ba8bb719e67c52
+Signed-off-by: Nikita Kalyazin <n.kalyazin@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/arm/mali400/ump/Kbuild | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/arm/mali400/ump/Kbuild b/drivers/gpu/arm/mali400/ump/Kbuild
+index 55aa2d9..5b3150b 100644
+--- a/drivers/gpu/arm/mali400/ump/Kbuild
++++ b/drivers/gpu/arm/mali400/ump/Kbuild
+@@ -27,7 +27,7 @@ endif
+ UDD_FILE_PREFIX = ../mali/
+ 
+ # Get subversion revision number, fall back to 0000 if no svn info is available
+-SVN_REV := $(shell ((svnversion | grep -qv exported && echo -n 'Revision: ' && svnversion) || git svn info | sed -e 's/$$$$/M/' | grep '^Revision: ' || echo ${MALI_RELEASE_NAME}) 2>/dev/null | sed -e 's/^Revision: //')
++SVN_REV := $(shell ((svnversion | grep -qv "\(exported\|Unversioned\)" && echo -n 'Revision: ' && svnversion) || git svn info | sed -e 's/$$$$/M/' | grep '^Revision: ' || echo ${MALI_RELEASE_NAME}) 2>/dev/null | sed -e 's/^Revision: //')
+ 
+ ccflags-y += -DSVN_REV=$(SVN_REV)
+ ccflags-y += -DSVN_REV_STRING=\"$(SVN_REV)\"
+-- 
+1.8.3.2
+

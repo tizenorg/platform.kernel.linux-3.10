@@ -1,0 +1,79 @@
+From 5c2577426b96be5dcd81300631c633af91ccf387 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Tue, 3 Sep 2013 17:32:00 +0900
+Subject: [PATCH 0711/1302] ARM: tizen_defconfig: disable s5p-ehci
+
+Until we resolve phy issue of otg(host/device), we disable the
+ehci configuration.
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/configs/tizen_defconfig | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/configs/tizen_defconfig b/arch/arm/configs/tizen_defconfig
+index dbee6bd..79db035 100644
+--- a/arch/arm/configs/tizen_defconfig
++++ b/arch/arm/configs/tizen_defconfig
+@@ -499,6 +499,7 @@ CONFIG_DEFAULT_MMAP_MIN_ADDR=4096
+ CONFIG_CROSS_MEMORY_ATTACH=y
+ # CONFIG_CLEANCACHE is not set
+ # CONFIG_FRONTSWAP is not set
++# CONFIG_ZBUD is not set
+ CONFIG_FORCE_MAX_ZONEORDER=11
+ CONFIG_ALIGNMENT_TRAP=y
+ # CONFIG_UACCESS_WITH_MEMCPY is not set
+@@ -535,7 +536,6 @@ CONFIG_CPU_FREQ=y
+ CONFIG_CPU_FREQ_TABLE=y
+ CONFIG_CPU_FREQ_GOV_COMMON=y
+ CONFIG_CPU_FREQ_STAT=y
+-CONFIG_NR_CPU_LOAD_STORAGE=10
+ # CONFIG_CPU_FREQ_STAT_DETAILS is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE is not set
+@@ -1089,6 +1089,7 @@ CONFIG_OF_DEVICE=y
+ CONFIG_OF_I2C=y
+ CONFIG_OF_NET=y
+ CONFIG_OF_MDIO=y
++CONFIG_OF_RESERVED_MEM=y
+ # CONFIG_PARPORT is not set
+ CONFIG_BLK_DEV=y
+ # CONFIG_BLK_DEV_COW_COMMON is not set
+@@ -2337,7 +2338,7 @@ CONFIG_USB_DEFAULT_PERSIST=y
+ CONFIG_USB_EHCI_HCD=y
+ # CONFIG_USB_EHCI_ROOT_HUB_TT is not set
+ CONFIG_USB_EHCI_TT_NEWSCHED=y
+-CONFIG_USB_EHCI_S5P=y
++# CONFIG_USB_EHCI_S5P is not set
+ # CONFIG_USB_EHCI_HCD_PLATFORM is not set
+ # CONFIG_USB_OXU210HP_HCD is not set
+ # CONFIG_USB_ISP116X_HCD is not set
+@@ -2435,6 +2436,12 @@ CONFIG_USB_S3C_HSOTG=y
+ # CONFIG_USB_NET2272 is not set
+ # CONFIG_USB_DUMMY_HCD is not set
+ CONFIG_USB_LIBCOMPOSITE=y
++CONFIG_USB_U_ETHER=y
++CONFIG_USB_U_RNDIS=y
++CONFIG_USB_F_ECM=y
++CONFIG_USB_F_SUBSET=y
++CONFIG_USB_F_RNDIS=y
++# CONFIG_USB_CONFIGFS is not set
+ # CONFIG_USB_ZERO is not set
+ # CONFIG_USB_AUDIO is not set
+ CONFIG_USB_ETH=y
+@@ -2939,10 +2946,9 @@ CONFIG_IIO_ST_GYRO_SPI_3AXIS=y
+ # CONFIG_ADJD_S311 is not set
+ # CONFIG_SENSORS_TSL2563 is not set
+ # CONFIG_VCNL4000 is not set
+-#CONFIG_GP2AP002A00F is not set
++# CONFIG_GP2AP002A00F is not set
+ CONFIG_CM36651=y
+ 
+-
+ #
+ # Magnetometer sensors
+ #
+-- 
+1.8.3.2
+

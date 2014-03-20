@@ -1,0 +1,31 @@
+From 29499efdc03b06579469ba33af071794e87decef Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Mon, 13 Jan 2014 08:40:05 +0100
+Subject: [PATCH 1077/1302] drivers: mmc: s3c-sdhci: select required sdhci
+ platform driver
+
+s3c-sdhci requires sdhci platform driver, so add this dependency to
+Kcofig entry.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: I62c834664a154f38f19b0597673748bad98f7640
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
+index 9ab8f8d..485f178 100644
+--- a/drivers/mmc/host/Kconfig
++++ b/drivers/mmc/host/Kconfig
+@@ -181,6 +181,7 @@ config MMC_SDHCI_TEGRA
+ config MMC_SDHCI_S3C
+ 	tristate "SDHCI support on Samsung S3C SoC"
+ 	depends on MMC_SDHCI && PLAT_SAMSUNG
++	select MMC_SDHCI_PLTFM
+ 	help
+ 	  This selects the Secure Digital Host Controller Interface (SDHCI)
+ 	  often referrered to as the HSMMC block in some of the Samsung S3C
+-- 
+1.8.3.2
+

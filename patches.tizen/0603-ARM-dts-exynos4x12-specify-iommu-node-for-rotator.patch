@@ -1,0 +1,27 @@
+From 5b06c10c070d637d2ffd1d5ed783048b25a99c0a Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 2 Sep 2013 14:53:27 +0900
+Subject: [PATCH 0603/1302] ARM: dts: exynos4x12: specify iommu node for
+ rotator
+
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index e3e47a1..aa7fb0b 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -274,6 +274,7 @@
+ 		interrupts = <0 83 0>;
+ 		clocks = <&clock 278>;
+ 		clock-names = "rotator";
++		iommu = <&sysmmu_rotator>;
+ 	};
+ 
+ 	mfc: codec@13400000 {
+-- 
+1.8.3.2
+

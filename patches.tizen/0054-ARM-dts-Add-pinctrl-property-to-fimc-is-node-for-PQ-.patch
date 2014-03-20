@@ -1,0 +1,35 @@
+From a6bd16a03a97317a3d79977ced76b0f6b345f553 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Wed, 23 Jan 2013 17:25:56 +0100
+Subject: [PATCH 0054/1302] ARM: dts: Add pinctrl property to fimc-is node for
+ PQ board
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index fa47f9a..3ff029f 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -627,6 +627,8 @@
+ 
+ 		fimc-is@12000000 {
+ 			status = "okay";
++			pinctrl-0 = <&fimc_is_i2c0 &fimc_is_i2c1 &fimc_is_uart>;
++			pinctrl-names = "default";
+ 
+ 			fimc_lite_0: fimc-lite@12390000 {
+ 				status = "okay";
+@@ -637,6 +639,7 @@
+ 			};
+ 
+ 			fimc-is-i2c@0 {
++				/* compatible = "samsung,exynos4212-is-i2c"; */
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+ 
+-- 
+1.8.3.2
+

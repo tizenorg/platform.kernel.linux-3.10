@@ -1,0 +1,27 @@
+From 8a883198eb085fb5998ffd3a15b7674d4d536117 Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 28 Feb 2012 10:31:19 +0100
+Subject: [PATCH 0559/1302] vt: disable console blank
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/tty/vt/vt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/tty/vt/vt.c b/drivers/tty/vt/vt.c
+index 740202d..fa02563 100644
+--- a/drivers/tty/vt/vt.c
++++ b/drivers/tty/vt/vt.c
+@@ -176,7 +176,7 @@ int console_blanked;
+ 
+ static int vesa_blank_mode; /* 0:none 1:suspendV 2:suspendH 3:powerdown */
+ static int vesa_off_interval;
+-static int blankinterval = 10*60;
++static int blankinterval = 0;
+ core_param(consoleblank, blankinterval, int, 0444);
+ 
+ static DECLARE_WORK(console_work, console_callback);
+-- 
+1.8.3.2
+

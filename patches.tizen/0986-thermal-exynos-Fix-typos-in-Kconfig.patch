@@ -1,0 +1,43 @@
+From a7378a5eb1d638587d52e2f6cd6ecaee2e50fa81 Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Mon, 19 Aug 2013 11:58:41 +0530
+Subject: [PATCH 0986/1302] thermal: exynos: Fix typos in Kconfig
+
+Fixes some trivial typos.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/samsung/Kconfig | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/thermal/samsung/Kconfig b/drivers/thermal/samsung/Kconfig
+index b653f15..92492e4 100644
+--- a/drivers/thermal/samsung/Kconfig
++++ b/drivers/thermal/samsung/Kconfig
+@@ -3,16 +3,16 @@ config EXYNOS_THERMAL
+ 	depends on ARCH_HAS_BANDGAP
+ 	help
+ 	  If you say yes here you get support for the TMU (Thermal Management
+-	  Unit) driver for SAMSUNG EXYNOS series of soc. This driver initialises
++	  Unit) driver for SAMSUNG EXYNOS series of SoCs. This driver initialises
+ 	  the TMU, reports temperature and handles cooling action if defined.
+-	  This driver uses the exynos core thermal API's and TMU configuration
+-	  data from the supported soc's.
++	  This driver uses the Exynos core thermal APIs and TMU configuration
++	  data from the supported SoCs.
+ 
+ config EXYNOS_THERMAL_CORE
+-	bool "Core thermal framework support for EXYNOS SOC's"
++	bool "Core thermal framework support for EXYNOS SOCs"
+ 	depends on EXYNOS_THERMAL
+ 	help
+ 	  If you say yes here you get support for EXYNOS TMU
+ 	  (Thermal Management Unit) common registration/unregistration
+ 	  functions to the core thermal layer and also to use the generic
+-	  cpu cooling API's.
++	  CPU cooling APIs.
+-- 
+1.8.3.2
+

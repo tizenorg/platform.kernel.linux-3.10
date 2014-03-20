@@ -1,0 +1,41 @@
+From b39ef9dd4f4f229b6856149badafaf90c8d91e17 Mon Sep 17 00:00:00 2001
+From: Robert Baldyga <r.baldyga@samsung.com>
+Date: Thu, 5 Dec 2013 11:32:22 +0100
+Subject: [PATCH 1074/1302] USB: gadget: s3c-hsotg: fix maxpacket size in
+ s3c_hsotg_irq_enumdone
+
+This patch set maximum possible maxpacket value for each speed. Previous
+values didn't allow to use maxpacket sizes greater than 64 in full speed
+and 512 in high speed, although hardware is able to handle up to 1023 in fs
+and 1024 in hs.
+
+Signed-off-by: Robert Baldyga <r.baldyga@samsung.com>
+Change-Id: I5a1b687958afb08000d3a86e68c5df7b343cc08d
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 7360106..3bab054 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -2054,13 +2054,13 @@ static void s3c_hsotg_irq_enumdone(struct s3c_hsotg *hsotg)
+ 	case DSTS_EnumSpd_FS48:
+ 		hsotg->gadget.speed = USB_SPEED_FULL;
+ 		ep0_mps = EP0_MPS_LIMIT;
+-		ep_mps = 64;
++		ep_mps = 1023;
+ 		break;
+ 
+ 	case DSTS_EnumSpd_HS:
+ 		hsotg->gadget.speed = USB_SPEED_HIGH;
+ 		ep0_mps = EP0_MPS_LIMIT;
+-		ep_mps = 512;
++		ep_mps = 1024;
+ 		break;
+ 
+ 	case DSTS_EnumSpd_LS:
+-- 
+1.8.3.2
+

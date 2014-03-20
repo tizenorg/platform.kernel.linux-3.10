@@ -1,0 +1,61 @@
+From 493f719cc607e205bb9257f8f90e5cc0969054f7 Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Wed, 19 Mar 2014 00:41:04 +0900
+Subject: [PATCH 1299/1302] Revert "extcon: max77693: Fix inaccurate extcon
+ event for JIG with USB cable"
+
+This reverts commit 36bdb901c8c61448d9e1320641c3debebde03321.
+Upcoming patch will fix a bug thus all related workaournds are now purged.
+
+Change-Id: Idafdbcadff0d99320502676ef371d6bc0bd1fcf7
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/extcon/extcon-max77693.c | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/extcon/extcon-max77693.c b/drivers/extcon/extcon-max77693.c
+index b08a1e8..903c507 100644
+--- a/drivers/extcon/extcon-max77693.c
++++ b/drivers/extcon/extcon-max77693.c
+@@ -293,10 +293,18 @@ static int max77693_muic_set_path(struct max77693_muic_info *info,
+ 		return ret;
+ 	}
+ 
+-	if (attached)
+-		ctrl1 = val;
+-	else
++	if (attached) {
++		if (info->prev_cable_type ==
++		    MAX77693_MUIC_ADC_FACTORY_MODE_UART_OFF) {
++			/* if cable_type is jig, then force UART */
++			dev_info(info->dev, "For jig force using UART path\n");
++			ctrl1 = CONTROL1_SW_UART;
++		} else {
++			ctrl1 = val;
++		}
++	} else {
+ 		ctrl1 = CONTROL1_SW_OPEN;
++	}
+ 
+ 	ret = max77693_update_reg(info->max77693->regmap_muic,
+ 			MAX77693_MUIC_REG_CTRL1, ctrl1, COMP_SW_MASK);
+@@ -914,15 +922,6 @@ static int max77693_muic_chg_handler(struct max77693_muic_info *info)
+ 			 */
+ 			break;
+ 		case MAX77693_CHARGER_TYPE_USB:
+-			/* If UART is still connected, do not set path to USB */
+-			if (cable_type == MAX77693_MUIC_ADC_FACTORY_MODE_UART_OFF) {
+-				ret = max77693_muic_set_path(info, info->path_uart,
+-						    attached);
+-				if (ret < 0)
+-					return ret;
+-				break;
+-			}
+-
+ 			/* Only USB cable, PATH:AP_USB */
+ 			ret = max77693_muic_set_path(info, info->path_usb, attached);
+ 			if (ret < 0)
+-- 
+1.8.3.2
+

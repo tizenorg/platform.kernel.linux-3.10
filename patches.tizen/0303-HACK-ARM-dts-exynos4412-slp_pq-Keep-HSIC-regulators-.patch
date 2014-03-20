@@ -1,0 +1,38 @@
+From e178f59e60e820ba195ee959e3bf3a0d27623fa7 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 8 Mar 2013 18:13:08 +0100
+Subject: [PATCH 0303/1302] [HACK] ARM: dts: exynos4412-slp_pq: Keep HSIC
+ regulators always on
+
+This is needed because the s5p-ehci driver does not control voltage
+regulators.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 85b3b7e..b7783cb 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -487,6 +487,7 @@
+ 					regulator-name = "VHSIC_1.0V";
+ 					regulator-min-microvolt = <1000000>;
+ 					regulator-max-microvolt = <1000000>;
++					regulator-always-on;
+ 				};
+ 
+ 				ldo16_reg: ldo@16 {
+@@ -494,6 +495,7 @@
+ 					regulator-name = "VHSIC_1.8V";
+ 					regulator-min-microvolt = <1800000>;
+ 					regulator-max-microvolt = <1800000>;
++					regulator-always-on;
+ 				};
+ 
+ 				ldo17_reg: ldo@17 {
+-- 
+1.8.3.2
+

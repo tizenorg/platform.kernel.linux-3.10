@@ -1,0 +1,83 @@
+From 7cb9f151abdc91df31521b09fee09ef1e862e80a Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Mon, 2 Sep 2013 15:13:54 +0200
+Subject: [PATCH 0727/1302] ARM: dts: Add clock properties for camera sensors
+ on exyno4412 boards
+
+Add clock properties to the camera sensor device nodes so the sensor
+drivers can get actual frequency of their master clock and control the
+clock.
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-m0.dts         | 6 +++---
+ arch/arm/boot/dts/exynos4412-redwoodlte.dts | 3 ++-
+ arch/arm/boot/dts/exynos4412-slp_pq.dts     | 8 ++++++--
+ 3 files changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4412-m0.dts b/arch/arm/boot/dts/exynos4412-m0.dts
+index ba9168b..5c2c141 100644
+--- a/arch/arm/boot/dts/exynos4412-m0.dts
++++ b/arch/arm/boot/dts/exynos4412-m0.dts
+@@ -199,12 +199,12 @@
+ 					reg = <0x10>;
+ 					svdda-supply = <&cam_io_reg>;
+ 					svddio-supply = <&ldo19_reg>;
+-					clock-frequency = <24000000>;
+-					samsung,camclk-out = <1>;
+ 					gpios = <&gpm1 6 0>;
+ 					pinctrl-names = "default";
+ 					pinctrl-0 = <&vt_cam_id>;
+-
++					clocks = <&camera 1>; /* CAM_B_CLKOUT */
++					clock-names = "extclk";
++					clock-frequency = <24000000>;
+ 					port {
+ 						is_s5k6a3_ep: endpoint {
+ 							remote-endpoint = <&csis1_ep>;
+diff --git a/arch/arm/boot/dts/exynos4412-redwoodlte.dts b/arch/arm/boot/dts/exynos4412-redwoodlte.dts
+index fa252d5..4da7157 100644
+--- a/arch/arm/boot/dts/exynos4412-redwoodlte.dts
++++ b/arch/arm/boot/dts/exynos4412-redwoodlte.dts
+@@ -169,7 +169,8 @@
+ 			vdd-af-supply = <&cam_af_reg>;
+ 			vdd-reg-supply = <&cam_io_reg>;
+ 			clock-frequency = <24000000>;
+-
++			clocks = <&camera 0>;		/* CAM_A_CLKOUT */
++			clock-names = "cis_extclk";
+ 			port {
+ 				s5c73m3_ep: endpoint {
+ 					remote-endpoint = <&csis0_ep>;
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index 2c977b7..03f53a4 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -415,8 +415,9 @@
+ 			vddio-host-supply = <&ldo18_reg>;
+ 			vdd-af-supply = <&cam_af_reg>;
+ 			vdd-reg-supply = <&cam_io_reg>;
++			clocks = <&camera 0>;		/* CAM_A_CLKOUT */
++			clock-names = "cis_extclk";
+ 			clock-frequency = <24000000>;
+-
+ 			port {
+ 				s5c73m3_ep: endpoint {
+ 					remote-endpoint = <&csis0_ep>;
+@@ -1168,8 +1169,11 @@
+ 					reg = <0x10>;
+ 					svdda-supply = <&cam_io_reg>;
+ 					svddio-supply = <&ldo19_reg>;
+-					clock-frequency = <24000000>;
+ 					gpios = <&gpm1 6 0>;
++					clocks = <&camera 0>; /* CAM_A_CLKOUT */
++					clock-names = "extclk";
++					clock-frequency = <24000000>;
++
+ 					port {
+ 						is_s5k6a3_ep: endpoint {
+ 							remote-endpoint = <&csis1_ep>;
+-- 
+1.8.3.2
+

@@ -1,0 +1,47 @@
+From cebcc7fbebf6255c8df5764109f290fa39330175 Mon Sep 17 00:00:00 2001
+From: Beomho Seo <beomho.seo@samsung.com>
+Date: Wed, 14 Aug 2013 11:54:56 +0900
+Subject: [PATCH 0534/1302] iio:add proximity/light sensor cm36651 driver to
+ Kconfig and Makefile - Add cm36651 proximity/light sensor to Kconfig to
+ enable compilation - Add cm36651 proximity/light sensor to Makefile to enable
+ compilation
+
+Signed-off-by: Beomho Seo <beomho.seo@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/iio/light/Kconfig  | 11 +++++++++++
+ drivers/iio/light/Makefile |  1 +
+ 2 files changed, 12 insertions(+)
+
+diff --git a/drivers/iio/light/Kconfig b/drivers/iio/light/Kconfig
+index 176ef6d..ad1d60a 100644
+--- a/drivers/iio/light/Kconfig
++++ b/drivers/iio/light/Kconfig
+@@ -75,4 +75,15 @@ config HID_SENSOR_ALS
+ 	  Say yes here to build support for the HID SENSOR
+ 	  Ambient light sensor.
+ 
++config CM36651
++	depends on I2C
++	tristate "CM36651 driver"
++	default n
++	help
++	  Sya Y here if you use cm36651.
++	  This option enables proximity & RGB sensor using
++	  Capella cm36651 device driver.
++
++	  Say N here if you do not use cm36651.
++
+ endmenu
+diff --git a/drivers/iio/light/Makefile b/drivers/iio/light/Makefile
+index 9621b18..53bf410 100644
+--- a/drivers/iio/light/Makefile
++++ b/drivers/iio/light/Makefile
+@@ -8,3 +8,4 @@ obj-$(CONFIG_SENSORS_TSL2563)	+= tsl2563.o
+ obj-$(CONFIG_VCNL4000)		+= vcnl4000.o
+ obj-$(CONFIG_HID_SENSOR_ALS)	+= hid-sensor-als.o
+ obj-$(CONFIG_GP2AP002A00F)	+= gp2ap002a00f.o
++obj-$(CONFIG_CM36651)		+= cm36651.o
+-- 
+1.8.3.2
+

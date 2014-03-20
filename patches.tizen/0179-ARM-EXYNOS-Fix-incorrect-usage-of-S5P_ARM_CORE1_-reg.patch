@@ -1,0 +1,96 @@
+From b5fc541c112beb40e0a35b9c3161bb6ea386191e Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 8 Feb 2013 14:57:03 +0100
+Subject: [PATCH 0179/1302] ARM: EXYNOS: Fix incorrect usage of S5P_ARM_CORE1_*
+ registers
+
+S5P_ARM_CORE1_* registers affect only core 1. To control further cores
+properly another registers must be used.
+
+This patch replaces S5P_ARM_CORE1_* register definitions with
+S5P_ARM_CORE_*(x) macro which return addresses of registers for specified
+core.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/hotplug.c               |  6 +++---
+ arch/arm/mach-exynos/include/mach/regs-pmu.h | 10 +++++++---
+ arch/arm/mach-exynos/platsmp.c               |  9 +++++----
+ 3 files changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/arch/arm/mach-exynos/hotplug.c b/arch/arm/mach-exynos/hotplug.c
+index af90cfa..4b8e1f7 100644
+--- a/arch/arm/mach-exynos/hotplug.c
++++ b/arch/arm/mach-exynos/hotplug.c
+@@ -93,10 +93,10 @@ static inline void cpu_leave_lowpower(void)
+ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
+ {
+ 	for (;;) {
++		void __iomem *reg_base;
+ 
+-		/* make cpu1 to be turned off at next WFI command */
+-		if (cpu == 1)
+-			__raw_writel(0, S5P_ARM_CORE1_CONFIGURATION);
++		reg_base = S5P_ARM_CORE_CONFIGURATION(cpu_logical_map(cpu));
++		__raw_writel(0, reg_base);
+ 
+ 		/*
+ 		 * here's the WFI
+diff --git a/arch/arm/mach-exynos/include/mach/regs-pmu.h b/arch/arm/mach-exynos/include/mach/regs-pmu.h
+index 57344b7..cf40b86 100644
+--- a/arch/arm/mach-exynos/include/mach/regs-pmu.h
++++ b/arch/arm/mach-exynos/include/mach/regs-pmu.h
+@@ -125,10 +125,14 @@
+ #define S5P_GPS_ALIVE_LOWPWR			S5P_PMUREG(0x13A0)
+ 
+ #define S5P_ARM_CORE0_CONFIGURATION		S5P_PMUREG(0x2000)
++#define S5P_ARM_CORE0_STATUS			S5P_PMUREG(0x2004)
+ #define S5P_ARM_CORE0_OPTION			S5P_PMUREG(0x2008)
+-#define S5P_ARM_CORE1_CONFIGURATION		S5P_PMUREG(0x2080)
+-#define S5P_ARM_CORE1_STATUS			S5P_PMUREG(0x2084)
+-#define S5P_ARM_CORE1_OPTION			S5P_PMUREG(0x2088)
++#define S5P_ARM_CORE_CONFIGURATION(_nr)		\
++		(S5P_ARM_CORE0_CONFIGURATION + ((_nr) * 0x80))
++#define S5P_ARM_CORE_STATUS(_nr)		\
++		(S5P_ARM_CORE0_STATUS + ((_nr) * 0x80))
++#define S5P_ARM_CORE_OPTION(_nr)		\
++		(S5P_ARM_CORE0_OPTION + ((_nr) * 0x80))
+ 
+ #define S5P_ARM_COMMON_OPTION			S5P_PMUREG(0x2408)
+ #define S5P_TOP_PWR_OPTION			S5P_PMUREG(0x2C48)
+diff --git a/arch/arm/mach-exynos/platsmp.c b/arch/arm/mach-exynos/platsmp.c
+index a0e8ff7..8da3ec0 100644
+--- a/arch/arm/mach-exynos/platsmp.c
++++ b/arch/arm/mach-exynos/platsmp.c
+@@ -109,14 +109,15 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct
+ 	 */
+ 	write_pen_release(phys_cpu);
+ 
+-	if (!(__raw_readl(S5P_ARM_CORE1_STATUS) & S5P_CORE_LOCAL_PWR_EN)) {
++	if (!(__raw_readl(S5P_ARM_CORE_STATUS(phys_cpu))
++		& S5P_CORE_LOCAL_PWR_EN)) {
+ 		__raw_writel(S5P_CORE_LOCAL_PWR_EN,
+-			     S5P_ARM_CORE1_CONFIGURATION);
++			     S5P_ARM_CORE_CONFIGURATION(phys_cpu));
+ 
+ 		timeout = 10;
+ 
+ 		/* wait max 10 ms until cpu1 is on */
+-		while ((__raw_readl(S5P_ARM_CORE1_STATUS)
++		while ((__raw_readl(S5P_ARM_CORE_STATUS(phys_cpu))
+ 			& S5P_CORE_LOCAL_PWR_EN) != S5P_CORE_LOCAL_PWR_EN) {
+ 			if (timeout-- == 0)
+ 				break;
+@@ -125,7 +126,7 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct
+ 		}
+ 
+ 		if (timeout == 0) {
+-			printk(KERN_ERR "cpu1 power enable failed");
++			printk(KERN_ERR "cpu%u power enable failed", cpu);
+ 			spin_unlock(&boot_lock);
+ 			return -ETIMEDOUT;
+ 		}
+-- 
+1.8.3.2
+

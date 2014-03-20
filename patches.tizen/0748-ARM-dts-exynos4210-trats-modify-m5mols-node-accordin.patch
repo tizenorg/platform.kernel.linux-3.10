@@ -1,0 +1,36 @@
+From 88a79203be5844f0e5723a4db6caac18bef79cd9 Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Tue, 3 Sep 2013 15:43:52 +0200
+Subject: [PATCH 0748/1302] ARM: dts: exynos4210-trats: modify m5mols node
+ according to driver
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index a4c377d..bed4256 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -239,12 +239,15 @@
+ 			dig_28-supply = <&cam_af_28v_reg>;
+ 			a_sensor-supply = <&cam_io_en_reg>;
+ 			dig_12-supply = <&cam_io_12v_reg>;
+-			gpios = <&gpy3 7 1>;
++			resetb-gpios = <&gpy3 7 1>;
++			clocks = <&camera 0>;
++			clock-names = "clkin";
+ 			clock-frequency = <24000000>;
+ 
+ 			port {
+ 				m5mols_ep: endpoint {
+ 					remote-endpoint = <&m5mols_ep>;
++					data-lanes = <1 2 3 4>;
+ 				};
+ 			};
+ 		};
+-- 
+1.8.3.2
+

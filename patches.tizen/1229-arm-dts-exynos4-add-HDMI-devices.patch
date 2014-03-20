@@ -1,0 +1,89 @@
+From ec33e7cd05886957ccfeff317c9563d4ca0a8202 Mon Sep 17 00:00:00 2001
+From: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Date: Thu, 17 Oct 2013 13:56:04 +0200
+Subject: [PATCH 1229/1302] arm: dts: exynos4: add HDMI devices
+
+This patch adds DT nodes for HDMI related devices on SoCs from Exynos4 family.
+
+Signed-off-by: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Change-Id: I92462470abd05ce14635b33a37b3f1e50e463085
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4.dtsi    | 19 +++++++++++++++++++
+ arch/arm/boot/dts/exynos4210.dtsi | 12 ++++++++++++
+ arch/arm/boot/dts/exynos4412.dtsi | 12 ++++++++++++
+ 3 files changed, 43 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4.dtsi b/arch/arm/boot/dts/exynos4.dtsi
+index b3798ce..2ec0547 100644
+--- a/arch/arm/boot/dts/exynos4.dtsi
++++ b/arch/arm/boot/dts/exynos4.dtsi
+@@ -744,4 +744,23 @@
+ 	cpufreq {
+ 		compatible = "samsung,exynos-cpufreq";
+ 	};
++
++	hdmi: hdmi@12D00000 {
++		reg = <0x12D00000 0x70000>;
++		interrupts = <0 92 0>;
++		clock-names = "hdmi", "sclk_hdmi", "sclk_pixel", "sclk_hdmiphy";
++		clocks = <&clock 271>, <&clock 136>, <&clock 139>, <&clock 22>;
++		status = "disabled";
++		samsung,power-domain = <&pd_tv>;
++	};
++
++	mixer: mixer@12C10000 {
++		compatible = "samsung,exynos4-mixer";
++		interrupts = <0 91 0>;
++		reg = <0x12C10000 0x2100>, <0x12c00000 0x300>;
++		clock-names = "mixer", "sclk_hdmi", "vp", "sclk_dac", "sclk_mixer";
++		clocks = <&clock 269>, <&clock 136>, <&clock 268>, <&clock 138>, <&clock 137>;
++		samsung,power-domain = <&pd_tv>;
++		iommu = <&sysmmu_tv>;
++	};
+ };
+diff --git a/arch/arm/boot/dts/exynos4210.dtsi b/arch/arm/boot/dts/exynos4210.dtsi
+index 165e1e7..f6989aa 100644
+--- a/arch/arm/boot/dts/exynos4210.dtsi
++++ b/arch/arm/boot/dts/exynos4210.dtsi
+@@ -223,4 +223,16 @@
+ 		clock-names = "armclk", "moutcore", "mout_mpll", "mout_apll";
+ 		status = "disabled";
+ 	};
++
++	exynos_phy: exynos-phy@10020000 {
++		compatible = "exynos4210-phy";
++		reg = <0x10020000 0x1000>;
++		#phy-cells = <1>;
++	};
++
++	hdmi: hdmi@12D00000 {
++		phys = <&exynos_phy 0>;
++		phy-names = "hdmiphy";
++		compatible = "samsung,exynos4210-hdmi";
++	};
+ };
+diff --git a/arch/arm/boot/dts/exynos4412.dtsi b/arch/arm/boot/dts/exynos4412.dtsi
+index 2f4ca6f..b0fde4a 100644
+--- a/arch/arm/boot/dts/exynos4412.dtsi
++++ b/arch/arm/boot/dts/exynos4412.dtsi
+@@ -74,4 +74,16 @@
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 	};
++
++	exynos_phy: exynos-phy@10020000 {
++		compatible = "exynos4412-phy";
++		reg = <0x10020000 0x1000>;
++		#phy-cells = <1>;
++	};
++
++	hdmi: hdmi@12D00000 {
++		phys = <&exynos_phy 0>;
++		phy-names = "hdmiphy";
++		compatible = "samsung,exynos5-hdmi";
++	};
+ };
+-- 
+1.8.3.2
+

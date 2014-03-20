@@ -1,0 +1,38 @@
+From d1bb3d04acad2d7dd21e195603ae4e4b1b83d289 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Mon, 7 Jan 2013 18:10:22 +0100
+Subject: [PATCH 0043/1302] ARM: dts: exynos4412-slp_pq: Add nodes for xxti and
+ xusbxti clocks
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-slp_pq.dts | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-slp_pq.dts b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+index fe5a458..e28bc60 100644
+--- a/arch/arm/boot/dts/exynos4412-slp_pq.dts
++++ b/arch/arm/boot/dts/exynos4412-slp_pq.dts
+@@ -35,6 +35,18 @@
+ 		reg = <0x0204F000 0x1000>;
+ 	};
+ 
++	fixed-rate-clocks {
++		xxti {
++			compatible = "samsung,clock-xxti", "fixed-clock";
++			clock-frequency = <0>;
++		};
++
++		xusbxti {
++			compatible = "samsung,clock-xusbxti", "fixed-clock";
++			clock-frequency = <24000000>;
++		};
++	};
++
+ 	vemmc_reg: voltage-regulator@0 {
+ 	        compatible = "regulator-fixed";
+ 		regulator-name = "VMEM_VDD_2.8V";
+-- 
+1.8.3.2
+

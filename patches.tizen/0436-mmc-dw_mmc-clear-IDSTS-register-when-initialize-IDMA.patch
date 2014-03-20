@@ -1,0 +1,45 @@
+From 356b0529db5f17e6716c23b3d17c108a2775171b Mon Sep 17 00:00:00 2001
+From: Joonyoung Shim <jy0922.shim@samsung.com>
+Date: Fri, 26 Apr 2013 15:35:22 +0900
+Subject: [PATCH 0436/1302] mmc: dw_mmc: clear IDSTS register when initialize
+ IDMAC
+
+If pending interrupt for IDMAC exists when initialize IDMAC, it will
+call interrupt handler unnecessarily.
+
+Signed-off-by: Joonyoung Shim <jy0922.shim@samsung.com>
+Acked-by: Seungwon Jeon <tgih.jun@samsung.com>
+Reviewed-by: Jaehoon Chung <jh80.chung@samsung.com>
+Signed-off-by: Chris Ball <cjb@laptop.org>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/mmc/host/dw_mmc.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/mmc/host/dw_mmc.c b/drivers/mmc/host/dw_mmc.c
+index 0652690..b10e5e1 100644
+--- a/drivers/mmc/host/dw_mmc.c
++++ b/drivers/mmc/host/dw_mmc.c
+@@ -51,6 +51,11 @@
+ #define DW_MCI_DMA_THRESHOLD	16
+ 
+ #ifdef CONFIG_MMC_DW_IDMAC
++#define IDMAC_INT_CLR		(SDMMC_IDMAC_INT_AI | SDMMC_IDMAC_INT_NI | \
++				 SDMMC_IDMAC_INT_CES | SDMMC_IDMAC_INT_DU | \
++				 SDMMC_IDMAC_INT_FBE | SDMMC_IDMAC_INT_RI | \
++				 SDMMC_IDMAC_INT_TI)
++
+ struct idmac_desc {
+ 	u32		des0;	/* Control Descriptor */
+ #define IDMAC_DES0_DIC	BIT(1)
+@@ -433,6 +438,7 @@ static int dw_mci_idmac_init(struct dw_mci *host)
+ 	mci_writel(host, BMOD, SDMMC_IDMAC_SWRESET);
+ 
+ 	/* Mask out interrupts - get Tx & Rx complete only */
++	mci_writel(host, IDSTS, IDMAC_INT_CLR);
+ 	mci_writel(host, IDINTEN, SDMMC_IDMAC_INT_NI | SDMMC_IDMAC_INT_RI |
+ 		   SDMMC_IDMAC_INT_TI);
+ 
+-- 
+1.8.3.2
+

@@ -1,0 +1,34 @@
+From 1e3b5d934a9de60212ac516d06319469d1074e6e Mon Sep 17 00:00:00 2001
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Mon, 11 Mar 2013 14:26:30 +0100
+Subject: [PATCH 0163/1302] ARM: dts: exynos: re-enabled ISP power domain
+
+ISP power domain could be enabled after fixing
+ISP clock flags in previous commit.
+
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4x12.dtsi | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/arch/arm/boot/dts/exynos4x12.dtsi b/arch/arm/boot/dts/exynos4x12.dtsi
+index ceb7218..289062f 100644
+--- a/arch/arm/boot/dts/exynos4x12.dtsi
++++ b/arch/arm/boot/dts/exynos4x12.dtsi
+@@ -31,11 +31,7 @@
+ 	};
+ 
+ 	pd_isp: isp-power-domain@10023CA0 {
+-		/*
+-		 * FIXME: ISP power domain needs special handling
+-		 * (Implement proper ISP power domain on/off sequence)
+-		 */
+-		/* compatible = "samsung,exynos4210-pd"; */
++		compatible = "samsung,exynos4210-pd";
+ 		reg = <0x10023CA0 0x20>;
+ 	};
+ 
+-- 
+1.8.3.2
+

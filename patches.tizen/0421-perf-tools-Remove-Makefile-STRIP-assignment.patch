@@ -1,0 +1,43 @@
+From 8b8e8119e0303559b0a9d2f98509bc2025cee101 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 15 Apr 2013 04:49:43 +0200
+Subject: [PATCH 0421/1302] perf tools: Remove '?=' Makefile STRIP assignment
+
+No need to use '?=' assignment for STRIP variable, the standard
+'=' does the same job without creating confusion.
+
+Suggested-by: Namhyung Kim <namhyung@kernel.org>
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Stephane Eranian <eranian@google.com>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Link: http://lkml.kernel.org/r/1369398928-9809-25-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/perf/Makefile b/tools/perf/Makefile
+index ac52598..b5f5c6d 100644
+--- a/tools/perf/Makefile
++++ b/tools/perf/Makefile
+@@ -82,7 +82,7 @@ FIND    = find
+ INSTALL = install
+ FLEX    = flex
+ BISON   = bison
+-STRIP  ?= strip
++STRIP   = strip
+ 
+ LK_DIR          = $(srctree)/tools/lib/lk/
+ TRACE_EVENT_DIR = $(srctree)/tools/lib/traceevent/
+-- 
+1.8.3.2
+

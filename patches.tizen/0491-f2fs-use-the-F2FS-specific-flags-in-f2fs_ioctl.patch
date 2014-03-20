@@ -1,0 +1,37 @@
+From c2dfda645ffe25cc855739b509783415bc22ca66 Mon Sep 17 00:00:00 2001
+From: Namjae Jeon <namjae.jeon@samsung.com>
+Date: Sat, 8 Jun 2013 21:25:28 +0900
+Subject: [PATCH 0491/1302] f2fs: use the F2FS specific flags in f2fs_ioctl()
+
+In f2fs_ioctl() function, it is using generic flags.
+Since F2FS specific flags are defined. So lets use
+those flags.
+
+Signed-off-by: Namjae Jeon <namjae.jeon@samsung.com>
+Signed-off-by: Pankaj Kumar <pankaj.km@samsung.com>
+Signed-off-by: Jaegeuk Kim <jaegeuk.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ fs/f2fs/file.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/f2fs/file.c b/fs/f2fs/file.c
+index 8d2fce9..85b665d 100644
+--- a/fs/f2fs/file.c
++++ b/fs/f2fs/file.c
+@@ -575,10 +575,10 @@ long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ 	int ret;
+ 
+ 	switch (cmd) {
+-	case FS_IOC_GETFLAGS:
++	case F2FS_IOC_GETFLAGS:
+ 		flags = fi->i_flags & FS_FL_USER_VISIBLE;
+ 		return put_user(flags, (int __user *) arg);
+-	case FS_IOC_SETFLAGS:
++	case F2FS_IOC_SETFLAGS:
+ 	{
+ 		unsigned int oldflags;
+ 
+-- 
+1.8.3.2
+

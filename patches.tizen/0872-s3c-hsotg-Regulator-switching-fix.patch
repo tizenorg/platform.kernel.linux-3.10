@@ -1,0 +1,49 @@
+From e0163452f3f50bf134b6100c7c98f0facfea5c4a Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 15 Oct 2013 15:26:40 +0200
+Subject: [PATCH 0872/1302] s3c-hsotg: Regulator switching fix
+
+This patch delays switching off regulators in s3c_hsotg_udc_stop after
+the critical section has been finished.
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index f9bd408..dfa56e7 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -3005,9 +3005,6 @@ static int s3c_hsotg_udc_stop(struct usb_gadget *gadget,
+ 
+ 	spin_lock_irqsave(&hsotg->lock, flags);
+ 
+-	s3c_hsotg_phy_disable(hsotg);
+-	regulator_bulk_disable(ARRAY_SIZE(hsotg->supplies), hsotg->supplies);
+-
+ 	if (!driver)
+ 		hsotg->driver = NULL;
+ 
+@@ -3015,6 +3012,8 @@ static int s3c_hsotg_udc_stop(struct usb_gadget *gadget,
+ 
+ 	spin_unlock_irqrestore(&hsotg->lock, flags);
+ 
++	regulator_bulk_disable(ARRAY_SIZE(hsotg->supplies), hsotg->supplies);
++
+ 	return 0;
+ }
+ 
+@@ -3555,6 +3554,8 @@ static int s3c_hsotg_probe(struct platform_device *pdev)
+ 	hsotg->gadget.ops = &s3c_hsotg_gadget_ops;
+ 	hsotg->gadget.name = dev_name(dev);
+ 
++	hsotg->gadget.dev.of_node = hsotg->dev->of_node;
++
+ 	/* reset the system */
+ 
+ 	clk_prepare_enable(hsotg->clk);
+-- 
+1.8.3.2
+

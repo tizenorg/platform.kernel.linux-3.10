@@ -1,0 +1,32 @@
+From e2d1801d620b232b038ac4221a02cca11b58af0b Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 20 Feb 2013 10:59:43 +0100
+Subject: [PATCH 0126/1302] ARM: dts: exynos4210-trats: Add gpu node for ARM
+ Mali 400
+
+This patch adds gpu node with board-specific properties and status
+override to enable G3D on Trats board.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4210-trats.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4210-trats.dts b/arch/arm/boot/dts/exynos4210-trats.dts
+index fca0c16..eca8054 100644
+--- a/arch/arm/boot/dts/exynos4210-trats.dts
++++ b/arch/arm/boot/dts/exynos4210-trats.dts
+@@ -444,4 +444,9 @@
+ 		vdd_arm-supply = <&varm_breg>;
+ 		status = "okay";
+ 	};
++
++	gpu@13000000 {
++		status = "okay";
++		vdd_g3d-supply = <&vg3d_breg>;
++	};
+ };
+-- 
+1.8.3.2
+

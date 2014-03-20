@@ -1,0 +1,204 @@
+From 3c2bf23d79422b1703253248a4e7642a5d8d8a00 Mon Sep 17 00:00:00 2001
+From: Donghwa Lee <dh09.lee@samsung.com>
+Date: Thu, 26 Sep 2013 14:38:02 +0900
+Subject: [PATCH 0805/1302] drm: exynos: support drm backlight dpms on/off
+
+Signed-off-by: Donghwa Lee <dh09.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/Makefile                 |   2 +-
+ drivers/gpu/drm/exynos/exynos_drm_fimd.c | 122 +++++++++++++++++++------------
+ 2 files changed, 76 insertions(+), 48 deletions(-)
+
+diff --git a/drivers/gpu/drm/Makefile b/drivers/gpu/drm/Makefile
+index 1c9f2439..5d4273d 100644
+--- a/drivers/gpu/drm/Makefile
++++ b/drivers/gpu/drm/Makefile
+@@ -12,7 +12,7 @@ drm-y       :=	drm_auth.o drm_buffer.o drm_bufs.o drm_cache.o \
+ 		drm_platform.o drm_sysfs.o drm_hashtab.o drm_mm.o \
+ 		drm_crtc.o drm_modes.o drm_edid.o \
+ 		drm_info.o drm_debugfs.o drm_encoder_slave.o \
+-		drm_trace_points.o drm_global.o drm_prime.o
++		drm_trace_points.o drm_global.o drm_prime.o drm_backlight.o
+ 
+ drm-$(CONFIG_COMPAT) += drm_ioc32.o
+ drm-$(CONFIG_DRM_GEM_CMA_HELPER) += drm_gem_cma_helper.o
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_fimd.c b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+index ec060cb..e3cfa07 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_fimd.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_fimd.c
+@@ -23,6 +23,7 @@
+ #include <video/of_display_timing.h>
+ #include <video/samsung_fimd.h>
+ #include <drm/exynos_drm.h>
++#include <drm/drm_backlight.h>
+ 
+ #include "exynos_drm_drv.h"
+ #include "exynos_drm_fbdev.h"
+@@ -173,52 +174,33 @@ static int fimd_check_mode(struct device *dev, struct drm_display_mode *mode)
+ 
+ static int fimd_display_power_on(struct device *dev, int mode)
+ {
+-	/* TODO */
+-
+-	return 0;
+-}
+-
+-static struct exynos_drm_display_ops fimd_display_ops = {
+-	.type = EXYNOS_DISPLAY_TYPE_LCD,
+-	.is_connected = fimd_display_is_connected,
+-	.get_panel = fimd_get_panel,
+-	.check_mode = fimd_check_mode,
+-	.power_on = fimd_display_power_on,
+-};
+-
+-static void fimd_dpms(struct device *subdrv_dev, int mode)
+-{
+-	struct fimd_context *ctx = get_fimd_context(subdrv_dev);
+-
+-	DRM_DEBUG_KMS("%d\n", mode);
+-
+-	mutex_lock(&ctx->lock);
++	DRM_INFO("%s:mode[%d]\n", __func__, mode);
+ 
+ 	switch (mode) {
+ 	case DRM_MODE_DPMS_ON:
+-		/*
+-		 * enable fimd hardware only if suspended status.
+-		 *
+-		 * P.S. fimd_dpms function would be called at booting time so
+-		 * clk_enable could be called double time.
+-		 */
+-		if (ctx->suspended)
+-			pm_runtime_get_sync(subdrv_dev);
++		drm_bl_dpms(mode);
+ 		break;
+ 	case DRM_MODE_DPMS_STANDBY:
+ 	case DRM_MODE_DPMS_SUSPEND:
+ 	case DRM_MODE_DPMS_OFF:
+-		if (!ctx->suspended)
+-			pm_runtime_put_sync(subdrv_dev);
++		drm_bl_dpms(mode);
+ 		break;
+ 	default:
+ 		DRM_DEBUG_KMS("unspecified mode %d\n", mode);
+ 		break;
+ 	}
+ 
+-	mutex_unlock(&ctx->lock);
++	return 0;
+ }
+ 
++static struct exynos_drm_display_ops fimd_display_ops = {
++	.type = EXYNOS_DISPLAY_TYPE_LCD,
++	.is_connected = fimd_display_is_connected,
++	.get_panel = fimd_get_panel,
++	.check_mode = fimd_check_mode,
++	.power_on = fimd_display_power_on,
++};
++
+ static void fimd_apply(struct device *subdrv_dev)
+ {
+ 	struct fimd_context *ctx = get_fimd_context(subdrv_dev);
+@@ -356,15 +338,6 @@ static void fimd_wait_for_vblank(struct device *dev)
+ 		DRM_DEBUG_KMS("vblank wait timed out.\n");
+ }
+ 
+-static struct exynos_drm_manager_ops fimd_manager_ops = {
+-	.dpms = fimd_dpms,
+-	.apply = fimd_apply,
+-	.commit = fimd_commit,
+-	.enable_vblank = fimd_enable_vblank,
+-	.disable_vblank = fimd_disable_vblank,
+-	.wait_for_vblank = fimd_wait_for_vblank,
+-};
+-
+ static void fimd_win_mode_set(struct device *dev,
+ 			      struct exynos_drm_overlay *overlay)
+ {
+@@ -680,13 +653,6 @@ static struct exynos_drm_overlay_ops fimd_overlay_ops = {
+ 	.disable = fimd_win_disable,
+ };
+ 
+-static struct exynos_drm_manager fimd_manager = {
+-	.pipe		= -1,
+-	.ops		= &fimd_manager_ops,
+-	.overlay_ops	= &fimd_overlay_ops,
+-	.display_ops	= &fimd_display_ops,
+-};
+-
+ static irqreturn_t fimd_irq_handler(int irq, void *dev_id)
+ {
+ 	struct fimd_context *ctx = (struct fimd_context *)dev_id;
+@@ -907,6 +873,68 @@ static int fimd_activate(struct fimd_context *ctx, bool enable)
+ 	return 0;
+ }
+ 
++static void fimd_dpms(struct device *subdrv_dev, int mode)
++{
++	struct fimd_context *ctx = get_fimd_context(subdrv_dev);
++	int ret;
++
++	DRM_DEBUG_KMS("%d\n", mode);
++
++	mutex_lock(&ctx->lock);
++
++	switch (mode) {
++	case DRM_MODE_DPMS_ON:
++		/*
++		 * enable fimd hardware only if suspended status.
++		 *
++		 * P.S. fimd_dpms function would be called at booting time so
++		 * clk_enable could be called double time.
++		 */
++		if (ctx->suspended) {
++			pm_runtime_get_sync(subdrv_dev);
++
++			ret = fimd_activate(ctx, true);
++			if (ret < 0) {
++				DRM_ERROR("failed to activate.\n");
++				pm_runtime_put_sync(subdrv_dev);
++			}
++		}
++		break;
++	case DRM_MODE_DPMS_STANDBY:
++	case DRM_MODE_DPMS_SUSPEND:
++	case DRM_MODE_DPMS_OFF:
++		if (!ctx->suspended) {
++			ret = fimd_activate(ctx, false);
++			if (ret < 0)
++				DRM_ERROR("failed to deactivate.\n");
++
++			pm_runtime_put_sync(subdrv_dev);
++		}
++		break;
++	default:
++		DRM_DEBUG_KMS("unspecified mode %d\n", mode);
++		break;
++	}
++
++	mutex_unlock(&ctx->lock);
++}
++
++static struct exynos_drm_manager_ops fimd_manager_ops = {
++	.dpms = fimd_dpms,
++	.apply = fimd_apply,
++	.commit = fimd_commit,
++	.enable_vblank = fimd_enable_vblank,
++	.disable_vblank = fimd_disable_vblank,
++	.wait_for_vblank = fimd_wait_for_vblank,
++};
++
++static struct exynos_drm_manager fimd_manager = {
++	.pipe		= -1,
++	.ops		= &fimd_manager_ops,
++	.overlay_ops	= &fimd_overlay_ops,
++	.display_ops	= &fimd_display_ops,
++};
++
+ static int fimd_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+-- 
+1.8.3.2
+

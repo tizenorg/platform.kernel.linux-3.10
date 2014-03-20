@@ -1,0 +1,125 @@
+From 8aaa90b911f5a554f4ea1ed18ce55338acb1d717 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 23 Aug 2013 19:22:21 +0200
+Subject: [PATCH 0585/1302] clk: max77686: Register OF clock provider
+
+If max77686 chip is instantiated from device tree, it is desirable to
+have an OF clock provider to allow device tree based look-up of clocks.
+This patch adds OF clock provider registration to the clk-max77686
+driver.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ .../devicetree/bindings/clock/maxim,max77686.txt   | 38 ++++++++++++++++++++++
+ Documentation/devicetree/bindings/mfd/max77686.txt |  3 ++
+ drivers/clk/clk-max77686.c                         | 24 ++++++++++++++
+ 3 files changed, 65 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/clock/maxim,max77686.txt
+
+diff --git a/Documentation/devicetree/bindings/clock/maxim,max77686.txt b/Documentation/devicetree/bindings/clock/maxim,max77686.txt
+new file mode 100644
+index 0000000..96ce71b
+--- /dev/null
++++ b/Documentation/devicetree/bindings/clock/maxim,max77686.txt
+@@ -0,0 +1,38 @@
++Binding for Maxim MAX77686 32k clock generator block
++
++This is a part of device tree bindings of MAX77686 multi-function device.
++More information can be found in bindings/mfd/max77686.txt file.
++
++The MAX77686 contains three 32.768khz clock outputs that can be controlled
++(gated/ungated) over I2C.
++
++Following properties should be presend in main device node of the MFD chip.
++
++Required properties:
++- #clock-cells: simple one-cell clock specifier format is used, where the
++  only cell is used as an index of the clock inside the provider. Following
++  indices are allowed:
++    - 0: 32khz_ap clock,
++    - 1: 32khz_cp clock,
++    - 2: 32khz_pmic clock.
++
++Example: Node of the MFD chip
++
++	max77686: max77686@09 {
++		compatible = "maxim,max77686";
++		interrupt-parent = <&wakeup_eint>;
++		interrupts = <26 0>;
++		reg = <0x09>;
++		#clock-cells = <1>;
++
++		/* ... */
++	};
++
++Example: Clock consumer node
++
++	foo@0 {
++		compatible = "bar,foo";
++		/* ... */
++		clock-names = "my-clock";
++		clocks = <&max77686 2>;
++	};
+diff --git a/Documentation/devicetree/bindings/mfd/max77686.txt b/Documentation/devicetree/bindings/mfd/max77686.txt
+index c6a3469..678f3cf 100644
+--- a/Documentation/devicetree/bindings/mfd/max77686.txt
++++ b/Documentation/devicetree/bindings/mfd/max77686.txt
+@@ -7,6 +7,9 @@ different i2c slave address,presently for which we are statically creating i2c
+ client while probing.This document describes the binding for mfd device and
+ PMIC submodule.
+ 
++Binding for the built-in 32k clock generator block is defined separately
++in bindings/clk/maxim,max77686.txt file.
++
+ Required properties:
+ - compatible : Must be "maxim,max77686";
+ - reg : Specifies the i2c slave address of PMIC block.
+diff --git a/drivers/clk/clk-max77686.c b/drivers/clk/clk-max77686.c
+index 3cf38dc..3d7e8dd 100644
+--- a/drivers/clk/clk-max77686.c
++++ b/drivers/clk/clk-max77686.c
+@@ -169,6 +169,26 @@ static int max77686_clk_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, clocks);
+ 
++	if (iodev->dev->of_node) {
++		struct clk_onecell_data *of_data;
++
++		of_data = devm_kzalloc(&pdev->dev,
++					sizeof(*of_data), GFP_KERNEL);
++		if (!of_data) {
++			ret = -ENOMEM;
++			goto err_clocks;
++		}
++
++		of_data->clks = clocks;
++		of_data->clk_num = MAX77686_CLKS_NUM;
++		ret = of_clk_add_provider(iodev->dev->of_node,
++					of_clk_src_onecell_get, of_data);
++		if (ret) {
++			dev_err(&pdev->dev, "failed to register OF clock provider\n");
++			goto err_clocks;
++		}
++	}
++
+ 	return 0;
+ 
+ err_clocks:
+@@ -182,9 +202,13 @@ err_clocks:
+ 
+ static int max77686_clk_remove(struct platform_device *pdev)
+ {
++	struct max77686_dev *iodev = dev_get_drvdata(pdev->dev.parent);
+ 	struct clk **clocks = platform_get_drvdata(pdev);
+ 	int i;
+ 
++	if (iodev->dev->of_node)
++		of_clk_del_provider(iodev->dev->of_node);
++
+ 	for (i = 0; i < MAX77686_CLKS_NUM; i++) {
+ 		struct clk_hw *hw = __clk_get_hw(clocks[i]);
+ 		struct max77686_clk *max77686 = to_max77686_clk(hw);
+-- 
+1.8.3.2
+

@@ -1,0 +1,30 @@
+From ef1d8921b43b3826686fd4e6c1b0b88b2fca250f Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Thu, 22 Aug 2013 17:50:41 +0200
+Subject: [PATCH 0576/1302] s5c73m3: Set default data plane lengths for
+ interleaved data
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/s5c73m3/s5c73m3-core.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/media/i2c/s5c73m3/s5c73m3-core.c b/drivers/media/i2c/s5c73m3/s5c73m3-core.c
+index b79e100..1ff7509 100644
+--- a/drivers/media/i2c/s5c73m3/s5c73m3-core.c
++++ b/drivers/media/i2c/s5c73m3/s5c73m3-core.c
+@@ -1699,6 +1699,10 @@ static int s5c73m3_probe(struct i2c_client *client,
+ 
+ 	state->i2c_client = client;
+ 
++	/* Initialize data plane lengths for the interleaved image data. */
++	state->frame_desc.entry[0].length = 10 * SZ_1M;
++	state->frame_desc.entry[1].length = S5C73M3_EMBEDDED_DATA_MAXLEN;
++
+ 	v4l2_info(sd, "%s: completed succesfully\n", __func__);
+ 	return 0;
+ 
+-- 
+1.8.3.2
+

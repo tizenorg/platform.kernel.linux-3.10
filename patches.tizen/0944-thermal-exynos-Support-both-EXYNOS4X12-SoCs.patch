@@ -1,0 +1,36 @@
+From 8ae14fc974e9cc80cf095cfc6e69a94e308487d9 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Wed, 19 Jun 2013 01:31:50 +0900
+Subject: [PATCH 0944/1302] thermal: exynos: Support both EXYNOS4X12 SoCs
+
+EXYNOS4212 and EXYNOS4412 have the same thermal block, so there is no
+reason to include support only for EXYNOS4412 in this driver.
+
+Cc: linux-pm@vger.kernel.org
+Cc: Zhang Rui <rui.zhang@intel.com>
+Cc: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Kukjin Kim <kgene.kim@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/exynos_thermal.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/thermal/exynos_thermal.c b/drivers/thermal/exynos_thermal.c
+index 03e4bbc..9af4b93 100644
+--- a/drivers/thermal/exynos_thermal.c
++++ b/drivers/thermal/exynos_thermal.c
+@@ -817,7 +817,8 @@ static struct exynos_tmu_platform_data const exynos4210_default_tmu_data = {
+ #define EXYNOS4210_TMU_DRV_DATA (NULL)
+ #endif
+ 
+-#if defined(CONFIG_SOC_EXYNOS5250) || defined(CONFIG_SOC_EXYNOS4412)
++#if defined(CONFIG_SOC_EXYNOS5250) || defined(CONFIG_SOC_EXYNOS4412) || \
++	defined(CONFIG_SOC_EXYNOS4212)
+ static struct exynos_tmu_platform_data const exynos_default_tmu_data = {
+ 	.threshold_falling = 10,
+ 	.trigger_levels[0] = 85,
+-- 
+1.8.3.2
+

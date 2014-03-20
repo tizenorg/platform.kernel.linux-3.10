@@ -1,0 +1,45 @@
+From e47902a0cfdaee797a813608aeaf8c0608a2ef60 Mon Sep 17 00:00:00 2001
+From: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Date: Tue, 12 Mar 2013 18:00:46 +0100
+Subject: [PATCH 0162/1302] m5mols: Fix regulator_enable() errors handling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This fixes following compilation warning:
+
+drivers/media/i2c/m5mols/m5mols_core.c: In function ‘m5mols_sensor_power’:
+drivers/media/i2c/m5mols/m5mols_core.c:754: warning: array subscript is above array bounds
+
+Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/media/i2c/m5mols/m5mols_core.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/i2c/m5mols/m5mols_core.c b/drivers/media/i2c/m5mols/m5mols_core.c
+index a8ae5d8..4d174c3 100644
+--- a/drivers/media/i2c/m5mols/m5mols_core.c
++++ b/drivers/media/i2c/m5mols/m5mols_core.c
+@@ -748,12 +748,14 @@ static int regulator_bulk_enable_sync(int num_consumers,
+ 
+ 	for (i = 0; i < ARRAY_SIZE(supplies); ++i) {
+ 		ret = regulator_enable(supplies[i].consumer);
++		if (ret < 0) {
++			for (; i >= 0; --i)
++				regulator_disable(supplies[i].consumer);
++			return ret;
++		}
+ 	}
+-	if (ret < 0)
+-		for (; i >= 0; --i)
+-			regulator_disable(supplies[i].consumer);
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static int m5mols_sensor_power(struct m5mols_info *info, bool enable)
+-- 
+1.8.3.2
+

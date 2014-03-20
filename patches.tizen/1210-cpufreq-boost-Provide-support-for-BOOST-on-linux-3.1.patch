@@ -1,0 +1,104 @@
+From a63694a185a20e52d2f13d687a30108cffee4e6a Mon Sep 17 00:00:00 2001
+From: Lukasz Majewski <l.majewski@samsung.com>
+Date: Mon, 10 Feb 2014 15:42:51 +0100
+Subject: [PATCH 1210/1302] cpufreq: boost: Provide support for BOOST on
+ linux-3.10-tizen
+
+This code reads from device tree the boost_freq attribute and properly
+modify the cpufreq table to support BOOST framework.
+
+This attribute is only read when CONFIG_CPU_FREQ_BOOST_SW flag is set.
+
+Change-Id: I16fcba69b16c29434e3ec1a8a0ef1bc8bdebc0ca
+Signed-off-by: Lukasz Majewski <l.majewski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/exynos-cpufreq.c     | 38 ++++++++++++++++++++++++++++++++++--
+ drivers/cpufreq/exynos-cpufreq.h     |  2 ++
+ drivers/cpufreq/exynos4x12-cpufreq.c |  4 ++++
+ 3 files changed, 42 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/cpufreq/exynos-cpufreq.c b/drivers/cpufreq/exynos-cpufreq.c
+index 249d19b..0ecb7c9 100644
+--- a/drivers/cpufreq/exynos-cpufreq.c
++++ b/drivers/cpufreq/exynos-cpufreq.c
+@@ -288,6 +288,36 @@ static struct cpufreq_driver exynos_driver = {
+ 
+ /* Device Tree Support for CPU freq */
+ 
++int exynos_of_parse_boost(struct exynos_dvfs_info *info,
++			  const char *property_name)
++{
++	struct cpufreq_frequency_table *ft = info->freq_table;
++	struct device_node *node = info->dev->of_node;
++	unsigned int boost_freq;
++
++	if (of_property_read_u32(node, property_name, &boost_freq)) {
++		pr_err("%s: Property: %s not found\n", __func__,
++		       property_name);
++		return -ENODEV;
++	}
++
++	/*
++	 * Adjust the BOOST setting code to the current cpufreq code
++	 * Now we have static table definitions for frequencies, dividers
++	 * and PLL parameters (like P M S)
++	 *
++	 * In the current cpufreq code base only the change of one entry at
++	 * frequency table is required.
++	 */
++
++	ft[0].index = CPUFREQ_BOOST_FREQ;
++	ft[0].frequency = boost_freq;
++
++	pr_debug("%s: BOOST frequency: %d\n", __func__, ft[0].frequency);
++
++	return 0;
++}
++
+ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
+ 		struct exynos_dvfs_info *info, const char *property_name)
+ {
+@@ -326,8 +356,12 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
+ 		goto err_of_f_tab;
+ 	}
+ 
+-	/* Here + 2 is required for CPUFREQ_ENTRY_INVALID and
+-	   CPUFREQ_TABLE_END  */
++	/*
++	 * Here + 2 is required for CPUFREQ_ENTRY_INVALID  and
++	 * CPUFREQ_TABLE_END
++	 *
++	 * Number of those entries must correspond to the apll_freq_4412 table
++	 */
+ 	ft = kzalloc(sizeof(struct cpufreq_frequency_table) * (num + 2),
+ 		     GFP_KERNEL);
+ 	if (!ft) {
+diff --git a/drivers/cpufreq/exynos-cpufreq.h b/drivers/cpufreq/exynos-cpufreq.h
+index 12b2b66..cb08d28 100644
+--- a/drivers/cpufreq/exynos-cpufreq.h
++++ b/drivers/cpufreq/exynos-cpufreq.h
+@@ -51,3 +51,5 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
+        struct exynos_dvfs_info *info, const char *property_name);
+ unsigned int *exynos_of_parse_volt_table(struct exynos_dvfs_info *info,
+ 					 const char *property_name);
++int exynos_of_parse_boost(struct exynos_dvfs_info *info,
++			  const char *property_name);
+diff --git a/drivers/cpufreq/exynos4x12-cpufreq.c b/drivers/cpufreq/exynos4x12-cpufreq.c
+index 410d087..e92d19b 100644
+--- a/drivers/cpufreq/exynos4x12-cpufreq.c
++++ b/drivers/cpufreq/exynos4x12-cpufreq.c
+@@ -203,6 +203,10 @@ int exynos4x12_cpufreq_init(struct exynos_dvfs_info *info)
+ 	info->freq_table = exynos_of_parse_freq_table(info, "freq_table");
+ 	if (!info->freq_table)
+ 		info->freq_table = exynos4x12_freq_table;
++#ifdef CONFIG_CPU_FREQ_BOOST_SW
++	else
++		exynos_of_parse_boost(info, "boost_freq");
++#endif
+ 
+ 	info->set_freq = exynos4x12_set_frequency;
+ 
+-- 
+1.8.3.2
+

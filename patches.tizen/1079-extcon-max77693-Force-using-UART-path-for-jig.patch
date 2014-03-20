@@ -1,0 +1,49 @@
+From ec05e8de55043b87a1dafccec5477db9a6ecf9a1 Mon Sep 17 00:00:00 2001
+From: Dmitry Kasatkin <d.kasatkin@samsung.com>
+Date: Fri, 10 Jan 2014 20:13:40 +0900
+Subject: [PATCH 1079/1302] extcon: max77693: Force using UART path for jig
+
+When USB cable is connected to jig, device disables console.
+This patch forces using UART when jig cable is connected.
+It allows to charge the device, which also prevents it from sleeping.
+
+Change-Id: Ie0c8c29f40cdbed5cdad608950a6c5c428cd0fab
+Signed-off-by: Dmitry Kasatkin <d.kasatkin@samsung.com>
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+[Author information corrected and style fixed.]
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/extcon/extcon-max77693.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/extcon/extcon-max77693.c b/drivers/extcon/extcon-max77693.c
+index 3cde41b4..903c507 100644
+--- a/drivers/extcon/extcon-max77693.c
++++ b/drivers/extcon/extcon-max77693.c
+@@ -293,10 +293,18 @@ static int max77693_muic_set_path(struct max77693_muic_info *info,
+ 		return ret;
+ 	}
+ 
+-	if (attached)
+-		ctrl1 = val;
+-	else
++	if (attached) {
++		if (info->prev_cable_type ==
++		    MAX77693_MUIC_ADC_FACTORY_MODE_UART_OFF) {
++			/* if cable_type is jig, then force UART */
++			dev_info(info->dev, "For jig force using UART path\n");
++			ctrl1 = CONTROL1_SW_UART;
++		} else {
++			ctrl1 = val;
++		}
++	} else {
+ 		ctrl1 = CONTROL1_SW_OPEN;
++	}
+ 
+ 	ret = max77693_update_reg(info->max77693->regmap_muic,
+ 			MAX77693_MUIC_REG_CTRL1, ctrl1, COMP_SW_MASK);
+-- 
+1.8.3.2
+

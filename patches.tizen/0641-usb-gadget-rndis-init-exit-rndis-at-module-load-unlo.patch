@@ -1,0 +1,115 @@
+From dbc41a881fb1e41bcb4910fbba9386f428758c70 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 28 May 2013 09:15:59 +0200
+Subject: [PATCH 0641/1302] usb: gadget: rndis: init & exit rndis at module
+ load/unload
+
+This is required in preparation for using usb_gstrings_attach.
+
+The rndis initialization so far has been performed on the first
+occurence of rndis_bind(), but the condition to check it (first
+or not first) was "borrowed" from strings handling.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_rndis.c | 15 ++-------------
+ drivers/usb/gadget/rndis.c   |  4 ++--
+ drivers/usb/gadget/rndis.h   |  3 ---
+ 3 files changed, 4 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_rndis.c b/drivers/usb/gadget/f_rndis.c
+index 437198b..e5c6aee 100644
+--- a/drivers/usb/gadget/f_rndis.c
++++ b/drivers/usb/gadget/f_rndis.c
+@@ -698,11 +698,6 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
+ #endif
+ 
+ 	if (rndis_string_defs[0].id == 0) {
+-		/* ... and setup RNDIS itself */
+-		status = rndis_init();
+-		if (status < 0)
+-			return status;
+-
+ 		status = usb_string_ids_tab(c->cdev, rndis_string_defs);
+ 		if (status)
+ 			return status;
+@@ -844,7 +839,6 @@ rndis_old_unbind(struct usb_configuration *c, struct usb_function *f)
+ 	struct f_rndis		*rndis = func_to_rndis(f);
+ 
+ 	rndis_deregister(rndis->config);
+-	rndis_exit();
+ 
+ 	rndis_string_defs[0].id = 0;
+ 	usb_free_all_descriptors(f);
+@@ -891,11 +885,9 @@ rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+ 	rndis->port.func.disable = rndis_disable;
+ 
+ 	status = usb_add_function(c, &rndis->port.func);
+-	if (status) {
++	if (status)
+ 		kfree(rndis);
+ fail:
+-		rndis_exit();
+-	}
+ 	return status;
+ }
+ 
+@@ -958,7 +950,6 @@ static void rndis_unbind(struct usb_configuration *c, struct usb_function *f)
+ {
+ 	struct f_rndis		*rndis = func_to_rndis(f);
+ 
+-	rndis_exit();
+ 	rndis_string_defs[0].id = 0;
+ 	usb_free_all_descriptors(f);
+ 
+@@ -974,10 +965,8 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
+ 
+ 	/* allocate and initialize one new instance */
+ 	rndis = kzalloc(sizeof(*rndis), GFP_KERNEL);
+-	if (!rndis) {
+-		rndis_exit();
++	if (!rndis)
+ 		return ERR_PTR(-ENOMEM);
+-	}
+ 
+ 	opts = container_of(fi, struct f_rndis_opts, func_inst);
+ 
+diff --git a/drivers/usb/gadget/rndis.c b/drivers/usb/gadget/rndis.c
+index 8c5e957..3e3ea72 100644
+--- a/drivers/usb/gadget/rndis.c
++++ b/drivers/usb/gadget/rndis.c
+@@ -1174,7 +1174,7 @@ int rndis_init(void)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(rndis_init);
++module_init(rndis_init);
+ 
+ void rndis_exit(void)
+ {
+@@ -1188,6 +1188,6 @@ void rndis_exit(void)
+ 	}
+ #endif
+ }
+-EXPORT_SYMBOL(rndis_exit);
++module_exit(rndis_exit);
+ 
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/usb/gadget/rndis.h b/drivers/usb/gadget/rndis.h
+index 6e79615..0f4abb4 100644
+--- a/drivers/usb/gadget/rndis.h
++++ b/drivers/usb/gadget/rndis.h
+@@ -217,7 +217,4 @@ int  rndis_signal_disconnect (int configNr);
+ int  rndis_state (int configNr);
+ extern void rndis_set_host_mac (int configNr, const u8 *addr);
+ 
+-int rndis_init(void);
+-void rndis_exit (void);
+-
+ #endif  /* _LINUX_RNDIS_H */
+-- 
+1.8.3.2
+

@@ -1,0 +1,95 @@
+From 52ab80c1f746a5564bd119074166e139024c2711 Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Tue, 14 Jan 2014 14:26:40 +0100
+Subject: [PATCH 1091/1302] Revert "usb/gadget: storage_common: add methods to
+ show/store 'cdrom' and 'removable'"
+
+This reverts commit 80b546ca2f7a1d6714022e3c791635d7b6ba9766.
+
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/storage_common.c | 42 -------------------------------------
+ drivers/usb/gadget/storage_common.h |  5 -----
+ 2 files changed, 47 deletions(-)
+
+diff --git a/drivers/usb/gadget/storage_common.c b/drivers/usb/gadget/storage_common.c
+index d59b555..ab83d11 100644
+--- a/drivers/usb/gadget/storage_common.c
++++ b/drivers/usb/gadget/storage_common.c
+@@ -359,17 +359,6 @@ ssize_t fsg_show_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ }
+ EXPORT_SYMBOL(fsg_show_file);
+ 
+-ssize_t fsg_show_cdrom(struct fsg_lun *curlun, char *buf)
+-{
+-	return sprintf(buf, "%u\n", curlun->cdrom);
+-}
+-EXPORT_SYMBOL(fsg_show_cdrom);
+-
+-ssize_t fsg_show_removable(struct fsg_lun *curlun, char *buf)
+-{
+-	return sprintf(buf, "%u\n", curlun->removable);
+-}
+-EXPORT_SYMBOL(fsg_show_removable);
+ 
+ ssize_t fsg_store_ro(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 			    const char *buf, size_t count)
+@@ -450,35 +439,4 @@ ssize_t fsg_store_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ }
+ EXPORT_SYMBOL(fsg_store_file);
+ 
+-ssize_t fsg_store_cdrom(struct fsg_lun *curlun, const char *buf, size_t count)
+-{
+-	unsigned	cdrom;
+-	int		ret;
+-
+-	ret = kstrtouint(buf, 2, &cdrom);
+-	if (ret)
+-		return ret;
+-
+-	curlun->cdrom = cdrom;
+-
+-	return count;
+-}
+-EXPORT_SYMBOL(fsg_store_cdrom);
+-
+-ssize_t fsg_store_removable(struct fsg_lun *curlun, const char *buf,
+-			    size_t count)
+-{
+-	unsigned	removable;
+-	int		ret;
+-
+-	ret = kstrtouint(buf, 2, &removable);
+-	if (ret)
+-		return ret;
+-
+-	curlun->removable = removable;
+-
+-	return count;
+-}
+-EXPORT_SYMBOL(fsg_store_removable);
+-
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/usb/gadget/storage_common.h b/drivers/usb/gadget/storage_common.h
+index ca7b479..aa8bf94 100644
+--- a/drivers/usb/gadget/storage_common.h
++++ b/drivers/usb/gadget/storage_common.h
+@@ -214,15 +214,10 @@ ssize_t fsg_show_ro(struct fsg_lun *curlun, char *buf);
+ ssize_t fsg_show_nofua(struct fsg_lun *curlun, char *buf);
+ ssize_t fsg_show_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		      char *buf);
+-ssize_t fsg_show_cdrom(struct fsg_lun *curlun, char *buf);
+-ssize_t fsg_show_removable(struct fsg_lun *curlun, char *buf);
+ ssize_t fsg_store_ro(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		     const char *buf, size_t count);
+ ssize_t fsg_store_nofua(struct fsg_lun *curlun, const char *buf, size_t count);
+ ssize_t fsg_store_file(struct fsg_lun *curlun, struct rw_semaphore *filesem,
+ 		       const char *buf, size_t count);
+-ssize_t fsg_store_cdrom(struct fsg_lun *curlun, const char *buf, size_t count);
+-ssize_t fsg_store_removable(struct fsg_lun *curlun, const char *buf,
+-			    size_t count);
+ 
+ #endif /* USB_STORAGE_COMMON_H */
+-- 
+1.8.3.2
+

@@ -1,0 +1,35 @@
+From 501ef86db5e02091195f141d7a4ee23dab32edaa Mon Sep 17 00:00:00 2001
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Fri, 3 May 2013 09:57:08 +0000
+Subject: [PATCH 0918/1302] Thermal: armada_thermal: Remove redundant
+ platform_set_drvdata()
+
+Commit 0998d06310 (device-core: Ensure drvdata = NULL when no
+driver is bound) removes the need to set driver data field to
+NULL.
+
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Acked-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Acked-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: Zhang Rui <rui.zhang@intel.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/armada_thermal.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/thermal/armada_thermal.c b/drivers/thermal/armada_thermal.c
+index 54ffd64..0491465 100644
+--- a/drivers/thermal/armada_thermal.c
++++ b/drivers/thermal/armada_thermal.c
+@@ -200,7 +200,6 @@ static int armada_thermal_exit(struct platform_device *pdev)
+ 		platform_get_drvdata(pdev);
+ 
+ 	thermal_zone_device_unregister(armada_thermal);
+-	platform_set_drvdata(pdev, NULL);
+ 
+ 	return 0;
+ }
+-- 
+1.8.3.2
+

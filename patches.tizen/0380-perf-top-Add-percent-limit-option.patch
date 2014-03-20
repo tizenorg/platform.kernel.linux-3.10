@@ -1,0 +1,148 @@
+From 3f135a55c4d13e895ad812e76c8b9e9848e6d763 Mon Sep 17 00:00:00 2001
+From: Namhyung Kim <namhyung.kim@lge.com>
+Date: Tue, 14 May 2013 11:09:05 +0900
+Subject: [PATCH 0380/1302] perf top: Add --percent-limit option
+
+The --percent-limit option is for not showing small overhead entries in
+the output.
+
+Signed-off-by: Namhyung Kim <namhyung@kernel.org>
+Acked-by: Pekka Enberg <penberg@kernel.org>
+Cc: Andi Kleen <andi@firstfloor.org>
+Cc: David Ahern <dsahern@gmail.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Jiri Olsa <jolsa@redhat.com>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1368497347-9628-8-git-send-email-namhyung@kernel.org
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/Documentation/perf-top.txt |  4 ++++
+ tools/perf/builtin-top.c              | 17 +++++++++++++++--
+ tools/perf/ui/browsers/hists.c        | 16 ++++++++++++++--
+ tools/perf/util/top.h                 |  1 +
+ 4 files changed, 34 insertions(+), 4 deletions(-)
+
+diff --git a/tools/perf/Documentation/perf-top.txt b/tools/perf/Documentation/perf-top.txt
+index 9f1a2fe54..7fdd190 100644
+--- a/tools/perf/Documentation/perf-top.txt
++++ b/tools/perf/Documentation/perf-top.txt
+@@ -155,6 +155,10 @@ Default is to monitor all CPUS.
+ 
+ 	Default: fractal,0.5,callee.
+ 
++--percent-limit::
++	Do not show entries which have an overhead under that percent.
++	(Default: 0).
++
+ INTERACTIVE PROMPTING KEYS
+ --------------------------
+ 
+diff --git a/tools/perf/builtin-top.c b/tools/perf/builtin-top.c
+index 19fe25f..f036af9 100644
+--- a/tools/perf/builtin-top.c
++++ b/tools/perf/builtin-top.c
+@@ -296,7 +296,8 @@ static void perf_top__print_sym_table(struct perf_top *top)
+ 				     top->print_entries - printed);
+ 	putchar('\n');
+ 	hists__fprintf(&top->sym_evsel->hists, false,
+-		       top->print_entries - printed, win_width, 0, stdout);
++		       top->print_entries - printed, win_width,
++		       top->min_percent, stdout);
+ }
+ 
+ static void prompt_integer(int *target, const char *msg)
+@@ -580,7 +581,7 @@ static void *display_thread_tui(void *arg)
+ 	list_for_each_entry(pos, &top->evlist->entries, node)
+ 		pos->hists.uid_filter_str = top->record_opts.target.uid_str;
+ 
+-	perf_evlist__tui_browse_hists(top->evlist, help, &hbt, 0,
++	perf_evlist__tui_browse_hists(top->evlist, help, &hbt, top->min_percent,
+ 				      &top->session->header.env);
+ 
+ 	done = 1;
+@@ -1021,6 +1022,16 @@ parse_callchain_opt(const struct option *opt, const char *arg, int unset)
+ 	return record_parse_callchain_opt(opt, arg, unset);
+ }
+ 
++static int
++parse_percent_limit(const struct option *opt, const char *arg,
++		    int unset __maybe_unused)
++{
++	struct perf_top *top = opt->value;
++
++	top->min_percent = strtof(arg, NULL);
++	return 0;
++}
++
+ int cmd_top(int argc, const char **argv, const char *prefix __maybe_unused)
+ {
+ 	int status;
+@@ -1106,6 +1117,8 @@ int cmd_top(int argc, const char **argv, const char *prefix __maybe_unused)
+ 	OPT_STRING('M', "disassembler-style", &disassembler_style, "disassembler style",
+ 		   "Specify disassembler style (e.g. -M intel for intel syntax)"),
+ 	OPT_STRING('u', "uid", &target->uid_str, "user", "user to profile"),
++	OPT_CALLBACK(0, "percent-limit", &top, "percent",
++		     "Don't show entries under that percent", parse_percent_limit),
+ 	OPT_END()
+ 	};
+ 	const char * const top_usage[] = {
+diff --git a/tools/perf/ui/browsers/hists.c b/tools/perf/ui/browsers/hists.c
+index 9dfde61..fc0bd38 100644
+--- a/tools/perf/ui/browsers/hists.c
++++ b/tools/perf/ui/browsers/hists.c
+@@ -310,6 +310,8 @@ static void ui_browser__warn_lost_events(struct ui_browser *browser)
+ 		"Or reduce the sampling frequency.");
+ }
+ 
++static void hist_browser__update_pcnt_entries(struct hist_browser *hb);
++
+ static int hist_browser__run(struct hist_browser *browser, const char *ev_name,
+ 			     struct hist_browser_timer *hbt)
+ {
+@@ -333,9 +335,18 @@ static int hist_browser__run(struct hist_browser *browser, const char *ev_name,
+ 		key = ui_browser__run(&browser->b, delay_secs);
+ 
+ 		switch (key) {
+-		case K_TIMER:
++		case K_TIMER: {
++			u64 nr_entries;
+ 			hbt->timer(hbt->arg);
+-			ui_browser__update_nr_entries(&browser->b, browser->hists->nr_entries);
++
++			if (browser->min_pcnt) {
++				hist_browser__update_pcnt_entries(browser);
++				nr_entries = browser->nr_pcnt_entries;
++			} else {
++				nr_entries = browser->hists->nr_entries;
++			}
++
++			ui_browser__update_nr_entries(&browser->b, nr_entries);
+ 
+ 			if (browser->hists->stats.nr_lost_warned !=
+ 			    browser->hists->stats.nr_events[PERF_RECORD_LOST]) {
+@@ -347,6 +358,7 @@ static int hist_browser__run(struct hist_browser *browser, const char *ev_name,
+ 			hists__browser_title(browser->hists, title, sizeof(title), ev_name);
+ 			ui_browser__show_title(&browser->b, title);
+ 			continue;
++		}
+ 		case 'D': { /* Debug */
+ 			static int seq;
+ 			struct hist_entry *h = rb_entry(browser->b.top,
+diff --git a/tools/perf/util/top.h b/tools/perf/util/top.h
+index f0a8625..df46be9 100644
+--- a/tools/perf/util/top.h
++++ b/tools/perf/util/top.h
+@@ -36,6 +36,7 @@ struct perf_top {
+ 	int		   realtime_prio;
+ 	int		   sym_pcnt_filter;
+ 	const char	   *sym_filter;
++	float		   min_percent;
+ };
+ 
+ size_t perf_top__header_snprintf(struct perf_top *top, char *bf, size_t size);
+-- 
+1.8.3.2
+

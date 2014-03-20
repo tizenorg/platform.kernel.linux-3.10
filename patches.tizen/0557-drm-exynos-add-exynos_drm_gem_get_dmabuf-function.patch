@@ -1,0 +1,58 @@
+From 6963fe02645521e655611cef9d914b55c848a464 Mon Sep 17 00:00:00 2001
+From: Inki Dae <inki.dae@samsung.com>
+Date: Tue, 20 Aug 2013 17:35:43 +0900
+Subject: [PATCH 0557/1302] drm/exynos: add exynos_drm_gem_get_dmabuf function
+
+Signed-off-by: Inki Dae <inki.dae@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_drm_gem.c | 17 +++++++++++++++++
+ drivers/gpu/drm/exynos/exynos_drm_gem.h |  4 ++++
+ 2 files changed, 21 insertions(+)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_gem.c b/drivers/gpu/drm/exynos/exynos_drm_gem.c
+index 5b6f6e2..55289cd 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_gem.c
++++ b/drivers/gpu/drm/exynos/exynos_drm_gem.c
+@@ -319,6 +319,23 @@ void exynos_drm_gem_put_dma_addr(struct drm_device *dev,
+ 	drm_gem_object_unreference_unlocked(obj);
+ }
+ 
++void *exynos_drm_gem_get_dmabuf(struct drm_device *dev,
++					unsigned int gem_handle,
++					struct drm_file *filp)
++{
++	struct drm_gem_object *obj;
++
++	obj = drm_gem_object_lookup(dev, filp, gem_handle);
++	if (!obj) {
++		DRM_ERROR("failed to lookup gem object.\n");
++		return ERR_PTR(-EINVAL);
++	}
++
++	drm_gem_object_unreference_unlocked(obj);
++
++	return obj->export_dma_buf;
++}
++
+ int exynos_drm_gem_map_offset_ioctl(struct drm_device *dev, void *data,
+ 				    struct drm_file *file_priv)
+ {
+diff --git a/drivers/gpu/drm/exynos/exynos_drm_gem.h b/drivers/gpu/drm/exynos/exynos_drm_gem.h
+index 468766b..78a0833 100644
+--- a/drivers/gpu/drm/exynos/exynos_drm_gem.h
++++ b/drivers/gpu/drm/exynos/exynos_drm_gem.h
+@@ -111,6 +111,10 @@ void exynos_drm_gem_put_dma_addr(struct drm_device *dev,
+ 					unsigned int gem_handle,
+ 					struct drm_file *filp);
+ 
++void *exynos_drm_gem_get_dmabuf(struct drm_device *dev,
++					unsigned int gem_handle,
++					struct drm_file *filp);
++
+ /* get buffer offset to map to user space. */
+ int exynos_drm_gem_map_offset_ioctl(struct drm_device *dev, void *data,
+ 				    struct drm_file *file_priv);
+-- 
+1.8.3.2
+

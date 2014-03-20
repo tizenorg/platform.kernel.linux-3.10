@@ -1,0 +1,29 @@
+From 0ded303dba76f72dcbc36cb2d4147be7eb0debb6 Mon Sep 17 00:00:00 2001
+From: Kamil Debski <k.debski@samsung.com>
+Date: Tue, 2 Jul 2013 15:51:39 +0200
+Subject: [PATCH 0311/1302] ARM: dts: Enable ehci for exynos4412-redwood.dts
+
+Signed-off-by: Kamil Debski <k.debski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/boot/dts/exynos4412-redwood.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/arm/boot/dts/exynos4412-redwood.dts b/arch/arm/boot/dts/exynos4412-redwood.dts
+index 74b70a9..828376b 100644
+--- a/arch/arm/boot/dts/exynos4412-redwood.dts
++++ b/arch/arm/boot/dts/exynos4412-redwood.dts
+@@ -726,4 +726,9 @@
+ 		status = "okay";
+ 	};
+ 
++	ehci@12580000 {
++		status = "okay";
++	};
++
++
+ };
+-- 
+1.8.3.2
+

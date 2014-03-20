@@ -1,0 +1,43 @@
+From f8fa1a679d52a0cf1c536c51b3dd0d08abfa411e Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Mon, 9 Sep 2013 17:23:54 +0900
+Subject: [PATCH 0762/1302] HACK: usb: gadget: Fix enumeration on boot
+
+The Android gadget driver disconnects the gadget on bind
+and expects the gadget to stay disconnected until it calls
+usb_gadget_connect when userspace is ready. Removed the call
+to usb_gadget_connect in usb_gadget_probe_driver to avoid
+enabling the pullup before userspace is ready.
+
+Signed-off-by: Benoit Goby <benoit@android.com>
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/udc-core.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/udc-core.c b/drivers/usb/gadget/udc-core.c
+index 5514822..bef2f4c 100644
+--- a/drivers/usb/gadget/udc-core.c
++++ b/drivers/usb/gadget/udc-core.c
+@@ -335,7 +335,16 @@ static int udc_bind_to_driver(struct usb_udc *udc, struct usb_gadget_driver *dri
+ 		driver->unbind(udc->gadget);
+ 		goto err1;
+ 	}
+-	usb_gadget_connect(udc->gadget);
++	/*
++		 * HACK: The Android gadget driver disconnects the gadget
++		 * on bind and expects the gadget to stay disconnected until
++		 * it calls usb_gadget_connect when userspace is ready. Remove
++		 * the call to usb_gadget_connect bellow to avoid enabling the
++		 * pullup before userspace is ready.
++		 */
++#if !defined(CONFIG_USB_G_ANDROID) && !defined(CONFIG_USB_G_SLP)
++		 usb_gadget_connect(udc->gadget);
++#endif
+ 
+ 	kobject_uevent(&udc->dev.kobj, KOBJ_CHANGE);
+ 	return 0;
+-- 
+1.8.3.2
+

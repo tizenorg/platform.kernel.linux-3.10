@@ -1,0 +1,35 @@
+From ac23ff274ef217f24674e3cd5aba417a8a13d995 Mon Sep 17 00:00:00 2001
+From: Amit Daniel Kachhap <amit.daniel@samsung.com>
+Date: Mon, 24 Jun 2013 16:20:24 +0530
+Subject: [PATCH 0953/1302] thermal: exynos: Remove un-necessary CPU_THERMAL
+ dependency
+
+This patch removes the dependency on CPU_THERMAL for compiling TMU driver.
+This is useful for cases when only TMU controller needs to be initialised
+without cpu cooling action.
+
+Acked-by: Kukjin Kim <kgene.kim@samsung.com>
+Acked-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Acked-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: Amit Daniel Kachhap <amit.daniel@samsung.com>
+Signed-off-by: Eduardo Valentin <eduardo.valentin@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/thermal/samsung/Kconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/thermal/samsung/Kconfig b/drivers/thermal/samsung/Kconfig
+index 883a8a8..2cf31ad 100644
+--- a/drivers/thermal/samsung/Kconfig
++++ b/drivers/thermal/samsung/Kconfig
+@@ -1,7 +1,6 @@
+ config EXYNOS_THERMAL
+ 	tristate "Temperature sensor on Samsung EXYNOS"
+ 	depends on ARCH_HAS_BANDGAP
+-	depends on CPU_THERMAL
+ 	help
+ 	  If you say yes here you get support for TMU (Thermal Management
+ 	  Unit) on SAMSUNG EXYNOS series of SoC. This helps in registering
+-- 
+1.8.3.2
+

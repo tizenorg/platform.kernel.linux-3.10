@@ -1,0 +1,138 @@
+From 33e41cb2265fda0c30468b6c848ce224dbad5869 Mon Sep 17 00:00:00 2001
+From: Michal Nazarewicz <mina86@mina86.com>
+Date: Mon, 9 Dec 2013 15:55:36 -0800
+Subject: [PATCH 1158/1302] usb: gadget: f_fs: remove loop from I/O function
+
+When endpoint changes (due to it being disabled or alt setting changed),
+mimic the action as if the change happened after the request has been
+queued, instead of retrying with the new endpoint.
+
+Signed-off-by: Michal Nazarewicz <mina86@mina86.com>
+Cc: David Cohen <david.a.cohen@linux.intel.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_fs.c | 94 ++++++++++++++++++++---------------------------
+ 1 file changed, 40 insertions(+), 54 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_fs.c b/drivers/usb/gadget/f_fs.c
+index 44cf775..53a6f01 100644
+--- a/drivers/usb/gadget/f_fs.c
++++ b/drivers/usb/gadget/f_fs.c
+@@ -758,73 +758,59 @@ static ssize_t ffs_epfile_io(struct file *file,
+ 	ssize_t ret;
+ 	int halt;
+ 
+-	goto first_try;
+-	do {
+-		spin_unlock_irq(&epfile->ffs->eps_lock);
+-		mutex_unlock(&epfile->mutex);
++	/* Are we still active? */
++	if (WARN_ON(epfile->ffs->state != FFS_ACTIVE)) {
++		ret = -ENODEV;
++		goto error;
++	}
+ 
+-first_try:
+-		/* Are we still active? */
+-		if (WARN_ON(epfile->ffs->state != FFS_ACTIVE)) {
+-			ret = -ENODEV;
++	/* Wait for endpoint to be enabled */
++	ep = epfile->ep;
++	if (!ep) {
++		if (file->f_flags & O_NONBLOCK) {
++			ret = -EAGAIN;
+ 			goto error;
+ 		}
+ 
+-		/* Wait for endpoint to be enabled */
+-		ep = epfile->ep;
+-		if (!ep) {
+-			if (file->f_flags & O_NONBLOCK) {
+-				ret = -EAGAIN;
+-				goto error;
+-			}
+-
+-			if (wait_event_interruptible(epfile->wait,
+-						     (ep = epfile->ep))) {
+-				ret = -EINTR;
+-				goto error;
+-			}
+-		}
+-
+-		/* Do we halt? */
+-		halt = !read == !epfile->in;
+-		if (halt && epfile->isoc) {
+-			ret = -EINVAL;
++		ret = wait_event_interruptible(epfile->wait, (ep = epfile->ep));
++		if (ret) {
++			ret = -EINTR;
+ 			goto error;
+ 		}
++	}
+ 
+-		/* Allocate & copy */
+-		if (!halt && !data) {
+-			data = kzalloc(len, GFP_KERNEL);
+-			if (unlikely(!data))
+-				return -ENOMEM;
++	/* Do we halt? */
++	halt = !read == !epfile->in;
++	if (halt && epfile->isoc) {
++		ret = -EINVAL;
++		goto error;
++	}
+ 
+-			if (!read &&
+-			    unlikely(__copy_from_user(data, buf, len))) {
+-				ret = -EFAULT;
+-				goto error;
+-			}
+-		}
++	/* Allocate & copy */
++	if (!halt) {
++		data = kmalloc(len, GFP_KERNEL);
++		if (unlikely(!data))
++			return -ENOMEM;
+ 
+-		/* We will be using request */
+-		ret = ffs_mutex_lock(&epfile->mutex,
+-				     file->f_flags & O_NONBLOCK);
+-		if (unlikely(ret))
++		if (!read && unlikely(copy_from_user(data, buf, len))) {
++			ret = -EFAULT;
+ 			goto error;
++		}
++	}
+ 
+-		/*
+-		 * We're called from user space, we can use _irq rather then
+-		 * _irqsave
+-		 */
+-		spin_lock_irq(&epfile->ffs->eps_lock);
++	/* We will be using request */
++	ret = ffs_mutex_lock(&epfile->mutex, file->f_flags & O_NONBLOCK);
++	if (unlikely(ret))
++		goto error;
+ 
+-		/*
+-		 * While we were acquiring mutex endpoint got disabled
+-		 * or changed?
+-		 */
+-	} while (unlikely(epfile->ep != ep));
++	spin_lock_irq(&epfile->ffs->eps_lock);
+ 
+-	/* Halt */
+-	if (unlikely(halt)) {
++	if (epfile->ep != ep) {
++		/* In the meantime, endpoint got disabled or changed. */
++		ret = -ESHUTDOWN;
++		spin_unlock_irq(&epfile->ffs->eps_lock);
++	} else if (halt) {
++		/* Halt */
+ 		if (likely(epfile->ep == ep) && !WARN_ON(!ep->ep))
+ 			usb_ep_set_halt(ep->ep);
+ 		spin_unlock_irq(&epfile->ffs->eps_lock);
+-- 
+1.8.3.2
+

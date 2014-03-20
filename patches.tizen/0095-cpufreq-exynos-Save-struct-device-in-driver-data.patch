@@ -1,0 +1,43 @@
+From ccf862f26867abbefe2e6e8e5a8d8ab9a4492f13 Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 1 Mar 2013 18:07:56 +0100
+Subject: [PATCH 0095/1302] cpufreq: exynos: Save struct device in driver data
+
+This patch adds dev field in exynos cpufreq driver data to allow Device
+Tree based clock and regulator lookups.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/exynos-cpufreq.c | 2 ++
+ drivers/cpufreq/exynos-cpufreq.h | 1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/cpufreq/exynos-cpufreq.c b/drivers/cpufreq/exynos-cpufreq.c
+index 976598f..4450711 100644
+--- a/drivers/cpufreq/exynos-cpufreq.c
++++ b/drivers/cpufreq/exynos-cpufreq.c
+@@ -299,6 +299,8 @@ static int __init exynos_cpufreq_probe(struct platform_device *pdev)
+ 	if (!exynos_info)
+ 		return -ENOMEM;
+ 
++	exynos_info->dev = &pdev->dev;
++
+ 	if (soc_is_exynos4210())
+ 		ret = exynos4210_cpufreq_init(exynos_info);
+ 	else if (soc_is_exynos4212() || soc_is_exynos4412())
+diff --git a/drivers/cpufreq/exynos-cpufreq.h b/drivers/cpufreq/exynos-cpufreq.h
+index 92b852e..1d45a61 100644
+--- a/drivers/cpufreq/exynos-cpufreq.h
++++ b/drivers/cpufreq/exynos-cpufreq.h
+@@ -34,6 +34,7 @@ struct apll_freq {
+ };
+ 
+ struct exynos_dvfs_info {
++	struct device *dev;
+ 	unsigned long	mpll_freq_khz;
+ 	unsigned int	pll_safe_idx;
+ 	struct clk	*cpu_clk;
+-- 
+1.8.3.2
+

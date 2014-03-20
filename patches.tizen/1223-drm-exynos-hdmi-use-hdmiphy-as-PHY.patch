@@ -1,0 +1,72 @@
+From 47fda3e2ac0fc9ad689b2b6bc46da2bf1bd51437 Mon Sep 17 00:00:00 2001
+From: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Date: Thu, 3 Oct 2013 16:04:53 +0200
+Subject: [PATCH 1223/1302] drm: exynos: hdmi: use hdmiphy as PHY
+
+The HDMIPHY (physical interface) is controlled by a single
+bit in a power controller's regiter. It was implemented
+as clock. It was a simple but effective hack.
+
+This patch makes HDMI driver to control HDMIPHY via PHY interface.
+
+Signed-off-by: Tomasz Stanislawski <t.stanislaws@samsung.com>
+Change-Id: I7e4729b61c7e71f7e411d423794420893f99f384
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/gpu/drm/exynos/exynos_hdmi.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/exynos/exynos_hdmi.c b/drivers/gpu/drm/exynos/exynos_hdmi.c
+index 05b24f9..9b52b4f 100644
+--- a/drivers/gpu/drm/exynos/exynos_hdmi.c
++++ b/drivers/gpu/drm/exynos/exynos_hdmi.c
+@@ -34,6 +34,7 @@
+ #include <linux/io.h>
+ #include <linux/of.h>
+ #include <linux/of_gpio.h>
++#include <linux/phy/phy.h>
+ 
+ #include <drm/exynos_drm.h>
+ 
+@@ -82,7 +83,7 @@ struct hdmi_resources {
+ 	struct clk			*sclk_hdmi;
+ 	struct clk			*sclk_pixel;
+ 	struct clk			*sclk_hdmiphy;
+-	struct clk			*hdmiphy;
++	struct phy			*hdmiphy;
+ 	struct regulator_bulk_data	*regul_bulk;
+ 	int				regul_count;
+ };
+@@ -1683,7 +1684,7 @@ static void hdmi_poweron(struct hdmi_context *hdata)
+ 	if (regulator_bulk_enable(res->regul_count, res->regul_bulk))
+ 		DRM_DEBUG_KMS("failed to enable regulator bulk\n");
+ 
+-	clk_enable(res->hdmiphy);
++	phy_power_on(res->hdmiphy);
+ 	clk_enable(res->hdmi);
+ 	clk_enable(res->sclk_hdmi);
+ 
+@@ -1708,7 +1709,7 @@ static void hdmi_poweroff(struct hdmi_context *hdata)
+ 
+ 	clk_disable(res->sclk_hdmi);
+ 	clk_disable(res->hdmi);
+-	clk_disable(res->hdmiphy);
++	phy_power_off(res->hdmiphy);
+ 	regulator_bulk_disable(res->regul_count, res->regul_bulk);
+ 
+ 	mutex_lock(&hdata->hdmi_mutex);
+@@ -1807,9 +1808,9 @@ static int hdmi_resources_init(struct hdmi_context *hdata)
+ 		DRM_ERROR("failed to get clock 'sclk_hdmiphy'\n");
+ 		goto fail;
+ 	}
+-	res->hdmiphy = devm_clk_get(dev, "hdmiphy");
++	res->hdmiphy = devm_phy_get(dev, "hdmiphy");
+ 	if (IS_ERR(res->hdmiphy)) {
+-		DRM_ERROR("failed to get clock 'hdmiphy'\n");
++		DRM_ERROR("failed to get phy 'hdmiphy'\n");
+ 		goto fail;
+ 	}
+ 
+-- 
+1.8.3.2
+

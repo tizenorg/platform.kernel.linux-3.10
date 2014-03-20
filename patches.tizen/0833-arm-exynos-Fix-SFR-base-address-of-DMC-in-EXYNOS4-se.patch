@@ -1,0 +1,93 @@
+From dc35488b130cc195ba36cc8c4c10a450f87a59eb Mon Sep 17 00:00:00 2001
+From: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Date: Mon, 7 Oct 2013 17:03:32 +0900
+Subject: [PATCH 0833/1302] arm: exynos: Fix SFR base address of DMC in EXYNOS4
+ series.
+
+This patch fixes DMC's physical SFR address base which is used for
+static memory mapping as EXYNOS4210 and EXYNOS4x12 uses different SFR
+addresses for them.
+
+Signed-off-by: Jonghwa Lee <jonghwa3.lee@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ arch/arm/mach-exynos/common.c           | 30 ++++++++++++++++++++----------
+ arch/arm/mach-exynos/include/mach/map.h |  7 +++++--
+ 2 files changed, 25 insertions(+), 12 deletions(-)
+
+diff --git a/arch/arm/mach-exynos/common.c b/arch/arm/mach-exynos/common.c
+index a8b62e4..d0dcfc0 100644
+--- a/arch/arm/mach-exynos/common.c
++++ b/arch/arm/mach-exynos/common.c
+@@ -190,16 +190,6 @@ static struct map_desc exynos4_iodesc[] __initdata = {
+ 		.length		= SZ_4K,
+ 		.type		= MT_DEVICE,
+ 	}, {
+-		.virtual	= (unsigned long)S5P_VA_DMC0,
+-		.pfn		= __phys_to_pfn(EXYNOS4_PA_DMC0),
+-		.length		= SZ_64K,
+-		.type		= MT_DEVICE,
+-	}, {
+-		.virtual	= (unsigned long)S5P_VA_DMC1,
+-		.pfn		= __phys_to_pfn(EXYNOS4_PA_DMC1),
+-		.length		= SZ_64K,
+-		.type		= MT_DEVICE,
+-	}, {
+ 		.virtual	= (unsigned long)S3C_VA_USB_HSPHY,
+ 		.pfn		= __phys_to_pfn(EXYNOS4_PA_HSPHY),
+ 		.length		= SZ_4K,
+@@ -231,6 +221,16 @@ static struct map_desc exynos4210_iodesc[] __initdata = {
+ 		.pfn		= __phys_to_pfn(EXYNOS4210_PA_SYSRAM_NS),
+ 		.length		= SZ_4K,
+ 		.type		= MT_DEVICE,
++	}, {
++		.virtual	= (unsigned long)S5P_VA_DMC0,
++		.pfn		= __phys_to_pfn(EXYNOS4210_PA_DMC0),
++		.length		= SZ_64K,
++		.type		= MT_DEVICE,
++	}, {
++		.virtual	= (unsigned long)S5P_VA_DMC1,
++		.pfn		= __phys_to_pfn(EXYNOS4210_PA_DMC1),
++		.length		= SZ_64K,
++		.type		= MT_DEVICE,
+ 	},
+ };
+ 
+@@ -240,6 +240,16 @@ static struct map_desc exynos4x12_iodesc[] __initdata = {
+ 		.pfn		= __phys_to_pfn(EXYNOS4x12_PA_SYSRAM_NS),
+ 		.length		= SZ_4K,
+ 		.type		= MT_DEVICE,
++	}, {
++		.virtual	= (unsigned long)S5P_VA_DMC0,
++		.pfn		= __phys_to_pfn(EXYNOS4x12_PA_DMC0),
++		.length		= SZ_64K,
++		.type		= MT_DEVICE,
++	}, {
++		.virtual	= (unsigned long)S5P_VA_DMC1,
++		.pfn		= __phys_to_pfn(EXYNOS4x12_PA_DMC1),
++		.length		= SZ_64K,
++		.type		= MT_DEVICE,
+ 	},
+ };
+ 
+diff --git a/arch/arm/mach-exynos/include/mach/map.h b/arch/arm/mach-exynos/include/mach/map.h
+index e721398..9d8a9b7 100644
+--- a/arch/arm/mach-exynos/include/mach/map.h
++++ b/arch/arm/mach-exynos/include/mach/map.h
+@@ -75,8 +75,11 @@
+ 
+ #define EXYNOS4_PA_KEYPAD		0x100A0000
+ 
+-#define EXYNOS4_PA_DMC0			0x10400000
+-#define EXYNOS4_PA_DMC1			0x10410000
++#define EXYNOS4210_PA_DMC0		0x10400000
++#define EXYNOS4210_PA_DMC1		0x10410000
++
++#define EXYNOS4x12_PA_DMC0		0x10600000
++#define EXYNOS4x12_PA_DMC1		0x10610000
+ 
+ #define EXYNOS4_PA_COMBINER		0x10440000
+ #define EXYNOS5_PA_COMBINER		0x10440000
+-- 
+1.8.3.2
+

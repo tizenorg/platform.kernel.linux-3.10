@@ -1,0 +1,63 @@
+From 1c970dee7446774a8c2603a97d5704819e539990 Mon Sep 17 00:00:00 2001
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Mon, 16 Dec 2013 18:44:43 +0900
+Subject: [PATCH 1184/1302] usb: gadget: f_sourcesink: Fix sparse warning
+
+Make local symbols static in order to fix the following sparse
+warnings.
+
+drivers/usb/gadget/f_sourcesink.c:205:34: warning: symbol 'ss_source_comp_desc' was not declared. Should it be static?
+drivers/usb/gadget/f_sourcesink.c:222:34: warning: symbol 'ss_sink_comp_desc' was not declared. Should it be static?
+drivers/usb/gadget/f_sourcesink.c:240:34: warning: symbol 'ss_iso_source_comp_desc' was not declared. Should it be static?
+drivers/usb/gadget/f_sourcesink.c:258:34: warning: symbol 'ss_iso_sink_comp_desc' was not declared. Should it be static?
+
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_sourcesink.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_sourcesink.c b/drivers/usb/gadget/f_sourcesink.c
+index 5d4251e..d3cd52d 100644
+--- a/drivers/usb/gadget/f_sourcesink.c
++++ b/drivers/usb/gadget/f_sourcesink.c
+@@ -202,7 +202,7 @@ static struct usb_endpoint_descriptor ss_source_desc = {
+ 	.wMaxPacketSize =	cpu_to_le16(1024),
+ };
+ 
+-struct usb_ss_ep_comp_descriptor ss_source_comp_desc = {
++static struct usb_ss_ep_comp_descriptor ss_source_comp_desc = {
+ 	.bLength =		USB_DT_SS_EP_COMP_SIZE,
+ 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+ 
+@@ -219,7 +219,7 @@ static struct usb_endpoint_descriptor ss_sink_desc = {
+ 	.wMaxPacketSize =	cpu_to_le16(1024),
+ };
+ 
+-struct usb_ss_ep_comp_descriptor ss_sink_comp_desc = {
++static struct usb_ss_ep_comp_descriptor ss_sink_comp_desc = {
+ 	.bLength =		USB_DT_SS_EP_COMP_SIZE,
+ 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+ 
+@@ -237,7 +237,7 @@ static struct usb_endpoint_descriptor ss_iso_source_desc = {
+ 	.bInterval =		4,
+ };
+ 
+-struct usb_ss_ep_comp_descriptor ss_iso_source_comp_desc = {
++static struct usb_ss_ep_comp_descriptor ss_iso_source_comp_desc = {
+ 	.bLength =		USB_DT_SS_EP_COMP_SIZE,
+ 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+ 
+@@ -255,7 +255,7 @@ static struct usb_endpoint_descriptor ss_iso_sink_desc = {
+ 	.bInterval =		4,
+ };
+ 
+-struct usb_ss_ep_comp_descriptor ss_iso_sink_comp_desc = {
++static struct usb_ss_ep_comp_descriptor ss_iso_sink_comp_desc = {
+ 	.bLength =		USB_DT_SS_EP_COMP_SIZE,
+ 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+ 
+-- 
+1.8.3.2
+

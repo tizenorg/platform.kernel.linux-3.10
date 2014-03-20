@@ -1,0 +1,31 @@
+From 7cd2e24890b00774e82569d8150aaa6ed870e90d Mon Sep 17 00:00:00 2001
+From: Tomasz Figa <t.figa@samsung.com>
+Date: Fri, 1 Mar 2013 18:09:39 +0100
+Subject: [PATCH 0096/1302] cpufreq: exynos: Use device-based lookup for
+ vdd_arm regulator
+
+This patch adds device-based lookup of vdd_arm regulator to allow lookup
+using Device Tree.
+
+Signed-off-by: Tomasz Figa <t.figa@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/cpufreq/exynos-cpufreq.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/cpufreq/exynos-cpufreq.c b/drivers/cpufreq/exynos-cpufreq.c
+index 4450711..ee4b947 100644
+--- a/drivers/cpufreq/exynos-cpufreq.c
++++ b/drivers/cpufreq/exynos-cpufreq.c
+@@ -318,7 +318,7 @@ static int __init exynos_cpufreq_probe(struct platform_device *pdev)
+ 		goto err_vdd_arm;
+ 	}
+ 
+-	arm_regulator = regulator_get(NULL, "vdd_arm");
++	arm_regulator = regulator_get(exynos_info->dev, "vdd_arm");
+ 	if (IS_ERR(arm_regulator)) {
+ 		pr_err("%s: failed to get resource vdd_arm\n", __func__);
+ 		goto err_vdd_arm;
+-- 
+1.8.3.2
+

@@ -1,0 +1,97 @@
+From a885198bbb009bc89783d3d9889757ed130cd9b8 Mon Sep 17 00:00:00 2001
+From: Jiri Olsa <jolsa@redhat.com>
+Date: Mon, 15 Apr 2013 04:32:28 +0200
+Subject: [PATCH 0420/1302] perf tools: Replace multiple line assignment with
+ multiple statements
+
+Replacing multiple line assignment with multiple statements.
+
+Suggested-by: Sam Ravnborg <sam@ravnborg.org>
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Corey Ashford <cjashfor@linux.vnet.ibm.com>
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Namhyung Kim <namhyung@kernel.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Stephane Eranian <eranian@google.com>
+Link: http://lkml.kernel.org/r/1369398928-9809-24-git-send-email-jolsa@redhat.com
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ tools/perf/config/Makefile | 43 +++++++++++++++++++------------------------
+ 1 file changed, 19 insertions(+), 24 deletions(-)
+
+diff --git a/tools/perf/config/Makefile b/tools/perf/config/Makefile
+index 9765993..f139dcd 100644
+--- a/tools/perf/config/Makefile
++++ b/tools/perf/config/Makefile
+@@ -78,13 +78,12 @@ ifdef PARSER_DEBUG
+   CFLAGS             += -DPARSER_DEBUG
+ endif
+ 
+-CFLAGS += \
+-  -fno-omit-frame-pointer \
+-  -ggdb3 \
+-  -funwind-tables \
+-  -Wall \
+-  -Wextra \
+-  -std=gnu99
++CFLAGS += -fno-omit-frame-pointer
++CFLAGS += -ggdb3
++CFLAGS += -funwind-tables
++CFLAGS += -Wall
++CFLAGS += -Wextra
++CFLAGS += -std=gnu99
+ 
+ EXTLIBS = -lpthread -lrt -lelf -lm
+ 
+@@ -106,30 +105,26 @@ ifndef PERF_DEBUG
+   endif
+ endif
+ 
+-CFLAGS += \
+-  -I$(src-perf)/util/include \
+-  -I$(src-perf)/arch/$(ARCH)/include \
+-  -I$(srctree)/arch/$(ARCH)/include/uapi \
+-  -I$(srctree)/arch/$(ARCH)/include \
+-  -I$(srctree)/include/uapi \
+-  -I$(srctree)/include
++CFLAGS += -I$(src-perf)/util/include
++CFLAGS += -I$(src-perf)/arch/$(ARCH)/include
++CFLAGS += -I$(srctree)/arch/$(ARCH)/include/uapi
++CFLAGS += -I$(srctree)/arch/$(ARCH)/include
++CFLAGS += -I$(srctree)/include/uapi
++CFLAGS += -I$(srctree)/include
+ 
+ # $(obj-perf)      for generated common-cmds.h
+ # $(obj-perf)/util for generated bison/flex headers
+ ifneq ($(OUTPUT),)
+-CFLAGS += \
+-  -I$(obj-perf)/util \
+-  -I$(obj-perf)
++CFLAGS += -I$(obj-perf)/util
++CFLAGS += -I$(obj-perf)
+ endif
+ 
+-CFLAGS += \
+-  -I$(src-perf)/util \
+-  -I$(src-perf) \
+-  -I$(TRACE_EVENT_DIR) \
+-  -I$(srctree)/tools/lib/
++CFLAGS += -I$(src-perf)/util
++CFLAGS += -I$(src-perf)
++CFLAGS += -I$(TRACE_EVENT_DIR)
++CFLAGS += -I$(srctree)/tools/lib/
+ 
+-CFLAGS += \
+-  -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
++CFLAGS += -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
+ 
+ ifndef NO_BIONIC
+ ifeq ($(call try-cc,$(SOURCE_BIONIC),$(CFLAGS),bionic),y)
+-- 
+1.8.3.2
+

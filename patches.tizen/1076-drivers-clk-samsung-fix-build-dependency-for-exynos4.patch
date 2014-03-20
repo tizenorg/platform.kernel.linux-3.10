@@ -1,0 +1,28 @@
+From 9d22d94e4eb14d828b2f224c0b4e5ff8da02532f Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Mon, 13 Jan 2014 08:39:19 +0100
+Subject: [PATCH 1076/1302] drivers: clk: samsung: fix build dependency for
+ exynos4 audss clocks
+
+Fix build break for non-exynos Samsung builds.
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Change-Id: Ib954cffbfd249e4122598171566123b8d5f24deb
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/clk/samsung/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/clk/samsung/Makefile b/drivers/clk/samsung/Makefile
+index ec86c33..5d70a6c 100644
+--- a/drivers/clk/samsung/Makefile
++++ b/drivers/clk/samsung/Makefile
+@@ -6,4 +6,4 @@ obj-$(CONFIG_COMMON_CLK)	+= clk.o clk-pll.o
+ obj-$(CONFIG_ARCH_EXYNOS4)	+= clk-exynos4.o
+ obj-$(CONFIG_SOC_EXYNOS5250)	+= clk-exynos5250.o
+ obj-$(CONFIG_SOC_EXYNOS5440)	+= clk-exynos5440.o
+-obj-$(CONFIG_PLAT_SAMSUNG)	+= clk-exynos4-audss.o
++obj-$(CONFIG_ARCH_EXYNOS4)	+= clk-exynos4-audss.o
+-- 
+1.8.3.2
+

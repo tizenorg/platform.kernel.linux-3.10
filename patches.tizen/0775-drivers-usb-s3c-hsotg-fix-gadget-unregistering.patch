@@ -1,0 +1,46 @@
+From 3d9b28cfa48a9b8434190eec71cafb4cce123de5 Mon Sep 17 00:00:00 2001
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 13 Aug 2013 12:59:10 +0200
+Subject: [PATCH 0775/1302] drivers: usb: s3c-hsotg: fix gadget unregistering
+
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/s3c-hsotg.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/usb/gadget/s3c-hsotg.c b/drivers/usb/gadget/s3c-hsotg.c
+index 0ec467f..69f9c5e 100644
+--- a/drivers/usb/gadget/s3c-hsotg.c
++++ b/drivers/usb/gadget/s3c-hsotg.c
+@@ -2964,9 +2964,6 @@ static int s3c_hsotg_udc_stop(struct usb_gadget *gadget,
+ 	if (!hsotg)
+ 		return -ENODEV;
+ 
+-	if (!driver || driver != hsotg->driver || !driver->unbind)
+-		return -EINVAL;
+-
+ 	/* all endpoints should be shutdown */
+ 	for (ep = 0; ep < hsotg->num_of_eps; ep++)
+ 		s3c_hsotg_ep_disable(&hsotg->eps[ep].ep);
+@@ -2976,14 +2973,13 @@ static int s3c_hsotg_udc_stop(struct usb_gadget *gadget,
+ 	s3c_hsotg_phy_disable(hsotg);
+ 	regulator_bulk_disable(ARRAY_SIZE(hsotg->supplies), hsotg->supplies);
+ 
+-	hsotg->driver = NULL;
++	if (!driver)
++		hsotg->driver = NULL;
++
+ 	hsotg->gadget.speed = USB_SPEED_UNKNOWN;
+ 
+ 	spin_unlock_irqrestore(&hsotg->lock, flags);
+ 
+-	dev_info(hsotg->dev, "unregistered gadget driver '%s'\n",
+-		 driver->driver.name);
+-
+ 	return 0;
+ }
+ 
+-- 
+1.8.3.2
+

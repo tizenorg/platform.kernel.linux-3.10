@@ -1,0 +1,42 @@
+From f05808b3a7041383738f6a2d1795e80b22fc010d Mon Sep 17 00:00:00 2001
+From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Date: Fri, 26 Jul 2013 14:37:14 +0200
+Subject: [PATCH 0653/1302] usb: gadget: f_phonet: remove unused preprocessor
+ conditional
+
+The compatibility layer which the USBF_PHONET_INCLUDED was a part of
+is no longer present - the USBF_PHONET_INCLUDED is not #defined by anyone
+anymore, so the ifndef is always true. Removing it.
+
+Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Acked-by: Michal Nazarewicz <mina86@mina86.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+---
+ drivers/usb/gadget/f_phonet.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/usb/gadget/f_phonet.c b/drivers/usb/gadget/f_phonet.c
+index 1bf26e9..eb3aa81 100644
+--- a/drivers/usb/gadget/f_phonet.c
++++ b/drivers/usb/gadget/f_phonet.c
+@@ -488,7 +488,6 @@ static int pn_bind(struct usb_configuration *c, struct usb_function *f)
+ 	struct usb_ep *ep;
+ 	int status, i;
+ 
+-#ifndef USBF_PHONET_INCLUDED
+ 	struct f_phonet_opts *phonet_opts;
+ 
+ 	phonet_opts = container_of(f->fi, struct f_phonet_opts, func_inst);
+@@ -507,7 +506,6 @@ static int pn_bind(struct usb_configuration *c, struct usb_function *f)
+ 			return status;
+ 		phonet_opts->bound = true;
+ 	}
+-#endif
+ 
+ 	/* Reserve interface IDs */
+ 	status = usb_interface_id(c, f);
+-- 
+1.8.3.2
+
