@@ -329,13 +329,15 @@ static bool max98090_readable_register(struct device *dev, unsigned int reg)
 	case M98090_REG_ADC_CONTROL:
 	case M98090_REG_DEVICE_SHUTDOWN:
 	case M98090_REG_EQUALIZER_BASE ... M98090_REG_EQUALIZER_BASE + 0x68:
-	case M98090_REG_RECORD_BIQUAD_BASE ... M98090_REG_RECORD_BIQUAD_BASE + 0x0E:
+	case M98090_REG_RECORD_BIQUAD_BASE ... M98090_REG_RECORD_BIQUAD_BASE
+		+ 0x0E:
 	case M98090_REG_DMIC3_VOLUME:
 	case M98090_REG_DMIC4_VOLUME:
 	case M98090_REG_DMIC34_BQ_PREATTEN:
 	case M98090_REG_RECORD_TDM_SLOT:
 	case M98090_REG_SAMPLE_RATE:
-	case M98090_REG_DMIC34_BIQUAD_BASE ... M98090_REG_DMIC34_BIQUAD_BASE + 0x0E:
+	case M98090_REG_DMIC34_BIQUAD_BASE ... M98090_REG_DMIC34_BIQUAD_BASE
+		+ 0x0E:
 		return true;
 	default:
 		return false;
@@ -507,22 +509,22 @@ static int max98090_put_enab_tlv(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static const char *max98090_perf_pwr_text[] =
-	{ "High Performance", "Low Power" };
-static const char *max98090_pwr_perf_text[] =
-	{ "Low Power", "High Performance" };
+static const char * const max98090_perf_pwr_text[] = {
+	"High Performance", "Low Power" };
+static const char * const max98090_pwr_perf_text[] = {
+	"Low Power", "High Performance" };
 
 static const struct soc_enum max98090_vcmbandgap_enum =
 	SOC_ENUM_SINGLE(M98090_REG_BIAS_CONTROL, M98090_VCM_MODE_SHIFT,
 		ARRAY_SIZE(max98090_pwr_perf_text), max98090_pwr_perf_text);
 
-static const char *max98090_osr128_text[] = { "64*fs", "128*fs" };
+static const char * const max98090_osr128_text[] = { "64*fs", "128*fs" };
 
 static const struct soc_enum max98090_osr128_enum =
 	SOC_ENUM_SINGLE(M98090_REG_ADC_CONTROL, M98090_OSR128_SHIFT,
 		ARRAY_SIZE(max98090_osr128_text), max98090_osr128_text);
 
-static const char *max98090_mode_text[] = { "Voice", "Music" };
+static const char * const max98090_mode_text[] = { "Voice", "Music" };
 
 static const struct soc_enum max98090_mode_enum =
 	SOC_ENUM_SINGLE(M98090_REG_FILTER_CONFIG, M98090_MODE_SHIFT,
@@ -533,28 +535,28 @@ static const struct soc_enum max98090_filter_dmic34mode_enum =
 		M98090_FLT_DMIC34MODE_SHIFT,
 		ARRAY_SIZE(max98090_mode_text), max98090_mode_text);
 
-static const char *max98090_drcatk_text[] =
-	{ "0.5ms", "1ms", "5ms", "10ms", "25ms", "50ms", "100ms", "200ms" };
+static const char * const max98090_drcatk_text[] = {
+	"0.5ms", "1ms", "5ms", "10ms", "25ms", "50ms", "100ms", "200ms" };
 
 static const struct soc_enum max98090_drcatk_enum =
 	SOC_ENUM_SINGLE(M98090_REG_DRC_TIMING, M98090_DRCATK_SHIFT,
 		ARRAY_SIZE(max98090_drcatk_text), max98090_drcatk_text);
 
-static const char *max98090_drcrls_text[] =
-	{ "8s", "4s", "2s", "1s", "0.5s", "0.25s", "0.125s", "0.0625s" };
+static const char * const max98090_drcrls_text[] = {
+	"8s", "4s", "2s", "1s", "0.5s", "0.25s", "0.125s", "0.0625s" };
 
 static const struct soc_enum max98090_drcrls_enum =
 	SOC_ENUM_SINGLE(M98090_REG_DRC_TIMING, M98090_DRCRLS_SHIFT,
 		ARRAY_SIZE(max98090_drcrls_text), max98090_drcrls_text);
 
-static const char *max98090_alccmp_text[] =
-	{ "1:1", "1:1.5", "1:2", "1:4", "1:INF" };
+static const char * const max98090_alccmp_text[] = {
+	"1:1", "1:1.5", "1:2", "1:4", "1:INF" };
 
 static const struct soc_enum max98090_alccmp_enum =
 	SOC_ENUM_SINGLE(M98090_REG_DRC_COMPRESSOR, M98090_DRCCMP_SHIFT,
 		ARRAY_SIZE(max98090_alccmp_text), max98090_alccmp_text);
 
-static const char *max98090_drcexp_text[] = { "1:1", "2:1", "3:1" };
+static const char * const max98090_drcexp_text[] = { "1:1", "2:1", "3:1" };
 
 static const struct soc_enum max98090_drcexp_enum =
 	SOC_ENUM_SINGLE(M98090_REG_DRC_EXPANDER, M98090_DRCEXP_SHIFT,
@@ -668,9 +670,9 @@ static const struct snd_kcontrol_new max98090_snd_controls[] = {
 		M98090_EQ5BANDEN_SHIFT, M98090_EQ5BANDEN_NUM - 1, 0),
 	SOC_SINGLE("Digital EQ 7 Band Switch", M98090_REG_DSP_FILTER_ENABLE,
 		M98090_EQ7BANDEN_SHIFT, M98090_EQ7BANDEN_NUM - 1, 0),
-	SOC_SINGLE("Digital EQ Clipping Detection", M98090_REG_DAI_PLAYBACK_LEVEL_EQ,
-		M98090_EQCLPN_SHIFT, M98090_EQCLPN_NUM - 1,
-		1),
+	SOC_SINGLE("Digital EQ Clipping Detection",
+		M98090_REG_DAI_PLAYBACK_LEVEL_EQ,
+		M98090_EQCLPN_SHIFT, M98090_EQCLPN_NUM - 1, 1),
 	SOC_SINGLE_TLV("Digital EQ Volume", M98090_REG_DAI_PLAYBACK_LEVEL_EQ,
 		M98090_DVEQ_SHIFT, M98090_DVEQ_NUM - 1, 1,
 		max98090_dv_tlv),
@@ -806,11 +808,10 @@ static int max98090_micinput_event(struct snd_soc_dapm_widget *w,
 
 
 	if (val >= 1) {
-		if (w->reg == M98090_REG_MIC1_INPUT_LEVEL) {
+		if (w->reg == M98090_REG_MIC1_INPUT_LEVEL)
 			max98090->pa1en = val - 1; /* Update for volatile */
-		} else {
+		else
 			max98090->pa2en = val - 1; /* Update for volatile */
-		}
 	}
 
 	switch (event) {
@@ -839,7 +840,7 @@ static int max98090_micinput_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static const char *mic1_mux_text[] = { "IN12", "IN56" };
+static const char * const mic1_mux_text[] = { "IN12", "IN56" };
 
 static const struct soc_enum mic1_mux_enum =
 	SOC_ENUM_SINGLE(M98090_REG_INPUT_MODE, M98090_EXTMIC1_SHIFT,
@@ -848,7 +849,7 @@ static const struct soc_enum mic1_mux_enum =
 static const struct snd_kcontrol_new max98090_mic1_mux =
 	SOC_DAPM_ENUM("MIC1 Mux", mic1_mux_enum);
 
-static const char *mic2_mux_text[] = { "IN34", "IN56" };
+static const char * const mic2_mux_text[] = { "IN34", "IN56" };
 
 static const struct soc_enum mic2_mux_enum =
 	SOC_ENUM_SINGLE(M98090_REG_INPUT_MODE, M98090_EXTMIC2_SHIFT,
@@ -857,7 +858,7 @@ static const struct soc_enum mic2_mux_enum =
 static const struct snd_kcontrol_new max98090_mic2_mux =
 	SOC_DAPM_ENUM("MIC2 Mux", mic2_mux_enum);
 
-static const char *max98090_micpre_text[] = { "Off", "On" };
+static const char * const max98090_micpre_text[] = { "Off", "On" };
 
 static const struct soc_enum max98090_pa1en_enum =
 	SOC_ENUM_SINGLE(M98090_REG_MIC1_INPUT_LEVEL, M98090_MIC_PA1EN_SHIFT,
@@ -927,7 +928,7 @@ static const struct snd_kcontrol_new max98090_right_adc_mixer_controls[] = {
 		M98090_MIXADR_MIC2_SHIFT, 1, 0),
 };
 
-static const char *lten_mux_text[] = { "Normal", "Loopthrough" };
+static const char * const lten_mux_text[] = { "Normal", "Loopthrough" };
 
 static const struct soc_enum ltenl_mux_enum =
 	SOC_ENUM_SINGLE(M98090_REG_IO_CONFIGURATION, M98090_LTEN_SHIFT,
@@ -943,7 +944,7 @@ static const struct snd_kcontrol_new max98090_ltenl_mux =
 static const struct snd_kcontrol_new max98090_ltenr_mux =
 	SOC_DAPM_ENUM("LTENR Mux", ltenr_mux_enum);
 
-static const char *lben_mux_text[] = { "Normal", "Loopback" };
+static const char * const lben_mux_text[] = { "Normal", "Loopback" };
 
 static const struct soc_enum lbenl_mux_enum =
 	SOC_ENUM_SINGLE(M98090_REG_IO_CONFIGURATION, M98090_LBEN_SHIFT,
@@ -959,9 +960,9 @@ static const struct snd_kcontrol_new max98090_lbenl_mux =
 static const struct snd_kcontrol_new max98090_lbenr_mux =
 	SOC_DAPM_ENUM("LBENR Mux", lbenr_mux_enum);
 
-static const char *stenl_mux_text[] = { "Normal", "Sidetone Left" };
+static const char * const stenl_mux_text[] = { "Normal", "Sidetone Left" };
 
-static const char *stenr_mux_text[] = { "Normal", "Sidetone Right" };
+static const char * const stenr_mux_text[] = { "Normal", "Sidetone Right" };
 
 static const struct soc_enum stenl_mux_enum =
 	SOC_ENUM_SINGLE(M98090_REG_ADC_SIDETONE, M98090_DSTSL_SHIFT,
@@ -1075,7 +1076,7 @@ static const struct snd_kcontrol_new max98090_right_rcv_mixer_controls[] = {
 		M98090_MIXRCVR_MIC2_SHIFT, 1, 0),
 };
 
-static const char *linmod_mux_text[] = { "Left Only", "Left and Right" };
+static const char * const linmod_mux_text[] = { "Left Only", "Left and Right" };
 
 static const struct soc_enum linmod_mux_enum =
 	SOC_ENUM_SINGLE(M98090_REG_LOUTR_MIXER, M98090_LINMOD_SHIFT,
@@ -1084,7 +1085,7 @@ static const struct soc_enum linmod_mux_enum =
 static const struct snd_kcontrol_new max98090_linmod_mux =
 	SOC_DAPM_ENUM("LINMOD Mux", linmod_mux_enum);
 
-static const char *mixhpsel_mux_text[] = { "DAC Only", "HP Mixer" };
+static const char * const mixhpsel_mux_text[] = { "DAC Only", "HP Mixer" };
 
 /*
  * This is a mux as it selects the HP output, but to DAPM it is a Mixer enable
@@ -1755,6 +1756,16 @@ static int max98090_set_bias_level(struct snd_soc_codec *codec,
 
 	switch (level) {
 	case SND_SOC_BIAS_ON:
+		if (codec->dapm.bias_level == SND_SOC_BIAS_OFF) {
+			ret = regcache_sync(max98090->regmap);
+
+			if (ret != 0) {
+				dev_err(codec->dev,
+					"Failed to sync cache: %d\n", ret);
+				return ret;
+			}
+		}
+
 		if (max98090->jack_state == M98090_JACK_STATE_HEADSET) {
 			/*
 			 * Set to normal bias level.
@@ -1768,16 +1779,6 @@ static int max98090_set_bias_level(struct snd_soc_codec *codec,
 		break;
 
 	case SND_SOC_BIAS_STANDBY:
-		if (codec->dapm.bias_level == SND_SOC_BIAS_OFF) {
-			ret = regcache_sync(max98090->regmap);
-			if (ret != 0) {
-				dev_err(codec->dev,
-					"Failed to sync cache: %d\n", ret);
-				return ret;
-			}
-		}
-		break;
-
 	case SND_SOC_BIAS_OFF:
 		/* Set internal pull-up to lowest power mode */
 		snd_soc_update_bits(codec, M98090_REG_JACK_DETECT,
@@ -1857,9 +1858,8 @@ static int max98090_dai_hw_params(struct snd_pcm_substream *substream,
 
 	/* Check for supported PCLK to LRCLK ratios */
 	for (j = 0; j < ARRAY_SIZE(comp_pclk_rates); j++) {
-		if (comp_pclk_rates[j] == max98090->sysclk) {
+		if (comp_pclk_rates[j] == max98090->sysclk)
 			break;
-		}
 	}
 
 	for (i = 0; i < ARRAY_SIZE(comp_lrclk_rates) - 1; i++) {
@@ -1961,7 +1961,7 @@ static void max98090_jack_work(struct work_struct *work)
 
 	reg = snd_soc_read(codec, M98090_REG_JACK_STATUS);
 
-	switch (reg & (M98090_LSNS_MASK | M98090_JKSNS_MASK)) {
+		switch (reg & (M98090_LSNS_MASK | M98090_JKSNS_MASK)) {
 		case M98090_LSNS_MASK | M98090_JKSNS_MASK:
 			dev_dbg(codec->dev, "No Headset Detected\n");
 
@@ -2138,7 +2138,7 @@ static struct snd_soc_dai_ops max98090_dai_ops = {
 
 static struct snd_soc_dai_driver max98090_dai[] = {
 {
-	.name = "HiFi",
+	.name = "max98090-aif1",
 	.playback = {
 		.stream_name = "HiFi Playback",
 		.channels_min = 2,
@@ -2367,11 +2367,20 @@ static const struct i2c_device_id max98090_i2c_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, max98090_i2c_id);
 
+
+static const struct of_device_id max98090_of_match[] = {
+	{ .compatible = "Odroid,max98090", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, max98090_of_match);
+
+
 static struct i2c_driver max98090_i2c_driver = {
 	.driver = {
 		.name = "max98090",
 		.owner = THIS_MODULE,
 		.pm = &max98090_pm,
+		.of_match_table = of_match_ptr(max98090_of_match),
 	},
 	.probe  = max98090_i2c_probe,
 	.remove = max98090_i2c_remove,
