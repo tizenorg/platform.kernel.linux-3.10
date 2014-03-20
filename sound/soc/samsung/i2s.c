@@ -926,6 +926,8 @@ static int clk_set_hierarchy(struct i2s_dai *i2s)
 		return ret;
 	}
 
+	i2s->op_clk = ERR_PTR(-EINVAL);
+
 	clk_set_rate(i2s->dout_srp, TARGET_SRPCLK_RATE);
 	clk_set_rate(i2s->dout_bus, TARGET_BUSCLK_RATE);
 
@@ -1181,6 +1183,11 @@ static int i2s_runtime_suspend(struct device *dev)
 static int i2s_runtime_resume(struct device *dev)
 {
 	struct i2s_dai *i2s = dev_get_drvdata(dev);
+
+	if (IS_ERR(i2s->op_clk)) {
+		pr_err("%s: i2s->op_clk is invalid\n", __func__);
+		i2s->op_clk = clk_get(&i2s->pdev->dev, "i2s_opclk0");
+	}
 
 	clk_prepare_enable(i2s->op_clk);
 
