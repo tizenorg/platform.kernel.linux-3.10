@@ -45,7 +45,6 @@
 			};
 		};
 	};
-
 	chosen {
 		bootargs = "console=ttySAC1,115200N8 root=/dev/mmcblk0p2 rootwait earlyprintk panic=5";
 	};
@@ -528,6 +527,21 @@
 			memory-region = <&mfc_r_mem>;
 		};
 	};
+
+	i2c@13870000 {  //i2c1
+                pinctrl-0 = <&i2c1_bus>;
+                pinctrl-names = "default";
+                clocks = <&clock 318>;
+                clock-names = "i2c";
+                status = "okay";
+                max98090: max98090@10 {
+                        compatible = "maxim,max98090";
+                        reg = <0x10>;
+                        interrupt-parent = <&gpx0>;
+                        interrupts= <1 0>;
+		};
+	};
+
 
 	i2c@13880000 {
 		pinctrl-names = "default";
