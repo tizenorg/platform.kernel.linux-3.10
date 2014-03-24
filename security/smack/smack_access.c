@@ -230,7 +230,7 @@ int smk_curacc(char *obj_label, u32 mode, struct smk_audit_info *a)
 	/*
 	 * Allow for priviliged to override policy.
 	 */
-	if (rc != 0 && smack_privileged(CAP_MAC_OVERRIDE))
+	if (rc != 0 && smack_privileged_ns(CAP_MAC_OVERRIDE))
 		rc = 0;
 
 out_audit:

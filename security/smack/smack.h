@@ -319,6 +319,19 @@ static inline int smack_privileged(int cap)
 }
 
 /*
+ * Is the task privileged and allowed to privileged
+ * by the onlycap rule in user namespace.
+ */
+static inline int smack_privileged_ns(int cap)
+{
+	if (!ns_capable(current_user_ns(), cap))
+		return 0;
+	if (smack_onlycap == NULL || smack_onlycap == smk_of_current())
+		return 1;
+	return 0;
+}
+
+/*
  * logging functions
  */
 #define SMACK_AUDIT_DENIED 0x1
