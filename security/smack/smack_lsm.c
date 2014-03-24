@@ -226,7 +226,7 @@ static int smack_syslog(int typefrom_file)
 	int rc = 0;
 	struct smack_known *skp = smk_of_current();
 
-	if (smack_privileged(CAP_MAC_OVERRIDE))
+	if (smack_privileged_ns(CAP_MAC_OVERRIDE))
 		return 0;
 
 	 if (smack_syslog_label != NULL && smack_syslog_label != skp)
@@ -842,7 +842,7 @@ static int smack_inode_setxattr(struct dentry *dentry, const char *name,
 	    strcmp(name, XATTR_NAME_SMACKIPOUT) == 0 ||
 	    strcmp(name, XATTR_NAME_SMACKEXEC) == 0 ||
 	    strcmp(name, XATTR_NAME_SMACKMMAP) == 0) {
-		if (!smack_privileged(CAP_MAC_ADMIN))
+		if (!smack_privileged_ns(CAP_MAC_ADMIN))
 			rc = -EPERM;
 		/*
 		 * check label validity here so import wont fail on
@@ -852,7 +852,7 @@ static int smack_inode_setxattr(struct dentry *dentry, const char *name,
 		    smk_import(value, size) == NULL)
 			rc = -EINVAL;
 	} else if (strcmp(name, XATTR_NAME_SMACKTRANSMUTE) == 0) {
-		if (!smack_privileged(CAP_MAC_ADMIN))
+		if (!smack_privileged_ns(CAP_MAC_ADMIN))
 			rc = -EPERM;
 		if (size != TRANS_TRUE_SIZE ||
 		    strncmp(value, TRANS_TRUE, TRANS_TRUE_SIZE) != 0)
@@ -950,7 +950,7 @@ static int smack_inode_removexattr(struct dentry *dentry, const char *name)
 	    strcmp(name, XATTR_NAME_SMACKEXEC) == 0 ||
 	    strcmp(name, XATTR_NAME_SMACKTRANSMUTE) == 0 ||
 	    strcmp(name, XATTR_NAME_SMACKMMAP)) {
-		if (!smack_privileged(CAP_MAC_ADMIN))
+		if (!smack_privileged_ns(CAP_MAC_ADMIN))
 			rc = -EPERM;
 	} else
 		rc = cap_inode_removexattr(dentry, name);
@@ -1342,7 +1342,7 @@ static int smack_file_send_sigiotask(struct task_struct *tsk,
 	/* we don't log here as rc can be overriden */
 	skp = smk_find_entry(file->f_security);
 	rc = smk_access(skp, tkp->smk_known, MAY_WRITE, NULL);
-	if (rc != 0 && has_capability(tsk, CAP_MAC_OVERRIDE))
+	if (rc != 0 && has_ns_capability(tsk, current_user_ns(), CAP_MAC_OVERRIDE))
 		rc = 0;
 
 	smk_ad_init(&ad, __func__, LSM_AUDIT_DATA_TASK);
@@ -2924,7 +2924,7 @@ static int smack_setprocattr(struct task_struct *p, char *name,
 	if (p != current)
 		return -EPERM;
 
-	if (!smack_privileged(CAP_MAC_ADMIN))
+	if (!smack_privileged_ns(CAP_MAC_ADMIN))
 		return -EPERM;
 
 	if (value == NULL || size == 0 || size >= SMK_LONGLABEL)
@@ -2980,7 +2980,7 @@ static int smack_unix_stream_connect(struct sock *sock,
 	smk_ad_setfield_u_net_sk(&ad, other);
 #endif
 
-	if (!smack_privileged(CAP_MAC_OVERRIDE)) {
+	if (!smack_privileged_ns(CAP_MAC_OVERRIDE)) {
 		skp = ssp->smk_out;
 		rc = smk_access(skp, osp->smk_in, MAY_WRITE, &ad);
 	}
@@ -3018,7 +3018,7 @@ static int smack_unix_may_send(struct socket *sock, struct socket *other)
 	smk_ad_setfield_u_net_sk(&ad, other->sk);
 #endif
 
-	if (smack_privileged(CAP_MAC_OVERRIDE))
+	if (smack_privileged_ns(CAP_MAC_OVERRIDE))
 		return 0;
 
 	skp = ssp->smk_out;
