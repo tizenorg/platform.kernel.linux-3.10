@@ -1,3 +1,11 @@
+Code-Review+2: MyungJoo Ham <myungjoo.ham@samsung.com>
+Verified+1: MyungJoo Ham <myungjoo.ham@samsung.com>
+Submitted-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+Submitted-at: Mon, 24 Mar 2014 19:12:54 -0700
+Reviewed-on: https://review.tizen.org/gerrit/18435
+Project: platform/kernel/linux-3.10
+Branch: refs/heads/tizen
+
 Reviewed-on: https://review.tizen.org/gerrit/18435
 Project: platform/kernel/linux-3.10
 Branch: refs/heads/tizen
