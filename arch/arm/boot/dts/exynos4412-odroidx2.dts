@@ -551,6 +551,20 @@
 		};
 	};
 
+	i2s0: i2s@03830000 {
+		pinctrl-0 = <&i2s0_bus>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+
+	sound {
+		compatible = "samsung,odroidx2-audio";
+		clocks = <&clock 6>;
+		clock-names = "pll";
+		odroidx2,i2s-controller = <&i2s0>;
+		odroidx2,audio-codec = <&max98090>;
+	};
+
 	gpu@13000000 {
 		status = "okay";
 		vdd_g3d-supply = <&buck4_reg>;
