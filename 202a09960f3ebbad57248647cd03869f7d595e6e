@@ -1,0 +1,9 @@
+Code-Review+2: Casey Schaufler <casey.schaufler@intel.com>
+Code-Review+1: Bumjin Im <bj.im@samsung.com>
+Code-Review+2: MyungJoo Ham <myungjoo.ham@samsung.com>
+Verified+1: MyungJoo Ham <myungjoo.ham@samsung.com>
+Submitted-by: MyungJoo Ham <myungjoo.ham@samsung.com>
+Submitted-at: Mon, 07 Apr 2014 04:51:32 -0700
+Reviewed-on: https://review.tizen.org/gerrit/19051
+Project: platform/kernel/linux-3.10
+Branch: refs/heads/tizen
