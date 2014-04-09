@@ -451,6 +451,9 @@ static int i2s_set_sysclk(struct snd_soc_dai *dai,
 		else
 			clk_id = 1;
 
+		if(i2s->op_clk==NULL)
+			i2s->op_clk = ERR_PTR(-EINVAL);
+
 		if (!any_active(i2s)) {
 			if (!IS_ERR(i2s->op_clk)) {
 				if ((clk_id && !(mod & MOD_IMS_SYSMUX)) ||
@@ -471,7 +474,7 @@ static int i2s_set_sysclk(struct snd_soc_dai *dai,
 				i2s->op_clk = clk_get(&i2s->pdev->dev,
 						"i2s_opclk0");
 
-			if (!WARN_ON(IS_ERR(i2s->op_clk)))
+			if (WARN_ON(IS_ERR(i2s->op_clk)))
 				return -EINVAL;
 
 			clk_prepare_enable(i2s->op_clk);
@@ -1029,7 +1032,7 @@ static int samsung_i2s_dai_remove(struct snd_soc_dai *dai)
 		if (i2s->quirks & QUIRK_NEED_RSTCLR)
 			writel(0, i2s->addr + I2SCON);
 
-		if (i2s->op_clk) {
+		if (!IS_ERR(i2s->op_clk)) {
 			clk_disable_unprepare(i2s->op_clk);
 			clk_put(i2s->op_clk);
 		}
@@ -1173,7 +1176,8 @@ static int i2s_runtime_suspend(struct device *dev)
 {
 	struct i2s_dai *i2s = dev_get_drvdata(dev);
 
-	clk_disable_unprepare(i2s->op_clk);
+	if (!IS_ERR(i2s->op_clk))
+		clk_disable_unprepare(i2s->op_clk);
 
 	return 0;
 }
@@ -1182,7 +1186,8 @@ static int i2s_runtime_resume(struct device *dev)
 {
 	struct i2s_dai *i2s = dev_get_drvdata(dev);
 
-	clk_prepare_enable(i2s->op_clk);
+	if (!IS_ERR(i2s->op_clk))
+		clk_disable_unprepare(i2s->op_clk);
 
 	return 0;
 }
