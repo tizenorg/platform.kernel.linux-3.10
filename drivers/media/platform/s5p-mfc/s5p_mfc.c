@@ -848,6 +848,8 @@ err_pwr_enable:
 		del_timer_sync(&dev->watchdog_timer);
 	}
 err_ctrls_setup:
+	/* Restore context as busy */
+	set_work_bit_irqsave(ctx);
 	s5p_mfc_dec_ctrls_delete(ctx);
 err_bad_node:
 	dev->ctx[ctx->num] = NULL;
