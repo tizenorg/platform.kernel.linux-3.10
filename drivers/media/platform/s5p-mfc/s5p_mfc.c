@@ -86,6 +86,22 @@ void set_work_bit_irqsave(struct s5p_mfc_ctx *ctx)
 	spin_unlock_irqrestore(&dev->condlock, flags);
 }
 
+/* Remove from hw execution round robin and check
+* whether the state has been really changed. */
+int test_and_clear_work_bit_irqsave(struct s5p_mfc_ctx *ctx)
+{
+	struct s5p_mfc_dev *dev = ctx->dev;
+	unsigned long flags;
+	int changed;
+
+	spin_lock_irqsave(&dev->condlock, flags);
+	ctx_work_bits = dev->ctx_work_bits;
+	changed = __test_and_clear_bit(ctx->num, &dev->ctx_work_bits);
+	spin_unlock_irqrestore(&dev->condlock, flags);
+
+	return changed;
+}
+
 /* Wake up context wait_queue */
 static void wake_up_ctx(struct s5p_mfc_ctx *ctx, unsigned int reason,
 			unsigned int err)
@@ -692,6 +708,7 @@ static int s5p_mfc_open(struct file *file)
 	struct s5p_mfc_ctx *ctx = NULL;
 	struct vb2_queue *q;
 	int ret = 0;
+	int changed;
 
 	mfc_debug_enter();
 	if (mutex_lock_interruptible(&dev->mfc_mutex))
@@ -723,7 +740,7 @@ static int s5p_mfc_open(struct file *file)
 		}
 	}
 	/* Mark context as idle */
-	clear_work_bit_irqsave(ctx);
+	changed = test_and_clear_work_bit_irqsave(ctx);
 	dev->ctx[ctx->num] = ctx;
 	if (vdev == dev->vfd_dec) {
 		ctx->type = MFCINST_DECODER;
@@ -848,6 +865,9 @@ err_pwr_enable:
 		del_timer_sync(&dev->watchdog_timer);
 	}
 err_ctrls_setup:
+	/* Restore context as waitting for hardware if it has been changed before */
+	if (changed)
+		set_work_bit_irqsave(ctx);
 	s5p_mfc_dec_ctrls_delete(ctx);
 err_bad_node:
 	dev->ctx[ctx->num] = NULL;
