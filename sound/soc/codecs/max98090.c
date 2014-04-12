@@ -2163,7 +2163,7 @@ static void max98090_handle_pdata(struct snd_soc_codec *codec)
 	struct max98090_pdata *pdata = max98090->pdata;
 
 	if (!pdata) {
-		dev_err(codec->dev, "No platform data\n");
+		dev_dbg(codec->dev, "There has no platform data to be handle\n");
 		return;
 	}
 
