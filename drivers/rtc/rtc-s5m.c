@@ -155,6 +155,20 @@ static inline int s5m_check_peding_alarm_interrupt(struct s5m_rtc_info *info,
 	return 0;
 }
 
+static const struct regmap_config s5m_rtc_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+
+	.max_register = SEC_RTC_REG_MAX,
+};
+
+static const struct regmap_config s2mps14_rtc_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+
+	.max_register = S2MPS_RTC_REG_MAX,
+};
+
 static void s5m8767_data_to_tm(u8 *data, struct rtc_time *tm,
 				int rtc_24hr_mode)
 {
@@ -826,6 +840,7 @@ static int s5m_rtc_probe(struct platform_device *pdev)
 	struct sec_pmic_dev *iodev = dev_get_drvdata(pdev->dev.parent);
 	struct sec_platform_data *pdata = iodev->pdata;
 	struct s5m_rtc_info *info;
+	const struct regmap_config *regmap_cfg;
 	int ret;
 
 	if (!pdata) {
@@ -840,8 +855,6 @@ static int s5m_rtc_probe(struct platform_device *pdev)
 
 	info->dev = &pdev->dev;
 	info->iodev = iodev;
-	info->rtc = iodev->rtc;
-	info->regmap_rtc = iodev->regmap_rtc;
 	info->device_type = iodev->device_type;
 	if (pdata->wtsr_smpl)
 		info->wtsr_smpl = pdata->wtsr_smpl;
@@ -849,27 +862,54 @@ static int s5m_rtc_probe(struct platform_device *pdev)
 		info->wtsr_smpl = &default_wtsr_smpl_data;
 
 	switch (pdata->device_type) {
+	case S2MPS11X:
+		regmap = &s2mps11_regmap_config;
+		/*
+		 * The rtc-s5m driver does not support S2MPS11 and there
+		 * is no mfd_cell for S2MPS11 RTC device.
+		 * However we must pass something to devm_regmap_init_i2c()
+		 * so use S5M-like regmap config even though it wouldn't work.
+		 */
+		regmap_cfg = &sec_rtc_regmap_config;
+		break;
 	case S5M8763X:
 		info->irq = regmap_irq_get_virq(iodev->irq_data,
 						S5M8763_IRQ_ALARM0);
 		info->regs = &s5m_rtc_regs;
+		regmap_cfg = &s5m_rtc_regmap_config;
 		break;
 
 	case S5M8767X:
 		info->irq = regmap_irq_get_virq(iodev->irq_data,
 						S5M8767_IRQ_RTCA1);
 		info->regs = &s5m_rtc_regs;
+		regmap_cfg = &s5m_rtc_regmap_config;
 		break;
 
 	case S2MPS14X:
 		info->irq = regmap_irq_get_virq(iodev->irq_data,
 						S2MPS14_IRQ_RTCA0);
 		info->regs = &s2mps_rtc_regs;
+		regmap_cfg = &s2mps14_rtc_regmap_config;
 		break;
 	default:
 		ret = -EINVAL;
 		dev_err(&pdev->dev, "Unsupported device type: %d\n", ret);
 		goto out_rtc;
+	}
+
+	info->rtc = i2c_new_dummy(iodev->i2c->adapter, RTC_I2C_ADDR);
+	if (IS_ERR_OR_NULL(sec_pmic->rtc)) {
+		dev_err(&i2c->dev, "Failed to allocate i2c for RTC\n");
+		return -ENODEV;
+	}
+
+	info->regmap = devm_regmap_init_i2c(info->rtc, regmap_cfg);
+	if (IS_ERR(info->regmap)) {
+		re = PTR_ERR(info->rtc);
+		dev_err(&i2c->dev, "Failed to allocate RTC register map: %d\n",
+			ret);
+		goto err;
 	}
 
 	platform_set_drvdata(pdev, info);
@@ -891,19 +931,23 @@ static int s5m_rtc_probe(struct platform_device *pdev)
 	if (IS_ERR(info->rtc_dev)) {
 		ret = PTR_ERR(info->rtc_dev);
 		dev_err(&pdev->dev, "Failed to register RTC device: %d\n", ret);
-		goto out_rtc;
+		goto err;
 	}
 
 	ret = request_threaded_irq(info->irq, NULL, s5m_rtc_alarm_irq,
 				   pdata->irqflags, "rtc-alarm0", info);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to request alarm IRQ: %d: %d\n",
 			info->irq, ret);
+		goto err;
+	}
 
 	dev_info(&pdev->dev, "RTC CHIP NAME: %s\n", pdev->id_entry->name);
 
 	return 0;
 
+err:
+	i2c_unregister_device(info->i2c);
 out_rtc:
 	platform_set_drvdata(pdev, NULL);
 	return ret;
