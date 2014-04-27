@@ -12,6 +12,9 @@
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
 #include "i2s.h"
+#include <linux/clk.h>
+
+static struct clk *fout_epll;
 
 static int odroidx2_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
@@ -19,8 +22,8 @@ static int odroidx2_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	int bfs, rfs, ret;
-	unsigned long rclk;
+	int bfs, rfs, ret, psr;
+	unsigned long rclk, epll_freq, temp_freq;
 
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_U24:
@@ -65,6 +68,57 @@ static int odroidx2_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	rclk = params_rate(params) * rfs;
+
+	switch (rclk) {
+	case 4096000:
+	case 5644800:
+	case 6144000:
+	case 8467200:
+	case 9216000:
+		psr = 8;
+		break;
+	case 8192000:
+	case 11289600:
+	case 12288000:
+	case 16934400:
+	case 18432000:
+		psr = 4;
+		break;
+	case 22579200:
+	case 24576000:
+	case 33868800:
+	case 36864000:
+		psr = 2;
+		break;
+	case 67737600:
+	case 73728000:
+		psr = 1;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	temp_freq = rclk * psr;
+
+	switch (temp_freq) {
+	case 49152000:
+		epll_freq = 49152008;
+		break;
+	case 45158400:
+		epll_freq = 45158401;
+		break;
+	default:
+		pr_info("this frequency not yet supported!\n");
+		return -EINVAL;
+	}
+
+	if (epll_freq != clk_get_rate(fout_epll)) {
+		ret = clk_set_rate(fout_epll, epll_freq);
+		if (ret < 0)
+			return ret;
+		pr_info("%s: fout_epll: %ld (%ld) Hz\n", __func__,
+			clk_get_rate(fout_epll), epll_freq);
+	}
 
 	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_I2S
 					| SND_SOC_DAIFMT_NB_NF
@@ -140,6 +194,12 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"Property 'samsung,i2s-controller' missing or invalid\n");
 		return -EINVAL;
+	}
+
+	fout_epll = clk_get(&pdev->dev, "fout_epll");
+	if (IS_ERR(fout_epll)) {
+		dev_err(&pdev->dev, "failed to get fout_epll clock\n");
+		return PTR_ERR(fout_epll);
 	}
 
 	odroidx2_dai[0].platform_of_node = odroidx2_dai[0].cpu_of_node;
