@@ -63,6 +63,8 @@
 
 	sound {
 		compatible = "samsung,odroidx2-audio";
+		clocks = <&clock 6>;
+		clock-names = "fout_epll";
 		samsung,i2s-controller = <&i2s0>;
 		samsung,audio-codec = <&max98090>;
 	};
