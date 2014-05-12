@@ -400,6 +400,8 @@
 	};
 
 	serial@13800000 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&uart0_data &uart0_fctl>;
 		status = "okay";
 	};
 
@@ -413,6 +415,16 @@
 
 	serial@13830000 {
 		status = "okay";
+	};
+
+	rfkill_bt {
+		compatible = "rfkill-gpio";
+		pinctrl-0 = <&eint22>;
+		pinctrl-names = "default";
+		status = "okay";
+		rfkill-name = "bt";
+		rfkill-type = <2>;
+		shutdown-gpio = <&gpl0 6 0>;
 	};
 
 	i2c_ak8975: i2c-gpio-0 {

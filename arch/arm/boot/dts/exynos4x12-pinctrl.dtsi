@@ -898,6 +898,13 @@
 			samsung,pin-drv = <0>;
 		};
 
+		eint22: ext-int22 {
+			samsung,pins = "gpx2-6";
+			samsung,pin-function = <0xf>;
+			samsung,pin-pud = <0>;
+			samsung,pin-drv = <0>;
+		};
+
 		eint31: ext-int31 {
 			samsung,pins = "gpx3-7";
 			samsung,pin-function = <0xf>;
