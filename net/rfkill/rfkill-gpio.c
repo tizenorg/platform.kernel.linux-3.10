@@ -81,6 +81,7 @@ static int rfkill_gpio_dt_probe(struct device *dev,
 	of_property_read_string(np, "rfkill-name", &rfkill->name);
 	of_property_read_u32(np, "rfkill-type", &rfkill->type);
 	of_property_read_u32(np, "clock-frequency", &rfkill->clk_frequency);
+	rfkill->shutdown_gpio = of_get_named_gpio(np, "shutdown-gpio", 0);
 
 	return 0;
 }
