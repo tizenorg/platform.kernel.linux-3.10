@@ -86,6 +86,7 @@ enum max77686_opmode {
 struct max77686_opmode_data {
 	int id;
 	int mode;
+	int shift;
 };
 
 struct max77686_platform_data {
