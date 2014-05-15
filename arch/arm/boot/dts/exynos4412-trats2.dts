@@ -425,6 +425,9 @@
 		rfkill-name = "bt";
 		rfkill-type = <2>;
 		shutdown-gpio = <&gpl0 6 0>;
+		wake-gpio = <&gpx3 1 0>;
+		host-wake-gpio = <&gpx2 6 0>;
+		reset-gpio = <0>;
 	};
 
 	i2c_ak8975: i2c-gpio-0 {
