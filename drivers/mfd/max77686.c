@@ -38,6 +38,7 @@
 static struct mfd_cell max77686_devs[] = {
 	{ .name = "max77686-pmic", },
 	{ .name = "max77686-rtc", },
+	{ .name = "max77686-clk", },
 };
 
 static bool max77686_volatile(struct device *dev, unsigned int reg)
