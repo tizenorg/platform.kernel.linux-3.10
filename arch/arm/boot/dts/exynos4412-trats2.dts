@@ -428,6 +428,8 @@
 		wake-gpio = <&gpx3 1 0>;
 		host-wake-gpio = <&gpx2 6 0>;
 		reset-gpio = <0>;
+		clocks = <&max77686 2>;
+		clock-names = "32khz_pmic";
 	};
 
 	i2c_ak8975: i2c-gpio-0 {
