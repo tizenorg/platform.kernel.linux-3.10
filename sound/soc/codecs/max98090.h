@@ -619,6 +619,9 @@
 #define M98090_DVST_WIDTH		5
 #define M98090_DVST_NUM			31
 
+/* clock inputs */
+#define MAX98090_SYSCLK_MCLK 1
+
 /*
  * M98090_REG_SYSTEM_CLOCK
  */

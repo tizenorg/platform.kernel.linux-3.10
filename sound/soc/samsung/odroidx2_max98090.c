@@ -13,6 +13,7 @@
 #include <sound/pcm_params.h>
 #include "i2s.h"
 #include "i2s-regs.h"
+#include "../codecs/max98090.h"
 
 /* Config I2S CDCLK output 19.2MHZ clock to Max98090 */
 #define MAX98090_MCLK 19200000
@@ -25,7 +26,7 @@ static int odroidx2_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	int ret;
 
-	ret = snd_soc_dai_set_sysclk(codec_dai, 3,
+	ret = snd_soc_dai_set_sysclk(codec_dai, MAX98090_SYSCLK_MCLK,
 				     MAX98090_MCLK, SND_SOC_CLOCK_IN);
 	if (ret < 0) {
 		dev_err(codec_dai->dev,
