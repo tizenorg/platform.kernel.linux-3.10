@@ -16,6 +16,7 @@
 
 /* Config I2S CDCLK output 19.2MHZ clock to Max98090 */
 #define MAX98090_MCLK 19200000
+#define MAX98090_SYSCLK_MCLK 1
 
 static int odroidx2_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -25,19 +26,7 @@ static int odroidx2_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	int ret;
 
-	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_I2S
-					| SND_SOC_DAIFMT_NB_NF
-					| SND_SOC_DAIFMT_CBM_CFM);
-	if (ret < 0)
-		return ret;
-
-	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_I2S
-					| SND_SOC_DAIFMT_NB_NF
-					| SND_SOC_DAIFMT_CBM_CFM);
-	if (ret < 0)
-		return ret;
-
-	ret = snd_soc_dai_set_sysclk(codec_dai, 3,
+	ret = snd_soc_dai_set_sysclk(codec_dai,	MAX98090_SYSCLK_MCLK,
 				     MAX98090_MCLK, SND_SOC_CLOCK_IN);
 	if (ret < 0) {
 		dev_err(codec_dai->dev,
@@ -78,6 +67,8 @@ static struct snd_soc_dai_link odroidx2_dai[] = {
 		.name = "MAX98090",
 		.stream_name = "MAX98090 PCM",
 		.codec_dai_name = "HiFi",
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF
+			| SND_SOC_DAIFMT_CBM_CFM,
 		.ops = &odroidx2_ops,
 	},
 };
