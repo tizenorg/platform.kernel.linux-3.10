@@ -49,7 +49,7 @@
 	};
 
 	sound {
-		compatible = "samsung,odroidx2-audio";
+		compatible = "samsung,odroid-audio";
 		samsung,i2s-controller = <&i2s0>;
 		samsung,audio-codec = <&max98090>;
 	};
