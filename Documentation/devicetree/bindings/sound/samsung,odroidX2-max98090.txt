@@ -1,0 +1,15 @@
+Samsung OdroidX2 audio complex
+
+Required properties:
+ - compatible : "samsung,odroidx2"
+ - samsung,i2s-controller: The phandle of the Samsung I2S0 controller
+ - samsung,audio-codec: The phandle of the max98090 audio codec
+
+Example:
+
+sound {
+                compatible = "samsung,odroidx2-audio";
+                samsung,i2s-controller = <&i2s0>;
+                samsung,audio-codec = <&max98090>;
+};
+
