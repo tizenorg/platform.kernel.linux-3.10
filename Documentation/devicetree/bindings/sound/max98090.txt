@@ -1,0 +1,24 @@
+max98090 audio CODEC
+
+This device supports I2C mode only.
+
+Required properties:
+
+ - compatible : "maxim,max98090"
+
+ - reg : the I2C address of the device for I2C
+
+ - interrupt-parent: The parent interrupt controller
+
+ - interrupts : The interrupt line the IRQ signal for the device is
+    connected to.
+
+Example:
+
+max98090: max98090@10 {
+	compatible = "maxim,max98090";
+	reg = <0x10>;
+	interrupt-parent = <&gpx0>;
+	interrupts = <1 0>;
+};
+
