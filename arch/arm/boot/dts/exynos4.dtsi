@@ -646,6 +646,10 @@
 		};
 	};
 
+	idma {
+		compatible = "samsung,exynos4-idma";
+	};
+
 	fimd: fimd@11c00000 {
 		compatible = "samsung,exynos4210-fimd";
 		interrupt-parent = <&combiner>;
