@@ -16,6 +16,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -434,10 +435,17 @@ static int asoc_idma_platform_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id asoc_idma_of_match[] = {
+	{ .compatible = "samsung,exynos4-idma", },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, asoc_idma_of_match);
+
 static struct platform_driver asoc_idma_driver = {
 	.driver = {
 		.name = "samsung-idma",
 		.owner = THIS_MODULE,
+		.of_match_table = asoc_idma_of_match,
 	},
 
 	.probe = asoc_idma_platform_probe,
