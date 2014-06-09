@@ -29,7 +29,8 @@ struct samsung_usb2_phy_instance {
 	const struct samsung_usb2_common_phy *cfg;
 	struct phy *phy;
 	struct samsung_usb2_phy_driver *drv;
-	int enabled;
+	int int_cnt;
+	int ext_cnt;
 };
 
 struct samsung_usb2_phy_driver {
@@ -63,4 +64,5 @@ struct samsung_usb2_phy_config {
 
 extern const struct samsung_usb2_phy_config exynos4210_usb2_phy_config;
 extern const struct samsung_usb2_phy_config exynos4x12_usb2_phy_config;
+extern const struct samsung_usb2_phy_config exynos5250_usb2_phy_config;
 #endif
