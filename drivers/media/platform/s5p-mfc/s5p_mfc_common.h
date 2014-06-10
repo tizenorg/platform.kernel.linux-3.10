@@ -684,8 +684,8 @@ void set_work_bit_irqsave(struct s5p_mfc_ctx *ctx);
 static inline bool mfc_is_iommu_used(struct s5p_mfc_ctx *ctx)
 {
 #ifdef CONFIG_ARM_DMA_USE_IOMMU
-	struct device *dev_iommu1 = ctx->dev->mem_dev_l->archdata.mapping;
-	struct device *dev_iommu2 = ctx->dev->mem_dev_r->archdata.mapping;
+	struct device *dev_iommu1 = ctx->dev->mem_dev_l;
+	struct device *dev_iommu2 = ctx->dev->mem_dev_r;
 	int iommu1_mapped, iommu2_mapped;
 
 	iommu1_mapped = dev_iommu1->archdata.mapping &&
