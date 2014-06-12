@@ -70,7 +70,6 @@ static struct snd_soc_dai_link odroidx2_dai[] = {
 };
 
 static struct snd_soc_card odroidx2 = {
-	.name			= "odroidx2",
 	.owner		= THIS_MODULE,
 	.dai_link	= odroidx2_dai,
 	.num_links	= ARRAY_SIZE(odroidx2_dai),
@@ -80,8 +79,13 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct snd_soc_card *card = &odroidx2;
+	int ret;
 
 	card->dev = &pdev->dev;
+
+	ret = snd_soc_of_parse_card_name(card, "samsung,model");
+	if (ret < 0)
+		return ret;
 
 	odroidx2_dai[0].codec_of_node = of_parse_phandle(np,
 						"samsung,audio-codec", 0);
