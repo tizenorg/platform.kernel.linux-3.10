@@ -555,6 +555,9 @@ struct dma_pl330_chan {
 	 */
 	struct dma_pl330_dmac *dmac;
 
+	/* Enumerate the status of the dma channel */
+	enum dma_pl330_chan_state state;
+
 	/* To protect channel manipulation */
 	spinlock_t lock;
 
@@ -2415,6 +2418,12 @@ static int pl330_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd, unsigned 
 			if (slave_config->src_maxburst)
 				pch->burst_len = slave_config->src_maxburst;
 		}
+		break;
+	case DMA_PAUSE:
+		/* TODO: Setup dma channel and config register if any */
+		break;
+	case DMA_RESUME:
+		/* TODO: Setup dma channel and config register if any */
 		break;
 	default:
 		dev_err(pch->dmac->pif.dev, "Not supported command.\n");
