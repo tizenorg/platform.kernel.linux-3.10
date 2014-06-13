@@ -536,6 +536,19 @@ enum desc_status {
 	DONE,
 };
 
+/*
+ * enum dma_pl330_chan_state - this enum holds the PL330 specific
+ * virtual channel states
+ * @PL330_CHAN_RUNNING: the dma channel has allocated a physical
+ * transport channel and is currently transfering data on it
+ * @PL330_CHAN_PAUSED: the dma channel has allocated a physical
+ * transport channel, but the data transfer is currently paused
+ */
+enum dma_pl330_chan_state {
+	PL330_CHAN_RUNNING,
+	PL330_CHAN_PAUSED,
+};
+
 struct dma_pl330_chan {
 	/* Schedule desc completion */
 	struct tasklet_struct task;
@@ -554,6 +567,9 @@ struct dma_pl330_chan {
 	 * to the channel.
 	 */
 	struct dma_pl330_dmac *dmac;
+
+	/* Enumerate the status of the dma channel */
+	enum dma_pl330_chan_state state;
 
 	/* To protect channel manipulation */
 	spinlock_t lock;
@@ -2415,6 +2431,14 @@ static int pl330_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd, unsigned 
 			if (slave_config->src_maxburst)
 				pch->burst_len = slave_config->src_maxburst;
 		}
+		break;
+	case DMA_PAUSE:
+		/* TODO: Setup dma channel and config register if any */
+		pch->state = PL330_CHAN_PAUSED;
+		break;
+	case DMA_RESUME:
+		/* TODO: Setup dma channel and config register if any */
+		pch->state = PL330_CHAN_RUNNING;
 		break;
 	default:
 		dev_err(pch->dmac->pif.dev, "Not supported command.\n");
