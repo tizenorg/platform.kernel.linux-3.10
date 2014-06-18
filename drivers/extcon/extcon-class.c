@@ -247,7 +247,7 @@ int extcon_update_state(struct extcon_dev *edev, u32 mask, u32 state)
 		edev->state |= state & mask;
 
 		ret = raw_notifier_call_chain(&edev->nh, old_state, edev);
-		if ((ret & ~NOTIFY_STOP_MASK) != NOTIFY_OK) {
+		if (ret & NOTIFY_STOP_MASK) {
 			edev->state = old_state;
 			spin_unlock_irqrestore(&edev->lock, flags);
 			return -ENODEV;
