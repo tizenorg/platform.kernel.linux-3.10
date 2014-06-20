@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/extcon.h>
 #include <linux/extcon/extcon-gpio.h>
 
@@ -49,12 +50,17 @@ static void gpio_extcon_work(struct work_struct *work)
 			     work);
 
 	state = gpio_get_value(data->gpio);
+
+	dev_dbg(data->edev.dev, "gpio_extcon_work state: %d", state);
+
 	extcon_set_state(&data->edev, state);
 }
 
 static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 {
 	struct gpio_extcon_data *extcon_data = dev_id;
+
+	dev_dbg(extcon_data->edev.dev, "***** gpio_irq_handler *****");
 
 	schedule_delayed_work(&extcon_data->work,
 			      extcon_data->debounce_jiffies);
@@ -76,12 +82,43 @@ static ssize_t extcon_gpio_print_state(struct extcon_dev *edev, char *buf)
 	return -EINVAL;
 }
 
+static struct gpio_extcon_platform_data *
+gpio_extcon_parse_dt(struct platform_device *pdev)
+{
+	struct gpio_extcon_platform_data *pdata;
+	struct device_node *np = pdev->dev.of_node;
+	u32 val;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata),
+			     GFP_KERNEL);
+	if (pdata == NULL)
+		return -ENOMEM;
+
+	pdata->gpio = of_get_gpio(np, 0);
+	if (pdata->gpio == -EPROBE_DEFER)
+		return ERR_PTR(-EPROBE_DEFER);
+
+	if (of_property_read_u32(np, "irq_flags", &val) == 0)
+		pdata->irq_flags = val;
+
+	if (of_property_read_u32(np, "debounce", &val) == 0)
+		pdata->debounce = val;
+
+	pdata->name = np->name;
+	return pdata;
+}
+
 static int gpio_extcon_probe(struct platform_device *pdev)
 {
 	struct gpio_extcon_platform_data *pdata = pdev->dev.platform_data;
 	struct gpio_extcon_data *extcon_data;
 	int ret = 0;
 
+	if (!pdata && pdev->dev.of_node) {
+		pdata = gpio_extcon_parse_dt(pdev);
+		if (IS_ERR(pdata))
+			return PTR_ERR(pdata);
+	}
 	if (!pdata)
 		return -EBUSY;
 	if (!pdata->irq_flags) {
@@ -114,6 +151,8 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&extcon_data->work, gpio_extcon_work);
 
 	extcon_data->irq = gpio_to_irq(extcon_data->gpio);
+	dev_dbg(extcon_data->edev.dev, "name: %s irq: %d", extcon_data->edev.name, extcon_data->irq);
+
 	if (extcon_data->irq < 0) {
 		ret = extcon_data->irq;
 		goto err;
@@ -148,12 +187,19 @@ static int gpio_extcon_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id extcon_gpio_of_match[] = {
+	{ .compatible = "extcon-gpio" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, extcon_gpio_of_match);
+
 static struct platform_driver gpio_extcon_driver = {
 	.probe		= gpio_extcon_probe,
 	.remove		= gpio_extcon_remove,
 	.driver		= {
 		.name	= "extcon-gpio",
 		.owner	= THIS_MODULE,
+		.of_match_table = of_match_ptr(extcon_gpio_of_match),
 	},
 };
 
