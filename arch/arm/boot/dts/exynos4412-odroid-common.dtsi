@@ -521,6 +521,13 @@
 		compatible = "hardkernel,odroid-reboot";
 		reset-gpio = <&gpk1 2 0>;
 	};
+
+	vbus_det {
+		compatible = "extcon-gpio";
+		gpios = <&gpx1 6 0>;
+		debounce = <50>; /* miliseconds */
+		irq_flags = <3>; /* see IRGF_* in linux/interrupt.h */
+	};
 };
 
 &pinctrl_1 {
