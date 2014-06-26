@@ -313,6 +313,9 @@ static void s5p_mfc_dec_calc_dpb_size_v5(struct s5p_mfc_ctx *ctx)
 
 		ctx->mv_size = 0;
 
+		ctx->luma_size_to_report = ctx->luma_size * 2;
+		ctx->chroma_size_to_report = ctx->chroma_size * 2;
+
 		/* If interlace is deteced for MPEG2 decoding the size of the
 		 * luma an chroma buffers should be doubled */
 		if (mfc_is_iommu_used(ctx) && ctx->interlace && ctx->codec_mode
@@ -505,8 +508,8 @@ static int s5p_mfc_set_dec_frame_buffer_v5(struct s5p_mfc_ctx *ctx)
 		mfc_debug(2, "Not enough memory has been allocated\n");
 		return -ENOMEM;
 	}
-	s5p_mfc_write_info_v5(ctx, frame_size, ALLOC_LUMA_DPB_SIZE);
-	s5p_mfc_write_info_v5(ctx, frame_size_ch, ALLOC_CHROMA_DPB_SIZE);
+	s5p_mfc_write_info_v5(ctx, ctx->luma_size_to_report, ALLOC_LUMA_DPB_SIZE);
+	s5p_mfc_write_info_v5(ctx, ctx->chroma_size_to_report, ALLOC_CHROMA_DPB_SIZE);
 	if (ctx->codec_mode == S5P_MFC_CODEC_H264_DEC)
 		s5p_mfc_write_info_v5(ctx, frame_size_mv, ALLOC_MV_SIZE);
 	mfc_write(dev, ((S5P_FIMV_CH_INIT_BUFS & S5P_FIMV_CH_MASK)
