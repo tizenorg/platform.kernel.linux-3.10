@@ -1357,8 +1357,14 @@ static void unix_destruct_scm(struct sk_buff *skb)
 	struct scm_cookie scm;
 	memset(&scm, 0, sizeof(scm));
 	scm.pid  = UNIXCB(skb).pid;
+	if (UNIXCB(skb).scm) {
+		scm.procinfo.procinfo = UNIXSCM(skb).procinfo;
+		scm.procinfo.len = UNIXSCM(skb).procinfo_len;
+	}
 	if (UNIXCB(skb).fp)
 		unix_detach_fds(&scm, skb);
+
+	kfree(UNIXCB(skb).scm);
 
 	/* Alas, it calls VFS */
 	/* So fscking what? fput() had been SMP-safe since the last Summer */
@@ -1406,12 +1412,28 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
 {
 	int err = 0;
 
+	if (!UNIXCB(skb).scm) {
+		UNIXCB(skb).scm = kmalloc(sizeof(struct unix_skb_parms_scm),
+					  GFP_KERNEL);
+		if (!UNIXCB(skb).scm)
+			return -ENOMEM;
+	}
+
 	UNIXCB(skb).pid  = get_pid(scm->pid);
 	UNIXCB(skb).uid = scm->creds.uid;
 	UNIXCB(skb).gid = scm->creds.gid;
 	UNIXCB(skb).fp = NULL;
 	if (scm->fp && send_fds)
 		err = unix_attach_fds(scm, skb);
+
+	UNIXSCM(skb).procinfo = NULL;
+	if (scm->procinfo.procinfo) {
+		UNIXSCM(skb).procinfo_len = scm->procinfo.len;
+		UNIXSCM(skb).procinfo = kmemdup(scm->procinfo.procinfo,
+						scm->procinfo.len, GFP_KERNEL);
+		if (!UNIXSCM(skb).procinfo)
+			return -ENOMEM;
+	}
 
 	skb->destructor = unix_destruct_scm;
 	return err;
@@ -1432,6 +1454,21 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
 	    test_bit(SOCK_PASSCRED, &other->sk_socket->flags)) {
 		UNIXCB(skb).pid  = get_pid(task_tgid(current));
 		current_uid_gid(&UNIXCB(skb).uid, &UNIXCB(skb).gid);
+	}
+}
+
+/* Include procinfo if source or destination socket
+ * asserted SOCK_PASSPROC.
+ */
+static void maybe_add_procinfo(struct sk_buff *skb, const struct socket *sock,
+			       const struct sock *other, int len,
+			       char *procinfo)
+{
+	if (test_bit(SOCK_PASSPROC, &sock->flags) ||
+	    !other->sk_socket ||
+	    test_bit(SOCK_PASSPROC, &other->sk_socket->flags)) {
+		UNIXSCM(skb).procinfo_len = len;
+		UNIXSCM(skb).procinfo = procinfo;
 	}
 }
 
@@ -1456,6 +1493,8 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
 	struct scm_cookie tmp_scm;
 	int max_level;
 	int data_len = 0;
+	char *procinfo = NULL;
+	int procinfo_len = 0;
 
 	if (NULL == siocb->scm)
 		siocb->scm = &tmp_scm;
@@ -1532,6 +1571,12 @@ restart:
 		goto out_free;
 	}
 
+	if (test_bit(SOCK_PASSPROC, &sock->flags) ||
+	    !other->sk_socket ||
+	    test_bit(SOCK_PASSPROC, &other->sk_socket->flags)) {
+		procinfo_len = scm_get_current_procinfo(&procinfo);
+	}
+
 	unix_state_lock(other);
 	err = -EPERM;
 	if (!unix_may_send(sk, other))
@@ -1592,6 +1637,7 @@ restart:
 	if (sock_flag(other, SOCK_RCVTSTAMP))
 		__net_timestamp(skb);
 	maybe_add_creds(skb, sock, other);
+	maybe_add_procinfo(skb, sock, other, procinfo_len, procinfo);
 	skb_queue_tail(&other->sk_receive_queue, skb);
 	if (max_level > unix_sk(other)->recursion_level)
 		unix_sk(other)->recursion_level = max_level;
@@ -1625,6 +1671,8 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
 	struct scm_cookie tmp_scm;
 	bool fds_sent = false;
 	int max_level;
+	char *procinfo = NULL;
+	int procinfo_len = 0;
 
 	if (NULL == siocb->scm)
 		siocb->scm = &tmp_scm;
@@ -1700,6 +1748,12 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
 			goto out_err;
 		}
 
+		if (test_bit(SOCK_PASSPROC, &sock->flags) ||
+		    !other->sk_socket ||
+		    test_bit(SOCK_PASSPROC, &other->sk_socket->flags)) {
+			procinfo_len = scm_get_current_procinfo(&procinfo);
+		}
+
 		unix_state_lock(other);
 
 		if (sock_flag(other, SOCK_DEAD) ||
@@ -1707,6 +1761,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
 			goto pipe_err_free;
 
 		maybe_add_creds(skb, sock, other);
+		maybe_add_procinfo(skb, sock, other, procinfo_len, procinfo);
 		skb_queue_tail(&other->sk_receive_queue, skb);
 		if (max_level > unix_sk(other)->recursion_level)
 			unix_sk(other)->recursion_level = max_level;
@@ -1836,6 +1891,12 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
 		memset(&tmp_scm, 0, sizeof(tmp_scm));
 	}
 	scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).uid, UNIXCB(skb).gid);
+	if (UNIXCB(skb).scm && UNIXSCM(skb).procinfo)
+		scm_set_procinfo(siocb->scm,
+				 kmemdup(UNIXSCM(skb).procinfo,
+					 UNIXSCM(skb).procinfo_len,
+					 GFP_KERNEL),
+				 UNIXSCM(skb).procinfo_len);
 	unix_set_secdata(siocb->scm, skb);
 
 	if (!(flags & MSG_PEEK)) {
@@ -2015,6 +2076,14 @@ again:
 			/* Copy credentials */
 			scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).uid, UNIXCB(skb).gid);
 			check_creds = 1;
+		}
+
+		if (UNIXCB(skb).scm && UNIXSCM(skb).procinfo) {
+			scm_set_procinfo(siocb->scm,
+					 kmemdup(UNIXSCM(skb).procinfo,
+						 UNIXSCM(skb).procinfo_len,
+						 GFP_KERNEL),
+					 UNIXSCM(skb).procinfo_len);
 		}
 
 		/* Copy address just once */

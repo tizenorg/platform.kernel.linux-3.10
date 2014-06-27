@@ -130,6 +130,8 @@ static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr
 #define	SCM_RIGHTS	0x01		/* rw: access rights (array of int) */
 #define SCM_CREDENTIALS 0x02		/* rw: struct ucred		*/
 #define SCM_SECURITY	0x03		/* rw: security label		*/
+#define SCM_PROCINFO   0x05		/* rw: comm + cmdline (NULL terminated
+						array of char *) */
 
 struct ucred {
 	__u32	pid;
