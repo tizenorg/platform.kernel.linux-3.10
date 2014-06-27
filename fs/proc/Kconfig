@@ -1,5 +1,6 @@
 config PROC_FS
 	bool "/proc file system support" if EXPERT
+	select PROC_INFO
 	default y
 	help
 	  This is a virtual file system providing information about the status
