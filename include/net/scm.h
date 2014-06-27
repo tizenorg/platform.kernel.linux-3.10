@@ -24,6 +24,11 @@ struct scm_fp_list {
 	struct file		*fp[SCM_MAX_FD];
 };
 
+struct scm_procinfo {
+	char *procinfo;
+	int len;
+};
+
 struct scm_cookie {
 	struct pid		*pid;		/* Skb credentials */
 	struct scm_fp_list	*fp;		/* Passed files		*/
@@ -31,6 +36,7 @@ struct scm_cookie {
 #ifdef CONFIG_SECURITY_NETWORK
 	u32			secid;		/* Passed security ID 	*/
 #endif
+	struct scm_procinfo	procinfo;	/* Skb procinfo */
 };
 
 extern void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm);
@@ -38,6 +44,7 @@ extern void scm_detach_fds_compat(struct msghdr *msg, struct scm_cookie *scm);
 extern int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm);
 extern void __scm_destroy(struct scm_cookie *scm);
 extern struct scm_fp_list * scm_fp_dup(struct scm_fp_list *fpl);
+int scm_get_current_procinfo(char **procinfo);
 
 #ifdef CONFIG_SECURITY_NETWORK
 static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_cookie *scm)
@@ -48,6 +55,13 @@ static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_co
 static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_cookie *scm)
 { }
 #endif /* CONFIG_SECURITY_NETWORK */
+
+static inline void scm_set_procinfo(struct scm_cookie *scm,
+				    char *procinfo, int len)
+{
+	scm->procinfo.procinfo = procinfo;
+	scm->procinfo.len = len;
+}
 
 static __inline__ void scm_set_cred(struct scm_cookie *scm,
 				    struct pid *pid, kuid_t uid, kgid_t gid)
@@ -64,9 +78,17 @@ static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
 	scm->pid  = NULL;
 }
 
+static __inline__ void scm_destroy_procinfo(struct scm_cookie *scm)
+{
+	kfree(scm->procinfo.procinfo);
+	scm->procinfo.procinfo = NULL;
+	scm->procinfo.len = 0;
+}
+
 static __inline__ void scm_destroy(struct scm_cookie *scm)
 {
 	scm_destroy_cred(scm);
+	scm_destroy_procinfo(scm);
 	if (scm->fp)
 		__scm_destroy(scm);
 }
@@ -74,11 +96,18 @@ static __inline__ void scm_destroy(struct scm_cookie *scm)
 static __inline__ int scm_send(struct socket *sock, struct msghdr *msg,
 			       struct scm_cookie *scm, bool forcecreds)
 {
+	char *procinfo;
+	int len;
 	memset(scm, 0, sizeof(*scm));
 	scm->creds.uid = INVALID_UID;
 	scm->creds.gid = INVALID_GID;
 	if (forcecreds)
 		scm_set_cred(scm, task_tgid(current), current_uid(), current_gid());
+	if (test_bit(SOCK_PASSPROC, &sock->flags)) {
+		len = scm_get_current_procinfo(&procinfo);
+		if (len > 0)
+			scm_set_procinfo(scm, procinfo, len);
+	}
 	unix_get_peersec_dgram(sock, scm);
 	if (msg->msg_controllen <= 0)
 		return 0;
@@ -125,8 +154,12 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
 		};
 		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(ucreds), &ucreds);
 	}
+	if (test_bit(SOCK_PASSPROC, &sock->flags))
+		put_cmsg(msg, SOL_SOCKET, SCM_PROCINFO, scm->procinfo.len,
+			 scm->procinfo.procinfo);
 
 	scm_destroy_cred(scm);
+	scm_destroy_procinfo(scm);
 
 	scm_passec(sock, msg, scm);
 

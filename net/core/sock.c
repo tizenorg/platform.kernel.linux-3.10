@@ -782,6 +782,13 @@ set_rcvbuf:
 			clear_bit(SOCK_PASSCRED, &sock->flags);
 		break;
 
+	case SO_PASSPROC:
+		if (valbool)
+			set_bit(SOCK_PASSPROC, &sock->flags);
+		else
+			clear_bit(SOCK_PASSPROC, &sock->flags);
+		break;
+
 	case SO_TIMESTAMP:
 	case SO_TIMESTAMPNS:
 		if (valbool)  {
@@ -1075,6 +1082,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
 
 	case SO_PASSCRED:
 		v.val = !!test_bit(SOCK_PASSCRED, &sock->flags);
+		break;
+
+	case SO_PASSPROC:
+		v.val = !!test_bit(SOCK_PASSPROC, &sock->flags);
 		break;
 
 	case SO_PEERCRED:

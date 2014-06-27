@@ -27,6 +27,13 @@ struct unix_address {
 	struct sockaddr_un name[0];
 };
 
+struct unix_skb_parms_scm {
+	kuid_t loginuid;
+	unsigned int sessionid;
+	char *procinfo;
+	int procinfo_len;
+};
+
 struct unix_skb_parms {
 	struct pid		*pid;		/* Skb credentials	*/
 	kuid_t			uid;
@@ -35,10 +42,12 @@ struct unix_skb_parms {
 #ifdef CONFIG_SECURITY_NETWORK
 	u32			secid;		/* Security ID		*/
 #endif
+	struct unix_skb_parms_scm *scm;
 };
 
 #define UNIXCB(skb) 	(*(struct unix_skb_parms *)&((skb)->cb))
 #define UNIXSID(skb)	(&UNIXCB((skb)).secid)
+#define UNIXSCM(skb)	(*(UNIXCB((skb)).scm))
 
 #define unix_state_lock(s)	spin_lock(&unix_sk(s)->lock)
 #define unix_state_unlock(s)	spin_unlock(&unix_sk(s)->lock)

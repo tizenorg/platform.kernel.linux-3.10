@@ -28,6 +28,10 @@
 #include <linux/pid.h>
 #include <linux/nsproxy.h>
 #include <linux/slab.h>
+#include <linux/ptrace.h>
+#include <linux/fdtable.h>
+#include <linux/cpuset.h>
+#include <linux/proc_info.h>
 
 #include <asm/uaccess.h>
 
@@ -38,6 +42,9 @@
 #include <net/scm.h>
 #include <net/cls_cgroup.h>
 
+#ifdef CONFIG_USER_NS
+extern struct user_namespace init_user_ns;
+#endif
 
 /*
  *	Only allow a user to send credentials, that they could set with
@@ -339,3 +346,162 @@ struct scm_fp_list *scm_fp_dup(struct scm_fp_list *fpl)
 	return new_fpl;
 }
 EXPORT_SYMBOL(scm_fp_dup);
+
+static int get_proc_cmdline(struct mm_struct *mm, char *buffer)
+{
+	int res, i;
+	unsigned int len;
+
+	len = mm->arg_end - mm->arg_start;
+
+	if (len > PAGE_SIZE)
+		len = PAGE_SIZE;
+
+	res = access_process_vm(current, mm->arg_start, buffer, len, 0);
+
+	/* If the nul at the end of args has been overwritten, then
+	 * assume application is using setproctitle(3).
+	 */
+	if (res > 0 && buffer[res-1] != '\0' && len < PAGE_SIZE) {
+		len = strnlen(buffer, res);
+		if (len < res) {
+			res = len;
+		} else {
+			len = mm->env_end - mm->env_start;
+			if (len > PAGE_SIZE - res)
+				len = PAGE_SIZE - res;
+			res += access_process_vm(current, mm->env_start,
+						 buffer+res, len, 0);
+			res = strnlen(buffer, res);
+		}
+	}
+
+	for (i = 0; i < res - 1; i++)
+		if (buffer[i] == '\0')
+			buffer[i] = ' ';
+
+	return res;
+}
+
+static char *get_proc_exe(struct mm_struct *mm)
+{
+	struct file *exe_file;
+	struct path exe_path;
+	char tmp[80], *exepathname;
+
+	exe_file = get_mm_exe_file(mm);
+	if (!exe_file)
+		return NULL;
+
+	exe_path = exe_file->f_path;
+	path_get(&exe_file->f_path);
+	fput(exe_file);
+
+	exepathname = d_path(&exe_path, tmp, sizeof(tmp));
+	path_put(&exe_path);
+
+	return exepathname;
+}
+
+static void get_task_status(struct mm_struct *mm, struct task_struct *task,
+			    char *buf, int size)
+{
+	struct seq_file m;
+	struct pid_namespace *ns = task_active_pid_ns(task);
+	struct pid *pid = get_pid(task_tgid(task));
+
+	m.buf = buf;
+	m.size = size;
+#ifdef CONFIG_USER_NS
+	m.user_ns = &init_user_ns;
+#endif
+
+	proc_pid_status_mm(&m, ns, pid, task, mm);
+}
+
+int scm_get_current_procinfo(char **procinfo)
+{
+	int res = 0;
+	unsigned int len;
+	char *pos;
+	char *buf_cmdline = NULL;
+	char *buf_status = NULL;
+	struct mm_struct *mm;
+	int comm_len = strlen(current->comm);
+	static char *str_comm = "COMM=";
+	static char *str_cmdline = "CMDLINE=";
+	static char *str_exe = "EXE=";
+	static char *str_status = "STATUS=";
+	char *exepathname;
+
+	*procinfo = NULL;
+
+	buf_cmdline = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!buf_cmdline)
+		return -ENOMEM;
+
+	buf_status = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!buf_status) {
+		res = -ENOMEM;
+		goto out;
+	}
+	memset(buf_status, 0, PAGE_SIZE);
+
+	mm = get_task_mm(current);
+	if (!mm)
+		goto out;
+	if (!mm->arg_end)
+		goto out_mm;    /* Shh! No looking before we're done */
+
+	res = get_proc_cmdline(mm, buf_cmdline);
+
+	exepathname = get_proc_exe(mm);
+	if (exepathname == NULL)
+		goto out_mm;
+
+	get_task_status(mm, current, buf_status, PAGE_SIZE);
+
+	/* strlen(comm) + \0 + len of cmdline */
+	len = strlen(str_comm) + comm_len + 1;
+	if (res)
+		len += strlen(str_cmdline) + res + 1;
+	if (!IS_ERR(exepathname))
+		len += strlen(str_exe) + strlen(exepathname) + 1;
+	if (strlen(buf_status) > 0)
+		len += strlen(str_status) + strlen(buf_status);
+
+	*procinfo = kmalloc(len, GFP_KERNEL);
+	if (!*procinfo) {
+		res = -ENOMEM;
+		goto out_mm;
+	}
+
+	pos = *procinfo;
+	pos = strcpy(*procinfo, str_comm) + strlen(str_comm);
+	pos = memcpy(pos, current->comm, comm_len + 1) + comm_len + 1;
+
+	if (res > 0) {
+		pos = strcpy(pos, str_cmdline) + strlen(str_cmdline);
+		pos = memcpy(pos, buf_cmdline, res) + res;
+	}
+
+	if (!IS_ERR(exepathname)) {
+		pos = strcpy(pos, str_exe) + strlen(str_exe);
+		pos = strcpy(pos, exepathname) + strlen(exepathname);
+		pos = strcpy(pos + 1, "") /*+ 1*/;
+	}
+
+	if (strlen(buf_status) > 0) {
+		pos = strcpy(pos, str_status) + strlen(str_status);
+		pos = strcpy(pos, buf_status) + strlen(buf_status);
+	}
+
+	res = len;
+
+out_mm:
+	mmput(mm);
+out:
+	kfree(buf_cmdline);
+	kfree(buf_status);
+	return res;
+}
