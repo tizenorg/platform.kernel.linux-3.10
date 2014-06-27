@@ -407,4 +407,9 @@ config OID_REGISTRY
 config UCS2_STRING
         tristate
 
+config PROC_INFO
+	bool
+	help
+	  This option provides process information
+
 endmenu
