@@ -185,12 +185,19 @@ static const struct dma_buf_ops drm_gem_prime_dmabuf_ops =  {
 struct dma_buf *drm_gem_prime_export(struct drm_device *dev,
 				     struct drm_gem_object *obj, int flags)
 {
+	struct reservation_object *robj = NULL;
+
+	if (dev->driver->gem_prime_res_obj)
+		robj = dev->driver->gem_prime_res_obj(obj);
+
 	if (dev->driver->gem_prime_pin) {
 		int ret = dev->driver->gem_prime_pin(obj);
 		if (ret)
 			return ERR_PTR(ret);
 	}
-	return dma_buf_export(obj, &drm_gem_prime_dmabuf_ops, obj->size, flags);
+
+	return dma_buf_export(obj, &drm_gem_prime_dmabuf_ops, obj->size,
+			      flags, robj);
 }
 EXPORT_SYMBOL(drm_gem_prime_export);
 
