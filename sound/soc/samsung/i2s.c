@@ -99,6 +99,8 @@ struct i2s_dai {
 	u32	suspend_i2scon;
 	u32	suspend_i2spsr;
 	unsigned long gpios[7];	/* i2s gpio line numbers */
+	/*the direction of CDCLK*/
+	bool CDCLK;
 };
 
 /* Lock for cross i/f checks */
@@ -692,6 +694,10 @@ static int i2s_startup(struct snd_pcm_substream *substream,
 	else
 		i2s->mode |= DAI_MANAGER;
 
+	if (!i2s->CDCLK)
+		i2s_set_sysclk(dai, SAMSUNG_I2S_CDCLK,
+				0, SND_SOC_CLOCK_OUT);
+
 	/* Enforce set_sysclk in Master mode */
 	i2s->rclk_srcrate = 0;
 
@@ -709,6 +715,12 @@ static void i2s_shutdown(struct snd_pcm_substream *substream,
 	struct i2s_dai *i2s = to_info(dai);
 	struct i2s_dai *other = i2s->pri_dai ? : i2s->sec_dai;
 	unsigned long flags;
+	u32 mod = readl(i2s->addr + I2SMOD);
+
+	if (mod & MOD_CDCLKCON)
+		i2s->CDCLK = 1;
+	else
+		i2s->CDCLK = 0;
 
 	spin_lock_irqsave(&lock, flags);
 
@@ -947,11 +959,9 @@ static int i2s_suspend(struct snd_soc_dai *dai)
 {
 	struct i2s_dai *i2s = to_info(dai);
 
-	if (dai->active) {
-		i2s->suspend_i2smod = readl(i2s->addr + I2SMOD);
-		i2s->suspend_i2scon = readl(i2s->addr + I2SCON);
-		i2s->suspend_i2spsr = readl(i2s->addr + I2SPSR);
-	}
+	i2s->suspend_i2smod = readl(i2s->addr + I2SMOD);
+	i2s->suspend_i2scon = readl(i2s->addr + I2SCON);
+	i2s->suspend_i2spsr = readl(i2s->addr + I2SPSR);
 
 	return 0;
 }
@@ -960,11 +970,9 @@ static int i2s_resume(struct snd_soc_dai *dai)
 {
 	struct i2s_dai *i2s = to_info(dai);
 
-	if (dai->active) {
-		writel(i2s->suspend_i2scon, i2s->addr + I2SCON);
-		writel(i2s->suspend_i2smod, i2s->addr + I2SMOD);
-		writel(i2s->suspend_i2spsr, i2s->addr + I2SPSR);
-	}
+	writel(i2s->suspend_i2scon, i2s->addr + I2SCON);
+	writel(i2s->suspend_i2smod, i2s->addr + I2SMOD);
+	writel(i2s->suspend_i2spsr, i2s->addr + I2SPSR);
 
 	return 0;
 }
