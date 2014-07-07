@@ -99,6 +99,8 @@ struct i2s_dai {
 	u32	suspend_i2scon;
 	u32	suspend_i2spsr;
 	unsigned long gpios[7];	/* i2s gpio line numbers */
+	/* CDCLK pin direction: 1  - input, 0 - output */
+	unsigned int cdclk_out:1;
 };
 
 /* Lock for cross i/f checks */
@@ -692,6 +694,10 @@ static int i2s_startup(struct snd_pcm_substream *substream,
 	else
 		i2s->mode |= DAI_MANAGER;
 
+	if (!i2s->cdclk_out)
+		i2s_set_sysclk(dai, SAMSUNG_I2S_CDCLK,
+				0, SND_SOC_CLOCK_OUT);
+
 	/* Enforce set_sysclk in Master mode */
 	i2s->rclk_srcrate = 0;
 
@@ -709,6 +715,9 @@ static void i2s_shutdown(struct snd_pcm_substream *substream,
 	struct i2s_dai *i2s = to_info(dai);
 	struct i2s_dai *other = i2s->pri_dai ? : i2s->sec_dai;
 	unsigned long flags;
+	u32 mod = readl(i2s->addr + I2SMOD);
+
+	i2s->cdclk_out = mod & MOD_CDCLKCON ? 1 : 0;
 
 	spin_lock_irqsave(&lock, flags);
 
@@ -1012,6 +1021,7 @@ probe_exit:
 	/* Reset any constraint on RFS and BFS */
 	i2s->rfs = 0;
 	i2s->bfs = 0;
+	i2s->cdclk_out = 0;
 	i2s_txctrl(i2s, 0);
 	i2s_rxctrl(i2s, 0);
 	i2s_fifo(i2s, FIC_TXFLUSH);
