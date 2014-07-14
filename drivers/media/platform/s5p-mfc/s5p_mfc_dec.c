@@ -466,7 +466,8 @@ static int vidioc_s_fmt(struct file *file, void *priv, struct v4l2_format *f)
 	mfc_debug(2, "The codec number is: %d\n", ctx->codec_mode);
 	pix_mp->height = 0;
 	pix_mp->width = 0;
-	if (pix_mp->plane_fmt[0].sizeimage)
+	if (pix_mp->plane_fmt[0].sizeimage &&
+			pix_mp->plane_fmt[0].sizeimage <= MAX_CPB_SIZE)
 		ctx->dec_src_buf_size = pix_mp->plane_fmt[0].sizeimage;
 	else
 		pix_mp->plane_fmt[0].sizeimage = ctx->dec_src_buf_size =
