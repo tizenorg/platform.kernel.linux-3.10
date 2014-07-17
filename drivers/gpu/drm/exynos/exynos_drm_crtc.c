@@ -58,6 +58,8 @@ struct exynos_drm_crtc {
 	wait_queue_head_t		pending_flip_queue;
 	atomic_t			pending_flip;
 	struct list_head		sync_committed;
+	struct workqueue_struct		*workq;
+	struct work_struct		work;
 };
 
 static void exynos_drm_dmabuf_sync_free(void *priv)
@@ -375,6 +377,8 @@ static void exynos_drm_crtc_destroy(struct drm_crtc *crtc)
 
 	private->crtc[exynos_crtc->pipe] = NULL;
 
+	destroy_workqueue(exynos_crtc->workq);
+
 	drm_crtc_cleanup(crtc);
 	kfree(exynos_crtc);
 }
@@ -444,6 +448,54 @@ static void exynos_drm_crtc_attach_mode_property(struct drm_crtc *crtc)
 	drm_object_attach_property(&crtc->base, prop, 0);
 }
 
+static void exynos_drm_crtc_worker(struct work_struct *work)
+{
+	struct dmabuf_sync *sync;
+	struct drm_pending_vblank_event *e, *t;
+	struct exynos_drm_crtc *exynos_crtc = container_of(work,
+							struct exynos_drm_crtc,
+							work);
+	struct drm_device *dev = exynos_crtc->drm_crtc.dev;
+	struct exynos_drm_private *dev_priv = dev->dev_private;
+
+	if (!list_empty(&exynos_crtc->sync_committed) &&
+			dmabuf_sync_is_supported()) {
+		sync = list_first_entry(&exynos_crtc->sync_committed,
+				struct dmabuf_sync, list);
+		if (!dmabuf_sync_unlock(sync)) {
+			list_del_init(&sync->list);
+			dmabuf_sync_put_all(sync);
+			dmabuf_sync_fini(sync);
+		}
+	}
+
+	spin_lock(&dev->event_lock);
+
+	list_for_each_entry_safe(e, t, &dev_priv->pageflip_event_list,
+			base.link) {
+		/* if event's pipe isn't same as crtc then ignore it. */
+		if (exynos_crtc->pipe != e->pipe)
+			continue;
+
+		if (e->event.reserved && dmabuf_sync_is_supported()) {
+			struct dmabuf_sync *sync;
+
+			sync = (struct dmabuf_sync *)e->event.reserved;
+			e->event.reserved = 0;
+			list_add_tail(&sync->list,
+					&exynos_crtc->sync_committed);
+		}
+
+		list_del(&e->base.link);
+		drm_send_vblank_event(dev, -1, e);
+		drm_vblank_put(dev, exynos_crtc->pipe);
+		atomic_set(&exynos_crtc->pending_flip, 0);
+		wake_up(&exynos_crtc->pending_flip_queue);
+	}
+
+	spin_unlock(&dev->event_lock);
+}
+
 int exynos_drm_crtc_create(struct exynos_drm_manager *manager)
 {
 	struct exynos_drm_crtc *exynos_crtc;
@@ -454,6 +506,12 @@ int exynos_drm_crtc_create(struct exynos_drm_manager *manager)
 	if (!exynos_crtc)
 		return -ENOMEM;
 
+	exynos_crtc->workq = create_singlethread_workqueue("exynos_crtc");
+	if (!exynos_crtc->workq) {
+		kfree(exynos_crtc);
+		return -ENODEV;
+	}
+
 	init_waitqueue_head(&exynos_crtc->pending_flip_queue);
 	atomic_set(&exynos_crtc->pending_flip, 0);
 
@@ -463,9 +521,12 @@ int exynos_drm_crtc_create(struct exynos_drm_manager *manager)
 	exynos_crtc->plane = exynos_plane_init(manager->drm_dev,
 				1 << manager->pipe, true);
 	if (!exynos_crtc->plane) {
+		destroy_workqueue(exynos_crtc->workq);
 		kfree(exynos_crtc);
 		return -ENOMEM;
 	}
+
+	INIT_WORK(&exynos_crtc->work, exynos_drm_crtc_worker);
 
 	INIT_LIST_HEAD(&exynos_crtc->sync_committed);
 
@@ -514,49 +575,12 @@ void exynos_drm_crtc_disable_vblank(struct drm_device *dev, int pipe)
 void exynos_drm_crtc_finish_pageflip(struct drm_device *dev, int pipe)
 {
 	struct exynos_drm_private *dev_priv = dev->dev_private;
-	struct drm_pending_vblank_event *e, *t;
 	struct drm_crtc *drm_crtc = dev_priv->crtc[pipe];
 	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(drm_crtc);
-	unsigned long flags;
 
-	if (!list_empty(&exynos_crtc->sync_committed) &&
-			dmabuf_sync_is_supported()) {
-		struct dmabuf_sync *sync;
-
-		sync = list_first_entry(&exynos_crtc->sync_committed,
-					struct dmabuf_sync, list);
-		if (!dmabuf_sync_unlock(sync)) {
-			list_del_init(&sync->list);
-			dmabuf_sync_put_all(sync);
-			dmabuf_sync_fini(sync);
-		}
-	}
-
-	spin_lock_irqsave(&dev->event_lock, flags);
-
-	list_for_each_entry_safe(e, t, &dev_priv->pageflip_event_list,
-			base.link) {
-		/* if event's pipe isn't same as crtc then ignore it. */
-		if (pipe != e->pipe)
-			continue;
-
-		if (e->event.reserved && dmabuf_sync_is_supported()) {
-			struct dmabuf_sync *sync;
-
-			sync = (struct dmabuf_sync *)e->event.reserved;
-			e->event.reserved = 0;
-			list_add_tail(&sync->list,
-					&exynos_crtc->sync_committed);
-		}
-
-		list_del(&e->base.link);
-		drm_send_vblank_event(dev, -1, e);
-		drm_vblank_put(dev, pipe);
-		atomic_set(&exynos_crtc->pending_flip, 0);
-		wake_up(&exynos_crtc->pending_flip_queue);
-	}
-
-	spin_unlock_irqrestore(&dev->event_lock, flags);
+	int queued;
+	queued = queue_work(exynos_crtc->workq, &exynos_crtc->work);
+	BUG_ON(!queued);
 }
 
 void exynos_drm_crtc_plane_mode_set(struct drm_crtc *crtc,
