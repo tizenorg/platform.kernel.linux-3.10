@@ -144,7 +144,7 @@ static struct snd_pcm_ops dma_ops = {
 	.hw_params	= dma_hw_params,
 	.hw_free	= dma_hw_free,
 	.trigger	= snd_dmaengine_pcm_trigger,
-	.pointer	= snd_dmaengine_pcm_pointer_no_residue,
+	.pointer	= snd_dmaengine_pcm_pointer,
 	.mmap		= dma_mmap,
 };
 
