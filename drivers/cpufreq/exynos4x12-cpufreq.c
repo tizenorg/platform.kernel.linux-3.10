@@ -27,8 +27,9 @@ static struct clk *sclk_mpll;
 static struct clk *mout_apll;
 
 static unsigned int exynos4x12_volt_table[] = {
-	1350000, 1287500, 1250000, 1187500, 1137500, 1087500, 1037500,
-	1000000,  987500,  975000,  950000,  925000,  900000,  900000
+	1400000, 1350000, 1350000, 1300000, 1225000, 1175000,
+	1125000, 1075000, 1037500, 1012500, 1000000, 987500,
+	975000, 925000, 925000, 925000, 900000
 };
 
 static struct cpufreq_frequency_table exynos4x12_freq_table[] = {
@@ -83,6 +84,9 @@ static struct apll_freq apll_freq_4412[] = {
 	 * clock divider for COPY, HPM, CORES
 	 * PLL M, P, S
 	 */
+	APLL_FREQ(1800, 0, 3, 7, 0, 6, 1, 2, 0, 7, 0, 7, 300, 4, 0),
+	APLL_FREQ(1704, 0, 3, 7, 0, 6, 1, 2, 0, 7, 0, 7, 213, 3, 0),
+	APLL_FREQ(1600, 0, 3, 7, 0, 6, 1, 2, 0, 6, 0, 7, 200, 3, 0),
 	APLL_FREQ(1500, 0, 3, 7, 0, 6, 1, 2, 0, 6, 0, 7, 250, 4, 0),
 	APLL_FREQ(1400, 0, 3, 7, 0, 6, 1, 2, 0, 6, 0, 6, 175, 3, 0),
 	APLL_FREQ(1300, 0, 3, 7, 0, 5, 1, 2, 0, 5, 0, 6, 325, 6, 0),
