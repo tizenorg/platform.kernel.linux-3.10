@@ -52,10 +52,10 @@
 	compatible = "samsung,odroidu3-audio";
 	samsung,model = "Odroid-U3";
 	samsung,audio-routing =
-		"Headphone Jack", "HPL",
-		"Headphone Jack", "HPR",
-		"Headphone Jack", "MICBIAS",
-		"IN1", "Headphone Jack",
+		"Headset Jack", "HPL",
+		"Headset Jack", "HPR",
+		"Headset Jack", "MICBIAS",
+		"IN1", "Headset Jack",
 		"Speakers", "SPKL",
 		"Speakers", "SPKR";
 };
