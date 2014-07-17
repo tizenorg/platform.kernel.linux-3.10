@@ -53,12 +53,12 @@ static const struct snd_kcontrol_new odroidx2_max98090_controls[] = {
 };
 
 static const struct snd_soc_dapm_widget odroidu3_dapm_widgets[] = {
-	SND_SOC_DAPM_HP("Headphone Jack", NULL),
+	SND_SOC_DAPM_HP("Headset Mic", NULL),
 	SND_SOC_DAPM_SPK("Speakers", NULL),
 };
 
 static const struct snd_kcontrol_new odroidu3_max98090_controls[] = {
-	SOC_DAPM_PIN_SWITCH("Headphone Jack"),
+	SOC_DAPM_PIN_SWITCH("Headset Mic"),
 	SOC_DAPM_PIN_SWITCH("Speakers"),
 };
 
