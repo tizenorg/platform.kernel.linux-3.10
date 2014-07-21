@@ -928,6 +928,8 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 			*buf_count = 1;
 		if (*buf_count > MFC_MAX_BUFFERS)
 			*buf_count = MFC_MAX_BUFFERS;
+		psize[0] = ctx->dec_src_buf_size;
+		allocators[0] = ctx->dev->alloc_ctx[MFC_BANK1_ALLOC_CTX];
 	/* Video capture for decoding (destination)
 	 * this can be set after the header was parsed */
 	} else if (ctx->state == MFCINST_HEAD_PARSED &&
@@ -941,18 +943,8 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 			*buf_count = ctx->pb_count + MFC_MAX_EXTRA_DPB;
 		if (*buf_count > MFC_MAX_BUFFERS)
 			*buf_count = MFC_MAX_BUFFERS;
-	} else {
-		mfc_err("State seems invalid. State = %d, vq->type = %d\n",
-							ctx->state, vq->type);
-		return -EINVAL;
-	}
-	mfc_debug(2, "Buffer count=%d, plane count=%d\n",
-						*buf_count, *plane_count);
-	if (ctx->state == MFCINST_HEAD_PARSED &&
-	    vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		psize[0] = ctx->luma_size;
 		psize[1] = ctx->chroma_size;
-
 		if (IS_MFCV6(dev))
 			allocators[0] =
 				ctx->dev->alloc_ctx[MFC_BANK1_ALLOC_CTX];
@@ -960,14 +952,11 @@ static int s5p_mfc_queue_setup(struct vb2_queue *vq,
 			allocators[0] =
 				ctx->dev->alloc_ctx[MFC_BANK2_ALLOC_CTX];
 		allocators[1] = ctx->dev->alloc_ctx[MFC_BANK1_ALLOC_CTX];
-	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
-		   ctx->state == MFCINST_INIT) {
-		psize[0] = ctx->dec_src_buf_size;
-		allocators[0] = ctx->dev->alloc_ctx[MFC_BANK1_ALLOC_CTX];
 	} else {
 		mfc_err("This video node is dedicated to decoding. Decoding not initalised\n");
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
