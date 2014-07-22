@@ -1194,7 +1194,7 @@ static void __enqueue_in_driver(struct vb2_buffer *vb)
 	for (plane = 0; plane < vb->num_planes; ++plane)
 		call_memop(q, prepare, vb->planes[plane].mem_priv);
 
-	q->ops->buf_queue(vb);
+	call_qop(q, buf_prepare, vb);
 }
 
 static int __buf_prepare(struct vb2_buffer *vb, const struct v4l2_buffer *b)
