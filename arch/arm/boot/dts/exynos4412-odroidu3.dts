@@ -19,7 +19,7 @@
 	compatible = "hardkernel,odroid-u3", "samsung,exynos4412", "samsung,exynos4";
 
 	memory {
-		reg = <0x40000000 0x40000000>;
+		reg = <0x40000000 0x7FF00000>;
 	};
 
 	leds {
@@ -31,11 +31,25 @@
 			linux,default-trigger = "heartbeat";
 		};
 	};
+
+	pwm: pwm@139D0000 {
+		pinctrl-0 = <&pwm0_out>;
+		pinctrl-names = "default";
+		samsung,pwm-outputs = <0>;
+		status = "okay";
+	};
+
+	pwm-fan {
+		compatible = "pwm-fan";
+		status = "okay";
+		pwms = <&pwm 0 10000 0>;
+	};
 };
 
 &usb3503 {
 	clock-names = "refclk";
 	clocks = <&clock 21>;
+	refclk-frequency = <24000000>;
 };
 
 &ehci {
@@ -45,4 +59,16 @@
 	port@2 {
 		status = "okay";
 	};
+};
+
+&sound {
+	compatible = "samsung,odroidu3-audio";
+	samsung,model = "Odroid-U3";
+	samsung,audio-routing =
+		"Headphone Jack", "HPL",
+		"Headphone Jack", "HPR",
+		"Headphone Jack", "MICBIAS",
+		"IN1", "Headphone Jack",
+		"Speakers", "SPKL",
+		"Speakers", "SPKR";
 };

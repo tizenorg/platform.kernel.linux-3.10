@@ -429,6 +429,10 @@ enum pl330_chan_op {
 	PL330_OP_ABORT,
 	/* Stop xfer and flush queue */
 	PL330_OP_FLUSH,
+	/* Pause xfer and halt channel */
+	PL330_OP_PAUSE,
+	/* Resume xfer and restart channel */
+	PL330_OP_RESUME,
 };
 
 struct _xfer_spec {
@@ -1235,6 +1239,49 @@ static bool _start(struct pl330_thread *thrd)
 	}
 }
 
+static bool _pause(struct pl330_thread *thrd)
+{
+	void __iomem *regs = thrd->dmac->pinfo->base;
+	u8 insn[6] = {0, 0, 0, 0, 0, 0};
+
+	if (_state(thrd) == PL330_STATE_FAULT_COMPLETING)
+		UNTIL(thrd, PL330_STATE_FAULTING | PL330_STATE_KILLING);
+
+	/* Return false if dma channel has fault */
+	if (_state(thrd) == PL330_STATE_COMPLETING ||
+		_state(thrd) == PL330_STATE_KILLING ||
+		_state(thrd) == PL330_STATE_FAULTING)
+		return false;
+
+	_emit_WFE(0, insn, thrd->ev, 1);
+
+	/* Stop generating interrupts for SEV */
+	writel(readl(regs + INTEN) & ~(1 << thrd->ev), regs + INTEN);
+
+	_execute_DBGINSN(thrd, insn, is_manager(thrd));
+
+	return true;
+}
+
+static bool _resume(struct pl330_thread *thrd)
+{
+	void __iomem *regs = thrd->dmac->pinfo->base;
+
+	if (_state(thrd) == PL330_STATE_FAULT_COMPLETING)
+		UNTIL(thrd, PL330_STATE_FAULTING | PL330_STATE_KILLING);
+
+	/* Return false if dma channel has fault */
+	if (_state(thrd) == PL330_STATE_COMPLETING ||
+		_state(thrd) == PL330_STATE_KILLING ||
+		_state(thrd) == PL330_STATE_FAULTING)
+		return false;
+
+	/* Start generating interrupts for SEV */
+	writel(readl(regs + INTEN) | (1 << thrd->ev), regs + INTEN);
+
+	return true;
+}
+
 static inline int _ldst_memtomem(unsigned dry_run, u8 buf[],
 		const struct _xfer_spec *pxs, int cyc)
 {
@@ -1817,6 +1864,16 @@ static int pl330_chan_ctrl(void *ch_id, enum pl330_chan_op op)
 		/* Start the next */
 	case PL330_OP_START:
 		if ((active == -1) && !_start(thrd))
+			ret = -EIO;
+		break;
+
+	case PL330_OP_PAUSE:
+		if ((active != -1) && !_pause(thrd))
+			ret = -EIO;
+		break;
+
+	case PL330_OP_RESUME:
+		if ((active != -1) && !_resume(thrd))
 			ret = -EIO;
 		break;
 
@@ -2416,6 +2473,16 @@ static int pl330_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd, unsigned 
 				pch->burst_len = slave_config->src_maxburst;
 		}
 		break;
+	case DMA_PAUSE:
+		spin_lock_irqsave(&pch->lock, flags);
+		pl330_chan_ctrl(pch->pl330_chid, PL330_OP_PAUSE);
+		spin_unlock_irqrestore(&pch->lock, flags);
+		break;
+	case DMA_RESUME:
+		spin_lock_irqsave(&pch->lock, flags);
+		pl330_chan_ctrl(pch->pl330_chid, PL330_OP_RESUME);
+		spin_unlock_irqrestore(&pch->lock, flags);
+		break;
 	default:
 		dev_err(pch->dmac->pif.dev, "Not supported command.\n");
 		return -ENXIO;
@@ -2883,7 +2950,7 @@ static int pl330_dma_device_slave_caps(struct dma_chan *dchan,
 	caps->src_addr_widths = PL330_DMA_BUSWIDTHS;
 	caps->dstn_addr_widths = PL330_DMA_BUSWIDTHS;
 	caps->directions = BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV);
-	caps->cmd_pause = false;
+	caps->cmd_pause = true;
 	caps->cmd_terminate = true;
 
 	return 0;

@@ -48,7 +48,7 @@
 		status = "okay";
 	};
 
-	sound {
+	sound: sound {
 		compatible = "samsung,odroidx2-audio";
 		samsung,i2s-controller = <&i2s0>;
 		samsung,audio-codec = <&max98090>;
@@ -77,8 +77,10 @@
 
 	sdhci@12530000 {
 		bus-width = <4>;
-		pinctrl-0 = <&sd2_clk &sd2_cmd &sd2_cd &sd2_bus4>;
+		pinctrl-0 = <&sd2_clk &sd2_cmd &sd2_bus4 &sd_cdn>;
 		pinctrl-names = "default";
+		cd-gpios = <&gpk2 2 0>;
+		cd-inverted;
 		status = "okay";
 	};
 
@@ -108,6 +110,8 @@
 		samsung,i2c-max-bus-freq = <100000>;
 		pinctrl-0 = <&i2c0_bus>;
 		pinctrl-names = "default";
+		samsung,i2c-sda-delay = <100>;
+		samsung,i2c-max-bus-freq = <400000>;
 		status = "okay";
 
 		usb3503: usb3503@08 {
@@ -123,6 +127,10 @@
 
 		max77686_pmic@09 {
 			compatible = "maxim,max77686";
+			interrupt-parent = <&gpx3>;
+			interrupts = <2 0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&max77686_irq>;
 			reg = <0x09>;
 
 			voltage-regulators {
@@ -398,7 +406,6 @@
 					regulator-name = "VDD_BUCK8_2.8V";
 					regulator-min-microvolt = <2800000>;
 					regulator-max-microvolt = <2800000>;
-					regulator-always-on;
 				};
 
 				buck9_reg: buck@9 {
@@ -473,7 +480,7 @@
 			compatible = "maxim,max98090";
 			reg = <0x10>;
 			interrupt-parent = <&gpx0>;
-			interrupts = <1 0>;
+			interrupts = <0 0>;
 		};
 	};
 
@@ -493,10 +500,10 @@
 	};
 
 	cpufreq {
-		freq_table = <1400000 1300000 1200000 1100000 1000000
-			     900000 800000 700000 600000 500000 400000 300000
-			     200000>;
-		boost_freq = <1500000>;
+		freq_table = <1704000 1600000 1500000 1400000 1300000 1200000
+			      1100000 1000000 900000  800000  700000  600000
+			      500000  400000  300000  200000>;
+		boost_freq = <1800000>;
 		vdd_arm-supply = <&buck2_reg>;
 		status = "okay";
 	};
@@ -516,11 +523,46 @@
 		vdd_pll-supply = <&ldo8_reg>;
 		status = "okay";
 	};
+
+	odroid_reboot {
+		pinctrl-names = "default";
+		pinctrl-0 = <&emmc_ndet>;
+		compatible = "hardkernel,odroid-reboot";
+		reset-gpio = <&gpk1 2 0>;
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_power_key>;
+
+		power_key {
+			interrupt-parent = <&gpx1>;
+			interrupts = <3 0>;
+			gpios = <&gpx1 3 1>;
+			linux,code = <116>;
+			label = "power key";
+			debounce-interval = <10>;
+			gpio-key,wakeup;
+		};
+	};
 };
 
 &pinctrl_1 {
 	gpio_power_key: power_key {
 		samsung,pins = "gpx1-3";
+		samsung,pin-pud = <0>;
+	};
+
+	max77686_irq: max77686-irq {
+		samsung,pins = "gpx3-2";
+		samsung,pin-function = <0>;
+		samsung,pin-pud = <0>;
+		samsung,pin-drv = <0>;
+	};
+
+	sd_cdn: sd_cdn {
+		samsung,pins = "gpk2-2";
 		samsung,pin-pud = <0>;
 	};
 
@@ -532,5 +574,12 @@
 	hdmi_hpd: hdmi-hpd {
 		samsung,pins = "gpx3-7";
 		samsung,pin-pud = <1>;
+	};
+
+	emmc_ndet: emmc-ndet {
+		samsung,pins = "gpk1-2";
+		samsung,pin-pud = <0>;
+		samsung,pin-con-pdn = <1>;
+		samsung,pin-pud-pdn = <0>;
 	};
 };

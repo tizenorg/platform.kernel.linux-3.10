@@ -19,7 +19,7 @@
 	compatible = "hardkernel,odroid-x2", "samsung,exynos4412", "samsung,exynos4";
 
 	memory {
-		reg = <0x40000000 0x40000000>;
+		reg = <0x40000000 0x7FF00000>;
 	};
 
 	leds {
@@ -39,19 +39,7 @@
 	};
 
 	gpio_keys {
-		compatible = "gpio-keys";
-		pinctrl-names = "default";
 		pinctrl-0 = <&gpio_power_key &gpio_home_key>;
-
-		power_key {
-			interrupt-parent = <&gpx1>;
-			interrupts = <3 0>;
-			gpios = <&gpx1 3 1>;
-			linux,code = <116>;
-			label = "power key";
-			debounce-interval = <10>;
-			gpio-key,wakeup;
-		};
 
 		home_key {
 			interrupt-parent = <&gpx2>;
@@ -86,10 +74,20 @@
 &usb3503 {
 	clock-names = "refclk";
 	clocks = <&usbhubxti>;
+	refclk-frequency = <26000000>;
 };
 
 &ehci {
 	port@1 {
 		status = "okay";
 	};
+};
+
+&sound {
+	samsung,model = "Odroid-X2";
+	samsung,audio-routing =
+		"Headphone Jack", "HPL",
+		"Headphone Jack", "HPR",
+		"IN1", "Mic Jack",
+		"Mic Jack", "MICBIAS";
 };

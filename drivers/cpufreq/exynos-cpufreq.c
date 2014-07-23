@@ -293,7 +293,7 @@ int exynos_of_parse_boost(struct exynos_dvfs_info *info,
 {
 	struct cpufreq_frequency_table *ft = info->freq_table;
 	struct device_node *node = info->dev->of_node;
-	unsigned int boost_freq;
+	unsigned int boost_freq, i;
 
 	if (of_property_read_u32(node, property_name, &boost_freq)) {
 		pr_err("%s: Property: %s not found\n", __func__,
@@ -310,10 +310,19 @@ int exynos_of_parse_boost(struct exynos_dvfs_info *info,
 	 * frequency table is required.
 	 */
 
-	ft[0].index = CPUFREQ_BOOST_FREQ;
-	ft[0].frequency = boost_freq;
+	for (i = 0; ft[i].frequency != CPUFREQ_TABLE_END; i++)
+		if (ft[i].frequency != CPUFREQ_ENTRY_INVALID)
+			break;
 
-	pr_debug("%s: BOOST frequency: %d\n", __func__, ft[0].frequency);
+	if (--i >= 0) {
+		ft[i].index = CPUFREQ_BOOST_FREQ;
+		ft[i].frequency = boost_freq;
+	} else {
+		pr_err("%s: BOOST index: %d out of range\n", __func__, i);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: BOOST frequency: %d\n", __func__, ft[i].frequency);
 
 	return 0;
 }
@@ -323,8 +332,8 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
 {
 	struct device_node *node = info->dev->of_node;
 	struct cpufreq_frequency_table *ft, *ret = NULL;
+	int len, num, i = 0, k;
 	struct property *pp;
-	int len, num, i = 0;
 	u32 *of_f_tab;
 
 	if (!node)
@@ -357,28 +366,28 @@ struct cpufreq_frequency_table *exynos_of_parse_freq_table(
 	}
 
 	/*
-	 * Here + 2 is required for CPUFREQ_ENTRY_INVALID  and
-	 * CPUFREQ_TABLE_END
+	 * Here + 1 is required for CPUFREQ_TABLE_END
 	 *
 	 * Number of those entries must correspond to the apll_freq_4412 table
 	 */
-	ft = kzalloc(sizeof(struct cpufreq_frequency_table) * (num + 2),
-		     GFP_KERNEL);
+	ft = kzalloc(sizeof(struct cpufreq_frequency_table) *
+		     (info->freq_levels + 1), GFP_KERNEL);
 	if (!ft) {
 		pr_err("%s: Allocation failed\n", __func__);
 		goto err_of_f_tab;
 	}
 
-	ft[0].index = L0;
-	ft[0].frequency = CPUFREQ_ENTRY_INVALID;
-
-	for (i = 1; i <= num; i++) {
-		ft[i].index = i;
-		ft[i].frequency = of_f_tab[i-1];
-	}
-
+	i = info->freq_levels;
 	ft[i].index = 0;
 	ft[i].frequency = CPUFREQ_TABLE_END;
+
+	for (i--, k = num - 1; i >= 0; i--, k--) {
+		ft[i].index = i;
+		if (k < 0)
+			ft[i].frequency = CPUFREQ_ENTRY_INVALID;
+		else
+			ft[i].frequency = of_f_tab[k];
+	}
 
 	ret = ft;
 

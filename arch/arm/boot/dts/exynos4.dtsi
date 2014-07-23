@@ -522,7 +522,7 @@
 		interrupts = <0 37 0>, <0 38 0>, <0 39 0>, <0 40 0>, <0 41 0>;
 		clocks = <&clock 336>;
 		clock-names = "timers";
-		#pwm-cells = <2>;
+		#pwm-cells = <3>;
 		samsung,pwm-outputs = <0>;
 		status = "ok";
 	};
@@ -536,6 +536,25 @@
 		phys = <&exynos_usbphy 0>;
 		phy-names = "device";
 		status = "disabled";
+	};
+
+	ohci@12590000 {
+		compatible = "samsung,exynos4210-ohci";
+		reg = <0x12590000 0x100>;
+		interrupts = <0 70 0>;
+		clocks = <&clock 304>;
+		clock-names = "usbhost";
+		status = "disabled";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+		    reg = <0>;
+		    phys = <&exynos_usbphy 1>;
+		    phy-names = "host";
+		    status = "disabled";
+		};
 	};
 
 	ehci@12580000 {
@@ -572,6 +591,7 @@
 	i2s0: i2s@03830000 {
 		compatible = "samsung,i2s-v5";
 		reg = <0x03830000 0x100>;
+		interrupts = <0 97 0>;
 		clocks = <&clock_audss 0>, <&clock_audss 3>, <&clock_audss 1>,
 			<&clock_audss 2>, <&clock_audss 4>, <&clock_audss 2>;
 		clock-names = "mout_audss", "mout_i2s", "dout_srp",

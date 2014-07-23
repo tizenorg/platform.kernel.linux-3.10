@@ -17,12 +17,14 @@
 
 #include <linux/clk.h>
 #include <linux/irq.h>
+#include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/regulator/consumer.h>
 
 #include <video/mipi_display.h>
 #include <video/videomode.h>
 
+#include "exynos_drm_crtc.h"
 #include "exynos_drm_drv.h"
 
 /* returns true iff both arguments logically differs */
@@ -53,9 +55,12 @@
 
 /* FIFO memory AC characteristic register */
 #define DSIM_PLLCTRL_REG	0x4c	/* PLL control register */
-#define DSIM_PLLTMR_REG		0x50	/* PLL timer register */
 #define DSIM_PHYACCHR_REG	0x54	/* D-PHY AC characteristic register */
 #define DSIM_PHYACCHR1_REG	0x58	/* D-PHY AC characteristic register1 */
+#define DSIM_PHYCTRL_REG	0x5c
+#define DSIM_PHYTIMING_REG	0x64
+#define DSIM_PHYTIMING1_REG	0x68
+#define DSIM_PHYTIMING2_REG	0x6c
 
 /* DSIM_STATUS */
 #define DSIM_STOP_STATE_DAT(x)		(((x) & 0xf) << 0)
@@ -199,6 +204,24 @@
 #define DSIM_PLL_M(x)			((x) << 4)
 #define DSIM_PLL_S(x)			((x) << 1)
 
+/* DSIM_PHYCTRL */
+#define DSIM_PHYCTRL_ULPS_EXIT(x)	(((x) & 0x1ff) << 0)
+
+/* DSIM_PHYTIMING */
+#define DSIM_PHYTIMING_LPX(x)		((x) << 8)
+#define DSIM_PHYTIMING_HS_EXIT(x)	((x) << 0)
+
+/* DSIM_PHYTIMING1 */
+#define DSIM_PHYTIMING1_CLK_PREPARE(x)	((x) << 24)
+#define DSIM_PHYTIMING1_CLK_ZERO(x)	((x) << 16)
+#define DSIM_PHYTIMING1_CLK_POST(x)	((x) << 8)
+#define DSIM_PHYTIMING1_CLK_TRAIL(x)	((x) << 0)
+
+/* DSIM_PHYTIMING2 */
+#define DSIM_PHYTIMING2_HS_PREPARE(x)	((x) << 16)
+#define DSIM_PHYTIMING2_HS_ZERO(x)	((x) << 8)
+#define DSIM_PHYTIMING2_HS_TRAIL(x)	((x) << 0)
+
 #define DSI_MAX_BUS_WIDTH		4
 #define DSI_NUM_VIRTUAL_CHANNELS	4
 #define DSI_TX_FIFO_SIZE		2048
@@ -232,6 +255,12 @@ struct exynos_dsi_transfer {
 #define DSIM_STATE_INITIALIZED		BIT(1)
 #define DSIM_STATE_CMD_LPM		BIT(2)
 
+struct exynos_dsi_driver_data {
+	unsigned int plltmr_reg;
+
+	unsigned int has_freqband:1;
+};
+
 struct exynos_dsi {
 	struct mipi_dsi_host dsi_host;
 	struct drm_connector connector;
@@ -261,10 +290,38 @@ struct exynos_dsi {
 
 	spinlock_t transfer_lock; /* protects transfer_list */
 	struct list_head transfer_list;
+
+	struct exynos_dsi_driver_data *driver_data;
 };
 
 #define host_to_dsi(host) container_of(host, struct exynos_dsi, dsi_host)
 #define connector_to_dsi(c) container_of(c, struct exynos_dsi, connector)
+
+static struct exynos_dsi_driver_data exynos4_dsi_driver_data = {
+	.plltmr_reg = 0x50,
+	.has_freqband = 1,
+};
+
+static struct exynos_dsi_driver_data exynos5_dsi_driver_data = {
+	.plltmr_reg = 0x58,
+};
+
+static struct of_device_id exynos_dsi_of_match[] = {
+	{ .compatible = "samsung,exynos4210-mipi-dsi",
+	  .data = &exynos4_dsi_driver_data },
+	{ .compatible = "samsung,exynos5420-mipi-dsi",
+	  .data = &exynos5_dsi_driver_data },
+	{ }
+};
+
+static inline struct exynos_dsi_driver_data *exynos_dsi_get_driver_data(
+						struct platform_device *pdev)
+{
+	const struct of_device_id *of_id =
+			of_match_device(exynos_dsi_of_match, &pdev->dev);
+
+	return (struct exynos_dsi_driver_data *)of_id->data;
+}
 
 static void exynos_dsi_wait_for_reset(struct exynos_dsi *dsi)
 {
@@ -339,14 +396,9 @@ static unsigned long exynos_dsi_pll_find_pms(struct exynos_dsi *dsi,
 static unsigned long exynos_dsi_set_pll(struct exynos_dsi *dsi,
 					unsigned long freq)
 {
-	static const unsigned long freq_bands[] = {
-		100 * MHZ, 120 * MHZ, 160 * MHZ, 200 * MHZ,
-		270 * MHZ, 320 * MHZ, 390 * MHZ, 450 * MHZ,
-		510 * MHZ, 560 * MHZ, 640 * MHZ, 690 * MHZ,
-		770 * MHZ, 870 * MHZ, 950 * MHZ,
-	};
+	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
 	unsigned long fin, fout;
-	int timeout, band;
+	int timeout;
 	u8 p, s;
 	u16 m;
 	u32 reg;
@@ -367,18 +419,30 @@ static unsigned long exynos_dsi_set_pll(struct exynos_dsi *dsi,
 			"failed to find PLL PMS for requested frequency\n");
 		return -EFAULT;
 	}
+	dev_dbg(dsi->dev, "PLL freq %lu, (p %d, m %d, s %d)\n", fout, p, m, s);
 
-	for (band = 0; band < ARRAY_SIZE(freq_bands); ++band)
-		if (fout < freq_bands[band])
-			break;
+	writel(500, dsi->reg_base + driver_data->plltmr_reg);
 
-	dev_dbg(dsi->dev, "PLL freq %lu, (p %d, m %d, s %d), band %d\n", fout,
-		p, m, s, band);
+	reg = DSIM_PLL_EN | DSIM_PLL_P(p) | DSIM_PLL_M(m) | DSIM_PLL_S(s);
 
-	writel(500, dsi->reg_base + DSIM_PLLTMR_REG);
+	if (driver_data->has_freqband) {
+		static const unsigned long freq_bands[] = {
+			100 * MHZ, 120 * MHZ, 160 * MHZ, 200 * MHZ,
+			270 * MHZ, 320 * MHZ, 390 * MHZ, 450 * MHZ,
+			510 * MHZ, 560 * MHZ, 640 * MHZ, 690 * MHZ,
+			770 * MHZ, 870 * MHZ, 950 * MHZ,
+		};
+		int band;
 
-	reg = DSIM_FREQ_BAND(band) | DSIM_PLL_EN
-			| DSIM_PLL_P(p) | DSIM_PLL_M(m) | DSIM_PLL_S(s);
+		for (band = 0; band < ARRAY_SIZE(freq_bands); ++band)
+			if (fout < freq_bands[band])
+				break;
+
+		dev_dbg(dsi->dev, "band %d\n", band);
+
+		reg |= DSIM_FREQ_BAND(band);
+	}
+
 	writel(reg, dsi->reg_base + DSIM_PLLCTRL_REG);
 
 	timeout = 1000;
@@ -432,6 +496,59 @@ static int exynos_dsi_enable_clock(struct exynos_dsi *dsi)
 	return 0;
 }
 
+static void exynos_dsi_set_phy_ctrl(struct exynos_dsi *dsi)
+{
+	struct exynos_dsi_driver_data *driver_data = dsi->driver_data;
+	u32 reg;
+
+	if (driver_data->has_freqband)
+		return;
+
+	/* B D-PHY: D-PHY Master & Slave Analog Block control */
+	reg = DSIM_PHYCTRL_ULPS_EXIT(0x0af);
+	writel(reg, dsi->reg_base + DSIM_PHYCTRL_REG);
+
+	/*
+	 * T LPX: Transmitted length of any Low-Power state period
+	 * T HS-EXIT: Time that the transmitter drives LP-11 following a HS
+	 *	burst
+	 */
+	reg = DSIM_PHYTIMING_LPX(0x06) | DSIM_PHYTIMING_HS_EXIT(0x0b);
+	writel(reg, dsi->reg_base + DSIM_PHYTIMING_REG);
+
+	/*
+	 * T CLK-PREPARE: Time that the transmitter drives the Clock Lane LP-00
+	 *	Line state immediately before the HS-0 Line state starting the
+	 *	HS transmission
+	 * T CLK-ZERO: Time that the transmitter drives the HS-0 state prior to
+	 *	transmitting the Clock.
+	 * T CLK_POST: Time that the transmitter continues to send HS clock
+	 *	after the last associated Data Lane has transitioned to LP Mode
+	 *	Interval is defined as the period from the end of T HS-TRAIL to
+	 *	the beginning of T CLK-TRAIL
+	 * T CLK-TRAIL: Time that the transmitter drives the HS-0 state after
+	 *	the last payload clock bit of a HS transmission burst
+	 */
+	reg = DSIM_PHYTIMING1_CLK_PREPARE(0x07) |
+			DSIM_PHYTIMING1_CLK_ZERO(0x27) |
+			DSIM_PHYTIMING1_CLK_POST(0x0d) |
+			DSIM_PHYTIMING1_CLK_TRAIL(0x08);
+	writel(reg, dsi->reg_base + DSIM_PHYTIMING1_REG);
+
+	/*
+	 * T HS-PREPARE: Time that the transmitter drives the Data Lane LP-00
+	 *	Line state immediately before the HS-0 Line state starting the
+	 *	HS transmission
+	 * T HS-ZERO: Time that the transmitter drives the HS-0 state prior to
+	 *	transmitting the Sync sequence.
+	 * T HS-TRAIL: Time that the transmitter drives the flipped differential
+	 *	state after last payload data bit of a HS transmission burst
+	 */
+	reg = DSIM_PHYTIMING2_HS_PREPARE(0x09) | DSIM_PHYTIMING2_HS_ZERO(0x0d) |
+			DSIM_PHYTIMING2_HS_TRAIL(0x0b);
+	writel(reg, dsi->reg_base + DSIM_PHYTIMING2_REG);
+}
+
 static void exynos_dsi_disable_clock(struct exynos_dsi *dsi)
 {
 	u32 reg;
@@ -472,8 +589,6 @@ static int exynos_dsi_init_link(struct exynos_dsi *dsi)
 
 		if (!(dsi->mode_flags & MIPI_DSI_MODE_VSYNC_FLUSH))
 			reg |= DSIM_MFLUSH_VS;
-		if (!(dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET))
-			reg |= DSIM_EOT_DISABLE;
 		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE)
 			reg |= DSIM_SYNC_INFORM;
 		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
@@ -489,6 +604,9 @@ static int exynos_dsi_init_link(struct exynos_dsi *dsi)
 		if (!(dsi->mode_flags & MIPI_DSI_MODE_VIDEO_HSA))
 			reg |= DSIM_HSA_MODE;
 	}
+
+	if (!(dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET))
+		reg |= DSIM_EOT_DISABLE;
 
 	switch (dsi->format) {
 	case MIPI_DSI_FMT_RGB888:
@@ -945,10 +1063,11 @@ static irqreturn_t exynos_dsi_irq(int irq, void *dev_id)
 
 static int exynos_dsi_init(struct exynos_dsi *dsi)
 {
-	exynos_dsi_enable_clock(dsi);
 	exynos_dsi_reset(dsi);
 	enable_irq(dsi->irq);
+	exynos_dsi_enable_clock(dsi);
 	exynos_dsi_wait_for_reset(dsi);
+	exynos_dsi_set_phy_ctrl(dsi);
 	exynos_dsi_init_link(dsi);
 
 	return 0;
@@ -1031,10 +1150,22 @@ static ssize_t exynos_dsi_host_transfer(struct mipi_dsi_host *host,
 	return (ret < 0) ? ret : xfer.rx_done;
 }
 
+static int exynos_dsi_host_te_handler(struct mipi_dsi_host *host)
+{
+	struct exynos_dsi *dsi = host_to_dsi(host);
+	struct drm_encoder *encoder = dsi->encoder;
+
+	if (!(dsi->state & DSIM_STATE_ENABLED))
+		return -EPERM;
+
+	return exynos_drm_crtc_te_handler(encoder->crtc);
+}
+
 static const struct mipi_dsi_host_ops exynos_dsi_ops = {
 	.attach = exynos_dsi_host_attach,
 	.detach = exynos_dsi_host_detach,
 	.transfer = exynos_dsi_host_transfer,
+	.te_handler = exynos_dsi_host_te_handler,
 };
 
 static int exynos_dsi_poweron(struct exynos_dsi *dsi)
@@ -1398,6 +1529,7 @@ static int exynos_dsi_probe(struct platform_device *pdev)
 	dsi->dsi_host.dev = &pdev->dev;
 
 	dsi->dev = &pdev->dev;
+	dsi->driver_data = exynos_dsi_get_driver_data(pdev);
 
 	ret = exynos_dsi_parse_dt(dsi);
 	if (ret)
@@ -1500,11 +1632,6 @@ static int exynos_dsi_suspend(struct device *dev)
 
 static const struct dev_pm_ops exynos_dsi_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(exynos_dsi_suspend, exynos_dsi_resume)
-};
-
-static struct of_device_id exynos_dsi_of_match[] = {
-	{ .compatible = "samsung,exynos4210-mipi-dsi" },
-	{ }
 };
 
 struct platform_driver dsi_driver = {
