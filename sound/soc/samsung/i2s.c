@@ -1078,7 +1078,7 @@ static const struct snd_soc_component_driver samsung_i2s_component = {
 static struct i2s_dai *i2s_alloc_dai(struct platform_device *pdev, bool sec)
 {
 	struct i2s_dai *i2s;
-	int ret;
+	struct device_node *dev_node;
 
 	i2s = devm_kzalloc(&pdev->dev, sizeof(struct i2s_dai), GFP_KERNEL);
 	if (i2s == NULL)
@@ -1104,15 +1104,22 @@ static struct i2s_dai *i2s_alloc_dai(struct platform_device *pdev, bool sec)
 		i2s->i2s_dai_drv.capture.rates = SAMSUNG_I2S_RATES;
 		i2s->i2s_dai_drv.capture.formats = SAMSUNG_I2S_FMTS;
 		dev_set_drvdata(&i2s->pdev->dev, i2s);
-	} else {	/* Create a new platform_device for Secondary */
+	} else {
+		#ifdef CONFIG_OF
+		dev_node = of_find_compatible_node(NULL, NULL, "samsung-i2s-sec");
+		if (!dev_node)
+			return NULL;
+		dev_node->data = i2s;
+		#else
+		/* Create a new platform_device for Secondary */
 		i2s->pdev = platform_device_alloc("samsung-i2s-sec", -1);
 		if (IS_ERR(i2s->pdev))
 			return NULL;
 
 		platform_set_drvdata(i2s->pdev, i2s);
-		ret = platform_device_add(i2s->pdev);
-		if (ret < 0)
+		if (platform_device_add(i2s->pdev) < 0)
 			return NULL;
+		#endif
 	}
 
 	return i2s;
@@ -1171,11 +1178,22 @@ static int samsung_i2s_probe(struct platform_device *pdev)
 	samsung_dai_type = samsung_i2s_get_driver_data(pdev);
 
 	if (samsung_dai_type == TYPE_SEC) {
+		#ifdef CONFIG_OF
+		sec_dai = np->data;
+		if (!sec_dai) {
+			dev_err(&pdev->dev, "Unable to get drvdata\n");
+			return -EFAULT;
+		}
+
+		sec_dai->pdev = pdev;
+		dev_set_drvdata(&pdev->dev, sec_dai);
+		#else
 		sec_dai = dev_get_drvdata(&pdev->dev);
 		if (!sec_dai) {
 			dev_err(&pdev->dev, "Unable to get drvdata\n");
 			return -EFAULT;
 		}
+		#endif
 
 		snd_soc_register_component(&sec_dai->pdev->dev,
 					   &samsung_i2s_component,
@@ -1374,6 +1392,9 @@ static struct samsung_i2s_dai_data samsung_i2s_dai_data_array[] = {
 static const struct of_device_id exynos_i2s_match[] = {
 	{ .compatible = "samsung,i2s-v5",
 	  .data = &samsung_i2s_dai_data_array[TYPE_PRI],
+	},
+	{ .compatible = "samsung-i2s-sec",
+	  .data = &samsung_i2s_dai_data_array[TYPE_SEC],
 	},
 	{},
 };
