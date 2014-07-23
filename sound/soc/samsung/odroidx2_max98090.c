@@ -73,8 +73,6 @@ static struct snd_soc_dai_link odroidx2_dai[] = {
 		.name		= "MAX98090 SEC",
 		.stream_name	= "MAX98090 PCM SEC",
 		.codec_dai_name	= "HiFi",
-		.cpu_dai_name	= "samsung-i2s-sec",
-		.platform_name	= "samsung-i2s-sec",
 		.dai_fmt	= SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM,
 	},
@@ -157,7 +155,17 @@ static int odroidx2_audio_probe(struct platform_device *pdev)
 		goto err_put_cod_n;
 	}
 
+	odroidx2_dai[1].cpu_of_node = of_parse_phandle(np,
+						"samsung,i2s-controller-sec", 0);
+	if (!odroidx2_dai[1].cpu_of_node) {
+		dev_err(&pdev->dev,
+			"Property 'samsung,i2s-controller-sec' missing or invalid\n");
+		ret = -EINVAL;
+		goto err_put_cod_n;
+	}
+
 	odroidx2_dai[0].platform_of_node = odroidx2_dai[0].cpu_of_node;
+	odroidx2_dai[1].platform_of_node = odroidx2_dai[1].cpu_of_node;
 
 	/* Configure the secondary audio interface with the same codec dai */
 	odroidx2_dai[1].codec_of_node = odroidx2_dai[0].codec_of_node;
