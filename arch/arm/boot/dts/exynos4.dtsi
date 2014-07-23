@@ -605,6 +605,10 @@
 		status = "disabled";
 	};
 
+	i2s_sec: i2s_sec {
+		compatible = "samsung-i2s-sec";
+	};
+
 	i2s1: i2s@12D60000 {
 		compatible = "samsung,i2s-v5";
 		reg = <0x12D60000 0x100>;

@@ -51,6 +51,7 @@
 	sound: sound {
 		compatible = "samsung,odroidx2-audio";
 		samsung,i2s-controller = <&i2s0>;
+		samsung,i2s-controller-sec = <&i2s_sec>;
 		samsung,audio-codec = <&max98090>;
 	};
 
