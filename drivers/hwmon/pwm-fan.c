@@ -24,30 +24,31 @@
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
 #include <linux/sysfs.h>
+#include <linux/thermal.h>
 
 #define MAX_PWM 255
+
+static const unsigned char pwm_fan_cooling_states[] = {
+	0, (MAX_PWM * 2) / 5, (MAX_PWM * 2) / 3, MAX_PWM
+};
 
 struct pwm_fan_ctx {
 	struct mutex lock;
 	struct pwm_device *pwm;
 	unsigned char pwm_value;
+	unsigned char pwm_fan_state;
+	unsigned char pwm_fan_max_state;
 };
 
-static ssize_t set_pwm(struct device *dev, struct device_attribute *attr,
-		       const char *buf, size_t count)
+static int  __set_pwm(struct pwm_fan_ctx *ctx, unsigned long pwm)
 {
-	struct pwm_fan_ctx *ctx = dev_get_drvdata(dev);
-	unsigned long pwm, duty;
-	ssize_t ret;
-
-	if (kstrtoul(buf, 10, &pwm) || pwm > MAX_PWM)
-		return -EINVAL;
-
-	mutex_lock(&ctx->lock);
+	unsigned long duty;
+	int ret;
 
 	if (ctx->pwm_value == pwm)
-		goto exit_set_pwm_no_change;
+		return 0;
 
+	mutex_lock(&ctx->lock);
 	if (pwm == 0) {
 		pwm_disable(ctx->pwm);
 		goto exit_set_pwm;
@@ -66,11 +67,26 @@ static ssize_t set_pwm(struct device *dev, struct device_attribute *attr,
 
 exit_set_pwm:
 	ctx->pwm_value = pwm;
-exit_set_pwm_no_change:
-	ret = count;
 exit_set_pwm_err:
 	mutex_unlock(&ctx->lock);
 	return ret;
+}
+
+static ssize_t set_pwm(struct device *dev, struct device_attribute *attr,
+		       const char *buf, size_t count)
+{
+	struct pwm_fan_ctx *ctx = dev_get_drvdata(dev);
+	unsigned long pwm;
+	int ret;
+
+	if (kstrtoul(buf, 10, &pwm) || pwm > MAX_PWM)
+		return -EINVAL;
+
+	ret = __set_pwm(ctx, pwm);
+	if (ret)
+		return ret;
+
+	return count;
 }
 
 static ssize_t show_pwm(struct device *dev,
@@ -93,11 +109,63 @@ static const struct attribute_group pwm_fan_group = {
 	.attrs = pwm_fan_attributes,
 };
 
+/* thermal cooling device callbacks */
+static int pwm_fan_get_max_state(struct thermal_cooling_device *cdev,
+				 unsigned long *state)
+{
+	struct pwm_fan_ctx *ctx = cdev->devdata;
+
+	*state = ctx->pwm_fan_max_state;
+
+	return 0;
+}
+
+static int pwm_fan_get_cur_state(struct thermal_cooling_device *cdev,
+				 unsigned long *state)
+{
+	struct pwm_fan_ctx *ctx = cdev->devdata;
+	if (!ctx)
+		return -EINVAL;
+
+	*state = ctx->pwm_fan_state;
+
+	return 0;
+}
+
+static int
+pwm_fan_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
+{
+	struct pwm_fan_ctx *ctx = cdev->devdata;
+	int ret;
+
+	if (!ctx || (state > ctx->pwm_fan_max_state))
+		return -EINVAL;
+
+	if (state == ctx->pwm_fan_state)
+		return 0;
+
+	ret = __set_pwm(ctx, pwm_fan_cooling_states[state]);
+	if (ret) {
+		pr_err("%s: Cannot set pwm!\n", __func__);
+		return ret;
+	}
+
+	ctx->pwm_fan_state = state;
+
+	return ret;
+}
+
+static const struct thermal_cooling_device_ops pwm_fan_cooling_ops = {
+	.get_max_state = pwm_fan_get_max_state,
+	.get_cur_state = pwm_fan_get_cur_state,
+	.set_cur_state = pwm_fan_set_cur_state,
+};
+
 static int pwm_fan_probe(struct platform_device *pdev)
 {
-	struct device *hwmon;
+	struct thermal_cooling_device *cdev;
 	struct pwm_fan_ctx *ctx;
-	int duty_cycle;
+	struct device *hwmon;
 	int ret;
 
 	ctx = devm_kzalloc(&pdev->dev, sizeof(*ctx), GFP_KERNEL);
@@ -115,23 +183,6 @@ static int pwm_fan_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, ctx);
 	platform_set_drvdata(pdev, ctx);
 
-	/* Set duty cycle to maximum allowed */
-	duty_cycle = ctx->pwm->period - 1;
-	ctx->pwm_value = MAX_PWM;
-
-	ret = pwm_config(ctx->pwm, duty_cycle, ctx->pwm->period);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to configure PWM\n");
-		return ret;
-	}
-
-	/* Enable PWM output */
-	ret = pwm_enable(ctx->pwm);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to enable PWM\n");
-		return ret;
-	}
-
 	ret = sysfs_create_group(&pdev->dev.kobj, &pwm_fan_group);
 	if (ret)
 		return ret;
@@ -143,6 +194,16 @@ static int pwm_fan_probe(struct platform_device *pdev)
 		pwm_disable(ctx->pwm);
 		return PTR_ERR(hwmon);
 	}
+
+	cdev = thermal_cooling_device_register("pwm-fan", ctx,
+					       &pwm_fan_cooling_ops);
+	if (IS_ERR(cdev)) {
+		dev_err(&pdev->dev, "Failed to register pwm-fan as thermal coolong device");
+		pwm_disable(ctx->pwm);
+		return PTR_ERR(cdev);
+	}
+	ctx->pwm_fan_max_state = ARRAY_SIZE(pwm_fan_cooling_states) - 1;
+
 	return 0;
 }
 
