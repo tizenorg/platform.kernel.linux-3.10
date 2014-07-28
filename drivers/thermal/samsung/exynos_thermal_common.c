@@ -144,6 +144,20 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 	if (tab_ptr == NULL || tab_size == 0)
 		return 0;
 
+	if (!strcmp(cdev->type, "pwm-fan")) {
+		ret = thermal_zone_bind_cooling_device(thermal, 0, cdev,
+						       THERMAL_NO_LIMIT,
+						       THERMAL_NO_LIMIT);
+		ret |= thermal_zone_bind_cooling_device(thermal, 2, cdev,
+						       THERMAL_NO_LIMIT, 2);
+
+		if (ret) {
+			dev_err(data->dev,
+				"cannot bind pwm-fan cooling device\n");
+			return -EINVAL;
+		}
+	}
+
 	/* find the cooling device registered*/
 	for (i = 0; i < th_zone->cool_dev_size; i++)
 		if (cdev == th_zone->cool_dev[i])
