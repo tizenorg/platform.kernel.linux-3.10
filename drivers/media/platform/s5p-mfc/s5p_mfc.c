@@ -344,7 +344,8 @@ static void s5p_mfc_handle_frame(struct s5p_mfc_ctx *ctx,
 	}
 
 	if (dst_frame_status == S5P_FIMV_DEC_STATUS_DECODING_DISPLAY ||
-		dst_frame_status == S5P_FIMV_DEC_STATUS_DECODING_ONLY)
+		dst_frame_status == S5P_FIMV_DEC_STATUS_DECODING_ONLY &&
+		err != S5P_FIMV_ERR_INCOMPLETE_FRAME)
 		s5p_mfc_handle_frame_copy_time(ctx);
 
 	/* A frame has been decoded and is in the buffer  */
@@ -598,6 +599,11 @@ static irqreturn_t s5p_mfc_irq(int irq, void *priv)
 	mfc_debug(1, "Int reason: %d (err: %08x)\n", reason, err);
 	switch (reason) {
 	case S5P_MFC_R2H_CMD_ERR_RET:
+		if (err == S5P_FIMV_ERR_INCOMPLETE_FRAME) {
+			s5p_mfc_handle_frame(ctx, reason, err);
+			break;
+		}
+
 		/* An error has occured */
 		if (ctx->state == MFCINST_RUNNING &&
 			s5p_mfc_hw_call(dev->mfc_ops, err_dec, err) >=
