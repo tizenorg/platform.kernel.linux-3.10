@@ -43,6 +43,10 @@
 		gpio-vbus-det = <&gpx1 6 0>;
 	};
 
+	hsotg@12480000 {
+		extcon = <&usb_extcon>;
+	};
+
 	mshc@12550000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
