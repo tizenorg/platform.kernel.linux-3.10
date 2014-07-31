@@ -38,6 +38,10 @@
 		gpio-vbus-det = <&gpx1 6 0>;
 	};
 
+	hsotg@12480000 {
+		extcon = <&usb_extcon>;
+	};
+
 	pwm: pwm@139D0000 {
 		pinctrl-0 = <&pwm0_out>;
 		pinctrl-names = "default";
