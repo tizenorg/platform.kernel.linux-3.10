@@ -369,10 +369,13 @@ int snd_soc_codec_set_pll(struct snd_soc_codec *codec, int pll_id, int source,
 
 int snd_soc_register_card(struct snd_soc_card *card);
 int snd_soc_unregister_card(struct snd_soc_card *card);
+int devm_snd_soc_register_card(struct device *dev, struct snd_soc_card *card);
 int snd_soc_suspend(struct device *dev);
 int snd_soc_resume(struct device *dev);
 int snd_soc_poweroff(struct device *dev);
 int snd_soc_register_platform(struct device *dev,
+		const struct snd_soc_platform_driver *platform_drv);
+int devm_snd_soc_register_platform(struct device *dev,
 		const struct snd_soc_platform_driver *platform_drv);
 void snd_soc_unregister_platform(struct device *dev);
 int snd_soc_add_platform(struct device *dev, struct snd_soc_platform *platform,
@@ -384,6 +387,9 @@ int snd_soc_register_codec(struct device *dev,
 		struct snd_soc_dai_driver *dai_drv, int num_dai);
 void snd_soc_unregister_codec(struct device *dev);
 int snd_soc_register_component(struct device *dev,
+			 const struct snd_soc_component_driver *cmpnt_drv,
+			 struct snd_soc_dai_driver *dai_drv, int num_dai);
+int devm_snd_soc_register_component(struct device *dev,
 			 const struct snd_soc_component_driver *cmpnt_drv,
 			 struct snd_soc_dai_driver *dai_drv, int num_dai);
 void snd_soc_unregister_component(struct device *dev);
