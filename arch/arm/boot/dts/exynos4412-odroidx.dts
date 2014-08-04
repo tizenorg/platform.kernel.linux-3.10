@@ -38,6 +38,15 @@
 		};
 	};
 
+	usb_extcon: odroid-usbotg {
+		compatible = "extcon-odroid-usbotg";
+		gpio-vbus-det = <&gpx1 6 0>;
+	};
+
+	hsotg@12480000 {
+		extcon = <&usb_extcon>;
+	};
+
 	mshc@12550000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -107,5 +116,17 @@
 			compatible = "samsung,clock-xusbxti";
 			clock-frequency = <24000000>;
 		};
+	};
+};
+
+&pinctrl_1 {
+	otg_id: otg_id {
+		samsung,pins = "gpx3-1";
+		samsung,pin-pud = <3>;
+	};
+
+	vbus_det: vbus_det {
+		  samsung,pins = "gpx1-6";
+		  samsung,pin-pud = <0>;
 	};
 };
