@@ -36,9 +36,14 @@
 		compatible = "extcon-odroid-usbotg";
 		gpio-otg-id = <&gpx3 1 0>;
 		gpio-vbus-det = <&gpx1 6 0>;
+		gpio-pwren = <&gpl2 0 0>;
 	};
 
 	hsotg@12480000 {
+		extcon = <&usb_extcon>;
+	};
+
+	ehci: ehci@12580000 {
 		extcon = <&usb_extcon>;
 	};
 
