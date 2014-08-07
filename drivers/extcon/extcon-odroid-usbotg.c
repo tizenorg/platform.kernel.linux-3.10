@@ -52,21 +52,26 @@ struct odroid_usbotg_data {
 	struct extcon_dev *edev;
 	unsigned otg_id_gpio;
 	unsigned vbus_det_gpio;
+	unsigned pwren_gpio;
 	int otg_id_irq;
 	int vbus_det_irq;
 	unsigned long debounce_jiffies;
 };
 
 /*
- * state    | VBUS_DET |  OTG_ID
- * -------------------------------
- * USB      |    H     |    H
- * invalid  |    H     |    L
- * disconn. |    L     |    H
- * USB-Host |    L     |    L
+ * state              | VBUS_DET |  OTG_ID
+ * ---------------------------------------
+ * USB                |    H     |    H
+ * USB-Host powered   |    H     |    L
+ * disconn.           |    L     |    H
+ * USB-Host unpowered |    L     |    L
  *
  * Only Odroid U3+ has OTG_ID line. U3 and X versions can detect only
  * USB slave cable.
+ *
+ * Upon insertion of an USB Host cable on Odroid U3+ the detected state is
+ * USB-Host unpowered, after this the extcon driver is enabling power supply
+ * for the USB host and the state is transitioned to USB-Host powered.
  */
 
 static void odroid_usbotg_detect_cable(struct odroid_usbotg_data *extcon_data)
@@ -79,8 +84,11 @@ static void odroid_usbotg_detect_cable(struct odroid_usbotg_data *extcon_data)
 	else
 		state = (gpio_get_value(extcon_data->vbus_det_gpio) << 1) | 1;
 
+	if (extcon_data->pwren_gpio)
+		gpio_set_value(extcon_data->pwren_gpio, (state == 0) ||
+			       (state == 2));
 	extcon_set_cable_state_(extcon_data->edev,
-				EXTCON_CABLE_USB_HOST, (state == 0));
+				EXTCON_CABLE_USB_HOST, (state == 2));
 	extcon_set_cable_state_(extcon_data->edev,
 				EXTCON_CABLE_USB, (state == 3));
 }
@@ -103,6 +111,7 @@ static int odroid_usbotg_parse_dt(struct platform_device *pdev,
 	extcon_data->edev->name = np->name;
 	extcon_data->vbus_det_gpio = of_get_named_gpio(np, "gpio-vbus-det", 0);
 	extcon_data->otg_id_gpio   = of_get_named_gpio(np, "gpio-otg-id", 0);
+	extcon_data->pwren_gpio   = of_get_named_gpio(np, "gpio-pwren", 0);
 
 	if (of_property_read_u32(np, "debounce", &val) != 0)
 		val = 50;
@@ -142,6 +151,10 @@ static int odroid_usbotg_probe(struct platform_device *pdev)
 				    GPIOF_DIR_IN, "usbotg_otg_id");
 	if (ret < 0)
 		extcon_data->otg_id_gpio = 0;
+	ret = devm_gpio_request_one(&pdev->dev, extcon_data->pwren_gpio,
+				GPIOF_DIR_OUT, "usbotg_pwren");
+	if (ret < 0)
+		extcon_data->pwren_gpio = 0;
 
 	ret = extcon_dev_register(extcon_data->edev, &pdev->dev);
 	if (ret < 0)
