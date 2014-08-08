@@ -47,6 +47,7 @@ obj-$(CONFIG_MACH_EXYNOS3_DT)		+= mach-exynos3-dt.o
 obj-$(CONFIG_MACH_EXYNOS4_DT)		+= mach-exynos4-dt.o
 obj-$(CONFIG_MACH_EXYNOS5_DT)		+= mach-exynos5-dt.o
 
+obj-$(CONFIG_ARCH_EXYNOS3)		+= sec-reboot.o sec-system-rev.o
 obj-$(CONFIG_ARCH_EXYNOS4)		+= sec-reboot.o
 obj-$(CONFIG_ARCH_EXYNOS4)		+= odroid-reboot.o
 
