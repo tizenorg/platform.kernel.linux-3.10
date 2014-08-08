@@ -14,6 +14,7 @@
 
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
+#include <linux/extcon.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -28,6 +29,7 @@
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <linux/usb/otg.h>
+#include <linux/workqueue.h>
 
 #include "ehci.h"
 
@@ -55,11 +57,17 @@ static const char * const s5p_ehci_supply_names[] = {
 
 #define PHY_NUMBER 3
 struct s5p_ehci_hcd {
+	struct device *dev;
 	struct clk *clk1;
 	struct clk *clk2;
-	int power_on;
 	struct phy *phy[PHY_NUMBER];
 	struct regulator_bulk_data supplies[ARRAY_SIZE(s5p_ehci_supply_names)];
+	struct extcon_specific_cable_nb extcon_usb_dev;
+	struct notifier_block           extcon_nb;
+	struct workqueue_struct         *pwr_workqueue;
+	struct work_struct              pwr_work;
+	char                            cable_state;
+	char				enabled;
 };
 
 #define to_s5p_ehci(hcd)      (struct s5p_ehci_hcd *)(hcd_to_ehci(hcd)->priv)
@@ -94,6 +102,80 @@ static int s5p_ehci_phy_disable(struct s5p_ehci_hcd *s5p_ehci)
 	return ret;
 }
 
+static int s5p_ehci_start(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+	struct s5p_ehci_hcd *s5p_ehci = to_s5p_ehci(hcd);
+	int retval;
+	int irq;
+
+	retval = s5p_ehci_phy_enable(s5p_ehci);
+	if (retval) {
+		dev_err(&pdev->dev, "Failed to enable phys\n");
+		return retval;
+	}
+
+	irq = platform_get_irq(pdev, 0);
+	retval = usb_add_hcd(hcd, irq,
+			IRQF_DISABLED | IRQF_SHARED);
+	if (retval < 0) {
+		dev_err(dev, "Power On Fail\n");
+		s5p_ehci_phy_disable(s5p_ehci);
+		return retval;
+	}
+
+	s5p_ehci->enabled = 1;
+
+	return 0;
+}
+
+static int s5p_ehci_stop(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+	struct s5p_ehci_hcd *s5p_ehci = to_s5p_ehci(hcd);
+	int retval = 0;
+
+	usb_remove_hcd(hcd);
+
+	retval = s5p_ehci_phy_disable(s5p_ehci);
+	if (retval)
+		dev_err(&pdev->dev, "Failed to disable phys\n");
+
+	s5p_ehci->enabled = 0;
+
+	return retval;
+}
+
+static void ehci_pwr_worker(struct work_struct *work)
+{
+	struct s5p_ehci_hcd *s5p_ehci = container_of(work,
+					struct s5p_ehci_hcd, pwr_work);
+
+	if (s5p_ehci->cable_state && !s5p_ehci->enabled) {
+		phy_power_on(s5p_ehci->phy[0]);
+		s5p_ehci->enabled = 1;
+	} else if (!s5p_ehci->cable_state && s5p_ehci->enabled) {
+		phy_power_off(s5p_ehci->phy[0]);
+		s5p_ehci->enabled = 0;
+	}
+}
+
+static int ehci_extcon_notifier(struct notifier_block *nb, unsigned long event,
+				void *ptr)
+{
+	struct s5p_ehci_hcd *s5p_ehci = container_of(nb,
+					struct s5p_ehci_hcd, extcon_nb);
+
+	dev_dbg(s5p_ehci->dev, "extcon notifier, cable_state=%lu\n", event);
+	s5p_ehci->cable_state = event;
+
+	queue_work(s5p_ehci->pwr_workqueue, &s5p_ehci->pwr_work);
+
+	return NOTIFY_OK;
+}
+
 static ssize_t show_ehci_power(struct device *dev,
 			       struct device_attribute *attr,
 			       char *buf)
@@ -102,7 +184,7 @@ static ssize_t show_ehci_power(struct device *dev,
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct s5p_ehci_hcd *s5p_ehci = to_s5p_ehci(hcd);
 
-	return sprintf(buf, "EHCI Power %s\n", (s5p_ehci->power_on) ? "on" : "off");
+	return sprintf(buf, "EHCI is %s\n", (s5p_ehci->enabled) ? "enabled" : "disabled");
 }
 
 static int s5p_ehci_configurate(struct usb_hcd *hcd)
@@ -135,38 +217,22 @@ static ssize_t store_ehci_power(struct device *dev,
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct s5p_ehci_hcd *s5p_ehci = to_s5p_ehci(hcd);
 	int power_on;
-	int irq;
-	int retval;
 
 	if (sscanf(buf, "%d", &power_on) != 1)
 		return -EINVAL;
 
 	device_lock(dev);
-	if (!power_on && s5p_ehci->power_on) {
-		printk(KERN_DEBUG "%s: EHCI turns off\n", __func__);
-		s5p_ehci->power_on = 0;
-		usb_remove_hcd(hcd);
-
-		s5p_ehci_phy_disable(s5p_ehci);
-	} else if (power_on) {
-		printk(KERN_DEBUG "%s: EHCI turns on\n", __func__);
-		if (s5p_ehci->power_on) {
-			usb_remove_hcd(hcd);
-		}
-
-		s5p_ehci_phy_enable(s5p_ehci);
-
-		s5p_ehci_configurate(hcd);
-
-		irq = platform_get_irq(pdev, 0);
-		retval = usb_add_hcd(hcd, irq,
-				IRQF_DISABLED | IRQF_SHARED);
-		if (retval < 0) {
-			dev_err(dev, "Power On Fail\n");
+	if (!power_on && s5p_ehci->enabled) {
+		if (s5p_ehci_stop(dev))
 			goto exit;
+	} else if (power_on) {
+		if (s5p_ehci->enabled) {
+			if (s5p_ehci_stop(dev))
+				goto exit;
 		}
 
-		s5p_ehci->power_on = 1;
+		if (s5p_ehci_start(dev))
+			goto exit;
 	}
 exit:
 	device_unlock(dev);
@@ -210,13 +276,14 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 	struct s5p_ehci_hcd *s5p_ehci;
 	struct phy *phy;
 	struct device_node *child;
+	struct extcon_dev *edev;
 	struct usb_hcd *hcd;
 	struct ehci_hcd *ehci;
 	struct resource *res;
-	int phy_number;
-	int irq;
 	int err;
 	int i;
+	int irq;
+	int phy_number;
 
 	/*
 	 * Right now device-tree probed devices don't get dma_mask set.
@@ -237,6 +304,11 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	s5p_ehci = to_s5p_ehci(hcd);
+	s5p_ehci->dev = &pdev->dev;
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+					"samsung,exynos5440-ehci"))
+		goto skip_phy;
 
 	for_each_available_child_of_node(pdev->dev.of_node, child) {
 		err = of_property_read_u32(child, "reg", &phy_number);
@@ -258,6 +330,27 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 			return PTR_ERR(phy);
 		}
 		s5p_ehci->phy[phy_number] = phy;
+	}
+
+skip_phy:
+	edev = 0;
+	if (of_property_read_bool(pdev->dev.of_node, "extcon")) {
+		edev = extcon_get_edev_by_phandle(&pdev->dev, 0);
+		if (IS_ERR(edev)) {
+			dev_dbg(s5p_ehci->dev, "couldn't get extcon device\n");
+			err = -EINVAL;
+			goto fail_clk1;
+		}
+		s5p_ehci->pwr_workqueue = create_singlethread_workqueue("ehci");
+		INIT_WORK(&s5p_ehci->pwr_work, ehci_pwr_worker);
+		s5p_ehci->extcon_nb.notifier_call = ehci_extcon_notifier;
+		err = extcon_register_interest(&s5p_ehci->extcon_usb_dev,
+			edev->name, "USB-Host", &s5p_ehci->extcon_nb);
+
+		if (err) {
+			dev_err(s5p_ehci->dev, "failed to register notifier for USB\n");
+			goto fail_clk1;
+		}
 	}
 
 	s5p_ehci->clk1 = devm_clk_get(&pdev->dev, "usbhost");
@@ -300,12 +393,21 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		goto fail_io;
 	}
 
+	if (edev) {
+		s5p_ehci->cable_state = extcon_get_cable_state_(
+				s5p_ehci->extcon_usb_dev.edev,
+				s5p_ehci->extcon_usb_dev.cable_index);
+	} else {
+		s5p_ehci->cable_state = 1;
+	}
+
 	irq = platform_get_irq(pdev, 0);
 	if (!irq) {
 		dev_err(&pdev->dev, "Failed to get IRQ\n");
 		err = -ENODEV;
 		goto fail_io;
 	}
+
 
 	/* regulators */
 	for (i = 0; i < ARRAY_SIZE(s5p_ehci->supplies); i++)
@@ -326,14 +428,13 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		goto fail_enable_reg;
 	}
 
-
 	s5p_ehci_phy_enable(s5p_ehci);
 
 	ehci = hcd_to_ehci(hcd);
 	ehci->caps = hcd->regs;
 
 	/* DMA burst Enable */
-	writel(EHCI_INSNREG00_ENABLE_DMA_BURST, EHCI_INSNREG00(hcd->regs));
+	s5p_ehci_configurate(hcd);
 
 	err = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (err) {
@@ -341,10 +442,16 @@ static int s5p_ehci_probe(struct platform_device *pdev)
 		goto fail_add_hcd;
 	}
 
+	device_wakeup_enable(hcd->self.controller);
+
+	if (!s5p_ehci->cable_state)
+		phy_power_off(s5p_ehci->phy[0]);
+	else
+		s5p_ehci->enabled = 1;
+
 	platform_set_drvdata(pdev, hcd);
 
 	create_ehci_sys_file(ehci);
-	s5p_ehci->power_on = 1;
 
 	return 0;
 
@@ -368,7 +475,7 @@ static int s5p_ehci_remove(struct platform_device *pdev)
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct s5p_ehci_hcd *s5p_ehci = to_s5p_ehci(hcd);
 
-	s5p_ehci->power_on = 0;
+	s5p_ehci->enabled = 0;
 	remove_ehci_sys_file(hcd_to_ehci(hcd));
 	usb_remove_hcd(hcd);
 
