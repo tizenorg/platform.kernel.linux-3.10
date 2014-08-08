@@ -781,13 +781,24 @@ void __init hyp_mode_check(void)
 void __init setup_arch(char **cmdline_p)
 {
 	struct machine_desc *mdesc;
+	unsigned long dt_root;
 
 	setup_processor();
 	mdesc = setup_machine_fdt(__atags_pointer);
 	if (!mdesc)
 		mdesc = setup_machine_tags(__atags_pointer, __machine_arch_type);
 	machine_desc = mdesc;
+#if CONFIG_OF
+	dt_root = of_get_flat_dt_root();
+	machine_name = of_get_flat_dt_prop(dt_root, "model", NULL);
+	if (!machine_name)
+		machine_name = of_get_flat_dt_prop(dt_root, "compatible", NULL);
+	if (!machine_name)
+		machine_name = "<unknown>";
+	pr_info("Machine: %s\n", machine_name);
+#else
 	machine_name = mdesc->name;
+#endif
 
 	setup_dma_zone(mdesc);
 
