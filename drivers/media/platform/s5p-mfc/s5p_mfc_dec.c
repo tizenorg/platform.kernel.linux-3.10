@@ -539,7 +539,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			mfc_err("Bufs have already been requested\n");
 			return -EINVAL;
 		}
-		ctx->capture_state = QUEUE_BUFS_REQUESTED;
+
 		s5p_mfc_clock_on();
 		ret = vb2_reqbufs(&ctx->vq_dst, reqbufs);
 		s5p_mfc_clock_off();
@@ -548,6 +548,7 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 			return ret;
 		}
 
+		ctx->capture_state = QUEUE_BUFS_REQUESTED;
 		ctx->total_dpb_count = reqbufs->count;
 		ret = s5p_mfc_hw_call(dev->mfc_ops, alloc_codec_buffers, ctx);
 		if (ret) {
