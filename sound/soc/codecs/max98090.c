@@ -2022,6 +2022,54 @@ static void max98090_jack_work(struct work_struct *work)
 	snd_soc_dapm_sync(dapm);
 }
 
+static irqreturn_t max98090_interrupt_workaround(struct snd_soc_codec *codec)
+{
+	struct max98090_priv *max98090 = snd_soc_codec_get_drvdata(codec);
+	unsigned int reg;
+	int status;
+	int ret;
+
+	/* Read the jack device status register for max98090 interrupt update */
+	snd_soc_read(codec, M98090_REG_DEVICE_STATUS);
+
+	reg = snd_soc_read(codec, M98090_REG_JACK_STATUS);
+	ret = reg & (M98090_LSNS_MASK | M98090_JKSNS_MASK);
+
+	/* Save the old jack status */
+	status = max98090->jack_irq_status;
+	switch (ret) {
+	case M98090_LSNS_MASK | M98090_JKSNS_MASK:
+		max98090->jack_irq_status = M98090_JACK_STATE_NO_HEADSET;
+		break;
+	case 0:
+		max98090->jack_irq_status = M98090_JACK_STATE_HEADPHONE;
+		break;
+	case M98090_JKSNS_MASK:
+		max98090->jack_irq_status = M98090_JACK_STATE_HEADSET;
+		break;
+	default:
+		max98090->jack_irq_status = -1;
+		break;
+	}
+
+	if (max98090->jack_irq_status < 0) {
+		dev_err(codec->dev, "Jack status error\n");
+		return IRQ_NONE;
+	}
+
+	if (max98090->jack_irq_status == status) {
+		dev_dbg(codec->dev, "Jack status has not changed\n");
+		return IRQ_NONE;
+	}
+
+	pm_wakeup_event(codec->dev, 100);
+	schedule_delayed_work(&max98090->jack_work,
+			      msecs_to_jiffies(100));
+
+	return IRQ_HANDLED;
+
+}
+
 static irqreturn_t max98090_interrupt(int irq, void *data)
 {
 	struct snd_soc_codec *codec = data;
@@ -2031,6 +2079,9 @@ static irqreturn_t max98090_interrupt(int irq, void *data)
 	unsigned int active;
 
 	dev_dbg(codec->dev, "***** max98090_interrupt *****\n");
+
+	/* Implement workaround solution for max98090 jack detection */
+	return max98090_interrupt_workaround(codec);
 
 	ret = regmap_read(max98090->regmap, M98090_REG_INTERRUPT_S, &mask);
 
@@ -2224,6 +2275,7 @@ static int max98090_probe(struct snd_soc_codec *codec)
 	}
 
 	max98090->jack_state = M98090_JACK_STATE_NO_HEADSET;
+	max98090->jack_irq_status = M98090_JACK_STATE_NO_HEADSET;
 
 	INIT_DELAYED_WORK(&max98090->jack_work, max98090_jack_work);
 
