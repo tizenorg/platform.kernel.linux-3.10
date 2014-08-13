@@ -2026,60 +2026,47 @@ static irqreturn_t max98090_interrupt(int irq, void *data)
 	struct snd_soc_codec *codec = data;
 	struct max98090_priv *max98090 = snd_soc_codec_get_drvdata(codec);
 	int ret;
-	unsigned int mask;
-	unsigned int active;
+	int status;
+	unsigned int reg;
 
 	dev_dbg(codec->dev, "***** max98090_interrupt *****\n");
 
-	ret = regmap_read(max98090->regmap, M98090_REG_INTERRUPT_S, &mask);
+	/* Read the jack device status register for max98090 interrupt update */
+	snd_soc_read(codec, M98090_REG_DEVICE_STATUS);
 
-	if (ret != 0) {
-		dev_err(codec->dev,
-			"failed to read M98090_REG_INTERRUPT_S: %d\n",
-			ret);
+	reg = snd_soc_read(codec, M98090_REG_JACK_STATUS);
+	ret = reg & (M98090_LSNS_MASK | M98090_JKSNS_MASK);
+
+	/* save the old jack status */
+	status = max98090->jack_irq_status;
+	switch (ret) {
+	case M98090_LSNS_MASK | M98090_JKSNS_MASK:
+		max98090->jack_irq_status = M98090_JACK_STATE_NO_HEADSET;
+		break;
+	case 0:
+		max98090->jack_irq_status = M98090_JACK_STATE_HEADPHONE;
+		break;
+	case M98090_JKSNS_MASK:
+		max98090->jack_irq_status = M98090_JACK_STATE_HEADSET;
+		break;
+	default:
+		max98090->jack_irq_status = -1;
+		break;
+	}
+
+	if (max98090->jack_irq_status < 0) {
+		dev_err(codec->dev, "Jack status error\n");
 		return IRQ_NONE;
 	}
 
-	ret = regmap_read(max98090->regmap, M98090_REG_DEVICE_STATUS, &active);
-
-	if (ret != 0) {
-		dev_err(codec->dev,
-			"failed to read M98090_REG_DEVICE_STATUS: %d\n",
-			ret);
+	if (max98090->jack_irq_status == status) {
+		dev_dbg(codec->dev, "Jack status has not changed\n");
 		return IRQ_NONE;
 	}
 
-	dev_dbg(codec->dev, "active=0x%02x mask=0x%02x -> active=0x%02x\n",
-		active, mask, active & mask);
-
-	active &= mask;
-
-	if (!active)
-		return IRQ_NONE;
-
-	if (active & M98090_CLD_MASK)
-		dev_err(codec->dev, "M98090_CLD_MASK\n");
-
-	if (active & M98090_SLD_MASK)
-		dev_dbg(codec->dev, "M98090_SLD_MASK\n");
-
-	if (active & M98090_ULK_MASK)
-		dev_err(codec->dev, "M98090_ULK_MASK\n");
-
-	if (active & M98090_JDET_MASK) {
-		dev_dbg(codec->dev, "M98090_JDET_MASK\n");
-
-		pm_wakeup_event(codec->dev, 100);
-
-		schedule_delayed_work(&max98090->jack_work,
-			msecs_to_jiffies(100));
-	}
-
-	if (active & M98090_DRCACT_MASK)
-		dev_dbg(codec->dev, "M98090_DRCACT_MASK\n");
-
-	if (active & M98090_DRCCLP_MASK)
-		dev_err(codec->dev, "M98090_DRCCLP_MASK\n");
+	pm_wakeup_event(codec->dev, 100);
+	schedule_delayed_work(&max98090->jack_work,
+			      msecs_to_jiffies(100));
 
 	return IRQ_HANDLED;
 }
@@ -2223,6 +2210,7 @@ static int max98090_probe(struct snd_soc_codec *codec)
 	}
 
 	max98090->jack_state = M98090_JACK_STATE_NO_HEADSET;
+	max98090->jack_irq_status = M98090_JACK_STATE_NO_HEADSET;
 
 	INIT_DELAYED_WORK(&max98090->jack_work, max98090_jack_work);
 
