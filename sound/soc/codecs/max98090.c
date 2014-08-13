@@ -26,6 +26,7 @@
 #define DEBUG
 #define EXTMIC_METHOD
 #define EXTMIC_METHOD_TEST
+#define JACK_DET_WORKAROUND
 
 /* Allows for sparsely populated register maps */
 static struct reg_default max98090_reg[] = {
@@ -2022,6 +2023,60 @@ static void max98090_jack_work(struct work_struct *work)
 	snd_soc_dapm_sync(dapm);
 }
 
+#ifdef JACK_DET_WORKAROUND
+static irqreturn_t max98090_interrupt1(int irq, void *data)
+{
+	struct snd_soc_codec *codec = data;
+	struct max98090_priv *max98090 = snd_soc_codec_get_drvdata(codec);
+	unsigned int reg;
+	int jack_state;
+	int ret;
+
+	dev_dbg(codec->dev, "***** max98090_interrupt1 *****\n");
+
+	/* Read the jack device status register for max98090 interrupt update */
+	snd_soc_read(codec, M98090_REG_DEVICE_STATUS);
+
+	reg = snd_soc_read(codec, M98090_REG_JACK_STATUS);
+	ret = reg & (M98090_LSNS_MASK | M98090_JKSNS_MASK);
+
+	/* Save the old jack status */
+	jack_state = max98090->jack_state;
+	switch (ret) {
+	case M98090_LSNS_MASK | M98090_JKSNS_MASK:
+		max98090->jack_state = M98090_JACK_STATE_NO_HEADSET;
+		break;
+	case 0:
+		max98090->jack_state = M98090_JACK_STATE_HEADPHONE;
+		break;
+	case M98090_JKSNS_MASK:
+		max98090->jack_state = M98090_JACK_STATE_HEADSET;
+		break;
+	default:
+		max98090->jack_state = -1;
+		break;
+	}
+
+	if (max98090->jack_state < 0) {
+		dev_err(codec->dev, "Jack status error\n");
+		return IRQ_NONE;
+	}
+
+	if (max98090->jack_state == jack_state) {
+		dev_dbg(codec->dev, "Jack status has not changed: %d\n",
+			jack_state);
+		return IRQ_NONE;
+	}
+
+	pm_wakeup_event(codec->dev, 100);
+	schedule_delayed_work(&max98090->jack_work,
+			      msecs_to_jiffies(100));
+
+	return IRQ_HANDLED;
+
+}
+#else
+
 static irqreturn_t max98090_interrupt(int irq, void *data)
 {
 	struct snd_soc_codec *codec = data;
@@ -2084,6 +2139,7 @@ static irqreturn_t max98090_interrupt(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+#endif	/* #ifdef JACK_DET_WORKAROUND */
 
 /**
  * max98090_mic_detect - Enable microphone detection via the MAX98090 IRQ
@@ -2234,9 +2290,15 @@ static int max98090_probe(struct snd_soc_codec *codec)
 	/* Register for interrupts */
 	dev_dbg(codec->dev, "irq = %d\n", max98090->irq);
 
+#ifdef JACK_DET_WORKAROUND
+	ret = devm_request_threaded_irq(codec->dev, max98090->irq, NULL,
+		max98090_interrupt1, IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+		"max98090_interrupt", codec);
+#else
 	ret = devm_request_threaded_irq(codec->dev, max98090->irq, NULL,
 		max98090_interrupt, IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 		"max98090_interrupt", codec);
+#endif
 	if (ret < 0) {
 		dev_err(codec->dev, "request_irq failed: %d\n",
 			ret);
