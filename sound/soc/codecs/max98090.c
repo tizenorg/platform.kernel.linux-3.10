@@ -2055,6 +2055,10 @@ static irqreturn_t max98090_interrupt(int irq, void *data)
 
 	active &= mask;
 
+#ifdef CONFIG_ODROIDU3_MAX98090_WIP
+	active |= M98090_JDET_MASK;
+#endif
+
 	if (!active)
 		return IRQ_NONE;
 
