@@ -117,10 +117,15 @@ extern void early_init_dt_setup_initrd_arch(unsigned long start,
 extern int early_init_dt_scan_root(unsigned long node, const char *uname,
 				   int depth, void *data);
 
+extern const char *of_flat_dt_get_machine_name(void);
+extern const void *of_flat_dt_match_machine(const void *default_match,
+		const void * (*get_next_compat)(const char * const**));
+
 /* Other Prototypes */
 extern void unflatten_device_tree(void);
 extern void early_init_devtree(void *);
 #else /* CONFIG_OF_FLATTREE */
+static inline const char *of_flat_dt_get_machine_name(void) { return NULL; }
 static inline void unflatten_device_tree(void) {}
 #endif /* CONFIG_OF_FLATTREE */
 
