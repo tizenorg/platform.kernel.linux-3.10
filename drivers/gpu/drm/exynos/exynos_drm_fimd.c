@@ -32,6 +32,10 @@
 #include "exynos_drm_crtc.h"
 #include "exynos_drm_iommu.h"
 
+#ifdef CONFIG_DRM_EXYNOS_IPP
+#include "exynos_drm_ipp.h"
+#endif
+
 /*
  * FIMD stands for Fully Interactive Mobile Display and
  * as a display controller, it transfers contents drawn on memory
@@ -169,6 +173,7 @@ struct fimd_context {
 
 	struct exynos_drm_panel_info panel;
 	struct fimd_driver_data *driver_data;
+	struct notifier_block	nb_ctrl;
 };
 
 static const struct of_device_id fimd_driver_dt_match[] = {
@@ -1053,6 +1058,82 @@ out:
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_DRM_EXYNOS_IPP
+static void fimd_set_writeback(struct fimd_context *ctx, int enable,
+		unsigned int refresh)
+{
+	u32 vidcon0 = readl(ctx->regs + VIDCON0);
+	u32 vidcon2 = readl(ctx->regs + VIDCON2);
+
+	DRM_DEBUG_KMS("%s:wb[%d]refresh[%d]\n",
+		__func__, enable, refresh);
+
+	vidcon0 &= ~VIDCON0_VIDOUT_MASK;
+	vidcon2 &= ~(VIDCON2_WB_MASK |
+			VIDCON2_WB_SKIP_MASK |
+			VIDCON2_TVFMTSEL_SW |
+			VIDCON2_TVFORMATSEL_MASK);
+
+	if (enable) {
+		vidcon0 |= VIDCON0_VIDOUT_WB_RGB;
+		vidcon2 |= (VIDCON2_WB_ENABLE |
+				VIDCON2_TVFMTSEL_SW |
+				VIDCON2_TVFMTSEL1_YUV444);
+
+		if (refresh >= 60 || refresh == 0)
+			DRM_INFO("%s:refresh[%d],forced set to 60hz.\n",
+				__func__, refresh);
+		else if (refresh >= 30)
+			vidcon2 |= VIDCON2_WB_SKIP_1_2;
+		else if (refresh >= 20)
+			vidcon2 |= VIDCON2_WB_SKIP_1_3;
+		else if (refresh >= 15)
+			vidcon2 |= VIDCON2_WB_SKIP_1_4;
+		else
+			vidcon2 |= VIDCON2_WB_SKIP_1_5;
+	} else {
+		if (ctx->i80_if)
+			vidcon0 |= VIDCON0_VIDOUT_I80_LDI0;
+		else
+			vidcon0 |= VIDCON0_VIDOUT_RGB;
+		vidcon2 |= VIDCON2_WB_DISABLE;
+	}
+
+	writel(vidcon0, ctx->regs + VIDCON0);
+	writel(vidcon2, ctx->regs + VIDCON2);
+}
+
+static int fimd_notifier_ctrl(struct notifier_block *this,
+			unsigned long event, void *_data)
+{
+	struct fimd_context *ctx = container_of(this,
+				struct fimd_context, nb_ctrl);
+
+	switch (event) {
+	case IPP_GET_LCD_WIDTH:
+	case IPP_GET_LCD_HEIGHT:
+		break;
+	case IPP_SET_WRITEBACK: {
+		struct drm_exynos_ipp_set_wb *set_wb =
+			(struct drm_exynos_ipp_set_wb *)_data;
+		unsigned int refresh = set_wb->refresh;
+		int enable = *((int *)&set_wb->enable);
+
+		fimd_set_writeback(ctx, enable, refresh);
+	}
+		break;
+	case IPP_SET_OUTPUT:
+		break;
+	default:
+		/* ToDo : for checking use case */
+		DRM_INFO("%s:event[0x%x]\n", __func__, (unsigned int)event);
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+#endif
+
 static int fimd_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1148,6 +1229,13 @@ static int fimd_probe(struct platform_device *pdev)
 
 	init_waitqueue_head(&ctx->wait_vsync_queue);
 	atomic_set(&ctx->wait_vsync_event, 0);
+
+	ctx->nb_ctrl.notifier_call = fimd_notifier_ctrl;
+	ret = exynos_drm_ippnb_register(&ctx->nb_ctrl);
+	if (ret) {
+		dev_err(dev, "could not register fimd notify callback\n");
+		return ret;
+	}
 
 	platform_set_drvdata(pdev, &fimd_manager);
 
