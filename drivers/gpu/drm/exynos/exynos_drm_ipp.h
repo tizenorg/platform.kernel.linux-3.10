@@ -20,15 +20,19 @@
 #define for_each_ipp_planar(pos)	\
 	for (pos = 0; pos < EXYNOS_DRM_PLANAR_MAX; pos++)
 
-#define IPP_GET_LCD_WIDTH	_IOR('F', 302, int)
-#define IPP_GET_LCD_HEIGHT	_IOR('F', 303, int)
-#define IPP_SET_WRITEBACK	_IOW('F', 304, u32)
-
 /* definition of state */
 enum drm_exynos_ipp_state {
 	IPP_STATE_IDLE,
 	IPP_STATE_START,
 	IPP_STATE_STOP,
+};
+
+/* definition of extend function */
+enum drm_exynos_ipp_ext {
+	IPP_GET_LCD_WIDTH,
+	IPP_GET_LCD_HEIGHT,
+	IPP_SET_WRITEBACK,
+	IPP_SET_OUTPUT,
 };
 
 /*
