@@ -1124,6 +1124,7 @@ static int fimc_set_prescaler(struct fimc_context *ctx, struct fimc_scaler *sc,
 	DRM_DEBUG_KMS("%s:hfactor[%d]vfactor[%d]\n", __func__, hfactor,
 		vfactor);
 
+	sc->range = property->range;
 	sc->hratio = (src_w << 14) / (dst_w << hfactor);
 	sc->vratio = (src_h << 14) / (dst_h << vfactor);
 	sc->up_h = (dst_w >= src_w) ? true : false;
