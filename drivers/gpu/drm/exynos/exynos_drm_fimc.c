@@ -1081,6 +1081,7 @@ static int fimc_set_prescaler(struct fimc_context *ctx, struct fimc_scaler *sc,
 		struct drm_exynos_pos *src, struct drm_exynos_pos *dst)
 {
 	struct exynos_drm_ippdrv *ippdrv = &ctx->ippdrv;
+	struct drm_exynos_ipp_property *property = &ippdrv->c_node->property;
 	u32 cfg, cfg_ext, shfactor;
 	u32 pre_dst_width, pre_dst_height;
 	u32 hfactor, vfactor;
@@ -1124,6 +1125,7 @@ static int fimc_set_prescaler(struct fimc_context *ctx, struct fimc_scaler *sc,
 	DRM_DEBUG_KMS("%s:hfactor[%d]vfactor[%d]\n", __func__, hfactor,
 		vfactor);
 
+	sc->range = property->range;
 	sc->hratio = (src_w << 14) / (dst_w << hfactor);
 	sc->vratio = (src_h << 14) / (dst_h << vfactor);
 	sc->up_h = (dst_w >= src_w) ? true : false;
