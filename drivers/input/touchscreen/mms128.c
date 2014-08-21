@@ -73,12 +73,6 @@ enum {
 };
 
 enum {
-	BUILT_IN = 0,
-	UMS,
-	REQ_FW,
-};
-
-enum {
 	TSP_STATE_RELEASE = 0,
 	TSP_STATE_PRESS,
 	TSP_STATE_MOVE,
@@ -348,7 +342,6 @@ static int mms_config_flash(struct mms_ts_info *info, const u8 *buf, const u8 le
 static int mms_config_start(struct mms_ts_info *info);
 static int mms_config_finish(struct mms_ts_info *info);
 static void mms_config_set(void *context);
-static int mms_config_get(struct mms_ts_info *info, u8 mode);
 static void mms_reboot(struct mms_ts_info *info)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(info->client->dev.parent);
@@ -575,52 +568,7 @@ static void mms_config_set(void *context)
 	kfree(conf_item);
 	return;
 }
-static int mms_config_get(struct mms_ts_info *info, u8 mode)
-{
-	struct i2c_client *client = info->client;
-	char fw_path[MAX_FW_PATH+1];
-	mm_segment_t old_fs = {0};
-	struct file *fp = NULL;
-	long fsize = 0, nread = 0;
 
-	if (mode == REQ_FW) {
-		if (!info->config_fw) {
-			dev_err(&client->dev, "Failed to get config firmware\n");
-			return -EINVAL;
-		}
-	} else if (mode == UMS) {
-
-		old_fs = get_fs();
-		set_fs(get_ds());
-
-		snprintf(fw_path, MAX_FW_PATH, "/sdcard/%s", TSP_FW_CONFIG_NAME);
-		fp = filp_open(fw_path, O_RDONLY, 0);
-		if (IS_ERR(fp)) {
-			dev_err(&client->dev, "file %s open error:%d\n",
-					fw_path, (s32)fp);
-			return -1;
-		} else {
-			fsize = fp->f_path.dentry->d_inode->i_size;
-			kfree(info->config_fw);
-			info->config_fw = kzalloc((size_t)fsize, GFP_KERNEL);
-
-			nread = vfs_read(fp, (char __user *)info->config_fw, fsize, &fp->f_pos);
-			if (nread != fsize) {
-				dev_err(&client->dev, "nread != fsize error\n");
-			}
-
-			filp_close(fp, current->files);
-		}
-		set_fs(old_fs);
-	} else {
-		dev_err(&client->dev, "%s error mode[%d]\n", __func__, mode);
-		return -1;
-	}
-
-	dev_info(&client->dev, "succeed to get runtime-config firmware\n");
-
-	return 0;
-}
 static int mms_config_start(struct mms_ts_info *info)
 {
 	struct i2c_client *client;
@@ -1278,13 +1226,8 @@ static int mms_ts_fw_load(struct mms_ts_info *info)
 		ret = mms_flash_fw(info->fw_data, info, COMPARE_UPDATE);
 	} while (ret && --retries);
 
-	if (!retries) {
+	if (!retries)
 		dev_err(&info->client->dev, "failed to flash firmware after retires\n");
-	} else {
-		/* Runtime config setting*/
-		mms_config_get(info, REQ_FW);
-		mms_config_set(info);
-	}
 
 	return ret;
 }
@@ -1473,6 +1416,11 @@ static int mms_ts_input_open(struct input_dev *dev)
 		dev_info(&info->client->dev,
 			"%s already power on\n", __func__);
 		return 0;
+	}
+
+	if (!info->config_fw) {
+		dev_err(&info->client->dev, "Failed to get config firmware\n");
+		return -EINVAL;
 	}
 
 	info->resume_done = false;
