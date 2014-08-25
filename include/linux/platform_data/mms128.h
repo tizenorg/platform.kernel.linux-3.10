@@ -25,7 +25,7 @@ struct melfas_tsi_platform_data {
 
 	int	(*mux_fw_flash)(bool to_gpios);
 	int	fw_bin_ver[3];
-	const char	*config_fw_version;
+	int	config_fw_version;
 	void	(*input_event)(void *data);
 	void	(*register_cb)(void *);
 };

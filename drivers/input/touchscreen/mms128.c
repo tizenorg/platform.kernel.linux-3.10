@@ -90,6 +90,11 @@ enum {
 	TOUCH_BOOSTER_QUICK_OFF,
 };
 
+enum {
+	MMS128_FW_REV_00 = 0,
+	MMS128_FW_REV_01
+};
+
 #if ISC_DL_MODE	/* ISC_DL_MODE start */
 /*
  * ISC_XFER_LEN	- ISC unit transfer length.
@@ -264,7 +269,7 @@ struct mms_ts_info {
 	bool	enabled_user;
 	u8	fw_ic_ver[3];
 	int	finger_byte;
-	const u8	*config_fw_version;
+	int	config_fw_version;
 	unsigned char	finger_state[MAX_FINGERS];
 	u16	mcount[MAX_FINGERS];
 
@@ -1331,6 +1336,7 @@ static struct attribute_group mms_ts_attr_group = {
 	.attrs = mms_ts_attributes,
 };
 
+
 #ifdef CONFIG_OF
 static struct melfas_tsi_platform_data *mms_ts_parse_dt(struct device *dev)
 {
@@ -1368,7 +1374,7 @@ static struct melfas_tsi_platform_data *mms_ts_parse_dt(struct device *dev)
 	};
 	pdata->invert_y = !!pdata->invert_y;
 
-	if (of_property_read_string(np, "config_fw_version",
+	if (of_property_read_u32(np, "config_fw_version",
 				&pdata->config_fw_version))
 		dev_warn(dev, "cannot get touchscreen firmware version\n");
 
@@ -1382,7 +1388,6 @@ static inline struct melfas_tsi_platform_data *mms_ts_parse_dt(struct device *de
 	return NULL;
 }
 #endif
-
 
 static int mms128_pm_notifier_callback(struct notifier_block *this,
 		unsigned long event, void *ptr)
@@ -1542,23 +1547,6 @@ static int mms_ts_probe(struct i2c_client *client,
 	else
 		info->pdata = NULL;
 
-	if (of_machine_is_compatible("samsung,tizen-w")) {
-		ret = mms_request_firmware(info);
-		if (ret < 0) {
-			dev_err(&client->dev, "Failed to request firmware\n");
-			goto err_alloc;
-		}
-	} else if (of_machine_is_compatible("samsung,rinato-rev00")) {
-		info->fw_data = mms_ts_w_firmware_rev00;
-		info->config_fw = mms_ts_w_config_fw_rev00;
-	} else if (of_machine_is_compatible("samsung,rinato-rev01")) {
-		info->fw_data = mms_ts_w_firmware_rev01;
-		info->config_fw = mms_ts_w_config_fw_rev01;
-	} else if (of_machine_is_compatible("samsung,rinato-rev05")) {
-		info->fw_data = mms_ts_w_firmware_rev01;
-		info->config_fw = mms_ts_w_config_fw_rev01;
-	}
-
 	if (!info->pdata) {
 		dev_err(&client->dev, "failed to get platform data\n");
 		goto err_alloc;
@@ -1589,6 +1577,20 @@ static int mms_ts_probe(struct i2c_client *client,
 	for (i = 0 ; i < MAX_FINGERS; i++) {
 		info->finger_state[i] = TSP_STATE_RELEASE;
 		info->mcount[i] = 0;
+	}
+
+	if (info->config_fw_version == MMS128_FW_REV_00) {
+		info->fw_data = mms_ts_w_firmware_rev00;
+		info->config_fw = mms_ts_w_config_fw_rev00;
+	} else if (info->config_fw_version == MMS128_FW_REV_01) {
+		info->fw_data = mms_ts_w_firmware_rev01;
+		info->config_fw = mms_ts_w_config_fw_rev01;
+	} else {
+		ret = mms_request_firmware(info);
+		if (ret < 0) {
+			dev_err(&client->dev, "Failed to request firmware\n");
+			return ret;
+		}
 	}
 
 	info->client = client;
