@@ -436,7 +436,8 @@
 				regulator-max-microvolt = <1800000>;
 				regulator-always-on;
 
-				op_mode = <3>; /* Standby Mode */
+				/* FIXME */
+				op_mode = <1>; /* Normal Mode */
 			};
 
 			ldo4_reg: LDO4 {
