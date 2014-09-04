@@ -700,7 +700,7 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 	int ret;
 	int i;
 
-	if (is_dmabuf_sync_supported()) {
+	if (dmabuf_sync_is_supported()) {
 		node->sync = dmabuf_sync_init("g2d", &dmabuf_sync_ops, node);
 		if (IS_ERR(node->sync))
 			node->sync = NULL;
@@ -863,7 +863,7 @@ static void g2d_dma_start(struct g2d_data *g2d,
 	if (node->sync) {
 		int ret;
 
-		ret = dmabuf_sync_lock(node->sync);
+		ret = dmabuf_sync_wait_all(node->sync);
 		if (ret < 0) {
 			WARN_ON(1);
 			dmabuf_sync_put_all(node->sync);
@@ -909,7 +909,7 @@ static void g2d_free_runqueue_node(struct g2d_data *g2d,
 		if (node->sync) {
 			int ret;
 
-			ret = dmabuf_sync_unlock(node->sync);
+			ret = dmabuf_sync_signal_all(node->sync);
 			if (ret < 0) {
 				WARN_ON(1);
 				/* TODO */
