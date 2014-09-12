@@ -33,213 +33,175 @@ enum polling_modes {
 	CM_POLL_CHARGING_ONLY,
 };
 
-enum cm_event_types {
-	CM_EVENT_UNKNOWN = 0,
-	CM_EVENT_BATT_FULL,
-	CM_EVENT_BATT_IN,
-	CM_EVENT_BATT_OUT,
-	CM_EVENT_BATT_OVERHEAT,
-	CM_EVENT_BATT_COLD,
-	CM_EVENT_EXT_PWR_IN_OUT,
-	CM_EVENT_CHG_START_STOP,
-	CM_EVENT_OTHERS,
+/**
+ * struct battery_entity
+ * @psy: power_supply instance of fuel gauge device
+ * @tzd: Thermal_zone_device instance for battery
+ * @soc: Current battery soc
+ * @voltage: Current battery voltage
+ * @capacity: Current battery capacity
+ * @temperature: Current battery temperature
+ * @health: Current battery health
+ * @status: Current battery status
+ * @fullbatt_check_count: Number of times checking if battery is full
+ * @fullcharged_at: The time when batter is fully charged
+ */
+struct battery_entity {
+	struct power_supply *psy;
+	struct thermal_zone_device *tzd;
+
+	int soc;
+	int voltage;
+	int capacity;
+	int temperature;
+	int health;
+	int status;
+
+	int fullbatt_check_count;
+	u64 fullcharged_at;
 };
 
 /**
  * struct charger_cable
- * @extcon_name: the name of extcon device.
- * @name: the name of charger cable(external connector).
- * @extcon_dev: the extcon device.
- * @wq: the workqueue to control charger according to the state of
- *	charger cable. If charger cable is attached, enable charger.
- *	But if charger cable is detached, disable charger.
- * @nb: the notifier block to receive changed state from EXTCON
- *	(External Connector) when charger cable is attached/detached.
- * @attached: the state of charger cable.
- *	true: the charger cable is attached
- *	false: the charger cable is detached
- * @charger: the instance of struct charger_regulator.
- * @cm: the Charger Manager representing the battery.
+ * @name: Cable name
+ * @entry: Entry for list
+ * @attached: The state of charger cable
+ * @max_uA: Maximum current that cable can supply
+ * @extcon_dev: extcon device for cable notification
+ * @nb: Notification block
+ * @charger: The instance of struct charger_dev
  */
 struct charger_cable {
-	const char *extcon_name;
 	const char *name;
-
-	/* The charger-manager use Exton framework*/
-	struct extcon_specific_cable_nb extcon_dev;
-	struct work_struct wq;
-	struct notifier_block nb;
-
-	/* The state of charger cable */
+	struct list_head entry;
 	bool attached;
-
-	struct charger_regulator *charger;
-
-	/*
-	 * Set min/max current of regulator to protect over-current issue
-	 * according to a kind of charger cable when cable is attached.
-	 */
-	int min_uA;
 	int max_uA;
 
-	struct charger_manager *cm;
+	struct extcon_specific_cable_nb extcon_dev;
+	struct notifier_block nb;
+
+	struct charger_dev *charger;
 };
 
 /**
- * struct charger_regulator
- * @regulator_name: the name of regulator for using charger.
- * @consumer: the regulator consumer for the charger.
- * @externally_control:
- *	Set if the charger-manager cannot control charger,
- *	the charger will be maintained with disabled state.
- * @cables:
- *	the array of charger cables to enable/disable charger
- *	and set current limit according to constratint data of
- *	struct charger_cable if only charger cable included
- *	in the array of charger cables is attached/detached.
- * @num_cables: the number of charger cables.
+ * struct charger_dev
+ * @psy: power_supply instance of charger device
+ * @regulator: regulator device instance
+ * @enabled: Represent if charger device is enabled
+ * @externally_control: Set if charger is externally controlled
+ * @max_cc: Maximum charging current that charger device allowed
+ * @curr_cc: Charging current
+ * @aggr_cc: Aggregated current from conntected cables
+ * @cables: List of cables
+ * @charging_start: Time of last charging start
+ * @charging_stop: Time of last charging end
  * @attr_g: Attribute group for the charger(regulator)
  * @attr_name: "name" sysfs entry
  * @attr_state: "state" sysfs entry
  * @attr_externally_control: "externally_control" sysfs entry
  * @attrs: Arrays pointing to attr_name/state/externally_control for attr_g
  */
-struct charger_regulator {
-	/* The name of regulator for charging */
-	const char *regulator_name;
-	struct regulator *consumer;
+struct charger_dev {
+	struct power_supply *psy;
+	struct regulator *regulator;
 
-	/* charger never on when system is on */
+	bool enabled;
 	int externally_control;
 
-	/*
-	 * Store constraint information related to current limit,
-	 * each cable have different condition for charging.
-	 */
-	struct charger_cable *cables;
-	int num_cables;
+	int max_cc;
+	int curr_cc;
+	int aggr_cc;
+
+	struct list_head cables;
+
+	u64 charging_start;
+	u64 charging_stop;
 
 	struct attribute_group attr_g;
 	struct device_attribute attr_name;
 	struct device_attribute attr_state;
 	struct device_attribute attr_externally_control;
 	struct attribute *attrs[4];
-
-	struct charger_manager *cm;
 };
 
 /**
- * struct charger_desc
- * @psy_name: the name of power-supply-class for charger manager
- * @polling_mode:
- *	Determine which polling mode will be used
- * @fullbatt_vchkdrop_uV:
- *	Check voltage drop after the battery is fully charged.
- *	If it has dropped more than fullbatt_vchkdrop_uV
- *	CM will restart charging.
- * @fullbatt_uV: voltage in microvolt
- *	If VBATT >= fullbatt_uV, it is assumed to be full.
- * @fullbatt_soc: state of Charge in %
- *	If state of Charge >= fullbatt_soc, it is assumed to be full.
- * @fullbatt_full_capacity: full capacity measure
- *	If full capacity of battery >= fullbatt_full_capacity,
- *	it is assumed to be full.
- * @polling_interval_ms: interval in millisecond at which
- *	charger manager will monitor battery health
- * @battery_present:
- *	Specify where information for existance of battery can be obtained
- * @psy_charger_stat: the names of power-supply for chargers
- * @num_charger_regulator: the number of entries in charger_regulators
- * @charger_regulators: array of charger regulators
- * @psy_fuel_gauge: the name of power-supply for fuel gauge
- * @thermal_zone : the name of thermal zone for battery
+ * Full battery conditions:
+ * - CM_FULLBATT_SOC: Full battery's determined by state-of-charge
+ * - CM_FULLBATT_CAPACITY: Full battery's determined by capacity
+ * - CM_FULLBATT_VOLTAGE: Full battery's determined by voltage
+ * - CM_FULLBATT_STATUS: Full battery's determined by charger status
+ */
+enum {
+	CM_FULLBATT_SOC,
+	CM_FULLBATT_CAPACITY,
+	CM_FULLBATT_VOLTAGE,
+	CM_FULLBATT_STATUS,
+};
+
+/**
+ * struct charging_constraints
+ * @charging_duration: Maximum charging duration
+ * @charging_hold_off: Hold off time for expiring of charging duration
+ * @charging_avail_at: Represent the time When re-charging is available
  * @temp_min : Minimum battery temperature for charging.
  * @temp_max : Maximum battery temperature for charging.
  * @temp_diff : Temperature diffential to restart charging.
- * @measure_battery_temp:
- *	true: measure battery temperature
- *	false: measure ambient temperature
- * @charging_max_duration_ms: Maximum possible duration for charging
- *	If whole charging duration exceed 'charging_max_duration_ms',
- *	cm stop charging.
- * @discharging_max_duration_ms:
- *	Maximum possible duration for discharging with charger cable
- *	after full-batt. If discharging duration exceed 'discharging
- *	max_duration_ms', cm start charging.
+ * @fullbatt_conds: Conditions for determining battery is full
+ * @fullbatt_thres: Thresholds for full battery conditions
+ * @fullbatt_count: Number of trial for full battery checking
+ * @top_off_time: Time for retainning top off mode
+ * @recharging_conds: Conditions for determining recharging is required
+ * @recharging_thres: Thresholds for recharging conditions
+ * @fullbatt_count: Number of trial for recharging checking
  */
-struct charger_desc {
-	const char *psy_name;
-
-	enum polling_modes polling_mode;
-	unsigned int polling_interval_ms;
-
-	unsigned int fullbatt_vchkdrop_uV;
-	unsigned int fullbatt_uV;
-	unsigned int fullbatt_soc;
-	unsigned int fullbatt_full_capacity;
-
-	enum data_source battery_present;
-
-	const char **psy_charger_stat;
-
-	int num_charger_regulators;
-	struct charger_regulator *charger_regulators;
-
-	const char *psy_fuel_gauge;
-
-	const char *thermal_zone;
+struct charging_constraints {
+	u32 charging_duration;
+	u32 charging_hold_off;
+	u32 charging_avail_at;
 
 	int temp_min;
 	int temp_max;
 	int temp_diff;
 
-	bool measure_battery_temp;
+	int fullbatt_conds;
+	int fullbatt_thres[3];
+	int fullbatt_count;
 
-	u32 charging_max_duration_ms;
-	u32 discharging_max_duration_ms;
+	int top_off_time;
+
+	int recharging_conds;
+	int recharging_thres[3];
+	int recharging_count;
 };
-
-#define PSY_NAME_MAX	30
 
 /**
  * struct charger_manager
  * @entry: entry for list
  * @dev: device pointer
- * @desc: instance of charger_desc
- * @fuel_gauge: power_supply for fuel gauge
- * @charger_stat: array of power_supply for chargers
- * @tzd_batt : thermal zone device for battery
- * @charger_enabled: the state of charger
- * @emergency_stop:
- *	When setting true, stop charging
- * @psy_name_buf: the name of power-supply-class for charger manager
- * @charger_psy: power_supply for charger manager
- * @status_save_ext_pwr_inserted:
- *	saved status of external power before entering suspend-to-RAM
- * @status_save_batt:
- *	saved status of battery before entering suspend-to-RAM
- * @charging_start_time: saved start time of enabling charging
- * @charging_end_time: saved end time of disabling charging
+ * @psy: power_supply for charger manager
+ * @polling_mode: Determine which polling mode will be used
+ * @polling_interval_ms: interval in millisecond at which
+ * @battery_present:
+ *	Specify where information for existance of battery can be obtained
+ * @num_chargers: number of chargers associated with the battery
+ * @chargers: charger device instances
+ * @battery: entity related with battery information
+ * @constraints: charging constraint applied to the battery
  */
 struct charger_manager {
 	struct list_head entry;
 	struct device *dev;
-	struct charger_desc *desc;
+	struct power_supply psy;
 
-	struct power_supply *fuel_gauge;
-	struct power_supply **charger_stat;
+	enum polling_modes polling_mode;
+	unsigned int polling_interval_ms;
 
-	struct thermal_zone_device *tzd_batt;
+	enum data_source battery_present;
 
-	bool charger_enabled;
-
-	int emergency_stop;
-
-	char psy_name_buf[PSY_NAME_MAX + 1];
-	struct power_supply charger_psy;
-
-	u64 charging_start_time;
-	u64 charging_end_time;
+	int num_chargers;
+	struct charger_dev **chargers;
+	struct battery_entity battery;
+	struct charging_constraints constraints;
 };
 
 #endif /* _CHARGER_MANAGER_H */
