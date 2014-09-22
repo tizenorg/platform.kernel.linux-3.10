@@ -480,12 +480,11 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
 		dmabuf = sf->sync_buf;
 
 		if (!dmabuf_sync_is_needed(dmabuf)) {
+			fence_enable_sw_signaling(&sf->base);
 			dmabuf_sync_update(sobj);
 			spin_lock_irqsave(&sync->lock, flags);
 			continue;
 		}
-
-		fence_enable_sw_signaling(&sf->base);
 
 		/*
 		 * Need to wait for all buffers for a read or a write
@@ -553,11 +552,10 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int access_type)
 	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
 	if (!dmabuf_sync_is_needed(dmabuf)) {
+		fence_enable_sw_signaling(&sobj->base.base);
 		dmabuf_sync_update(sobj);
 		return timeout;
 	}
-
-	fence_enable_sw_signaling(&sobj->base.base);
 
 	all_wait = access_type & DMA_BUF_ACCESS_W;
 
