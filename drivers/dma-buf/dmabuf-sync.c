@@ -116,11 +116,14 @@ bool dmabuf_sync_is_needed(struct dma_buf *dmabuf)
 {
 	struct reservation_object_list *rol;
 	struct reservation_object *ro;
-	struct fence *fence;
+	struct fence *fence = NULL;
 	unsigned int i;
 
 	rcu_read_lock();
 	ro = rcu_dereference(dmabuf->resv);
+	if (!ro || !ro->fence)
+		goto unlock_rcu;
+
 	rol = rcu_dereference(ro->fence);
 
 	/* Check if there is any fence requested for a read access. */
@@ -139,6 +142,7 @@ bool dmabuf_sync_is_needed(struct dma_buf *dmabuf)
 
 	/* And then check if there is a fence requested for a write access. */
 	fence = rcu_dereference(ro->fence_excl);
+unlock_rcu:
 	rcu_read_unlock();
 	return !fence ? false : true;
 }
