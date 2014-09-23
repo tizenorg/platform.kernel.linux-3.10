@@ -636,6 +636,23 @@ static void fimd_win_commit(struct exynos_drm_manager *mgr, int zpos)
 	}
 
 	/*
+	 * Wait for the completion of current transmission if fimd is still
+	 * transmitting video data. Below code resolves following issue.
+	 *
+	 * Once resume, fimd_win_commit is called to update overlay relevent
+	 * registers and then page filp could be tried by userspace request.
+	 * The problem is that te interrupt occurs and fimd_trigger is called
+	 * before drm_vblank_get() is called while performing page flip.
+	 *
+	 * In this case, fimd_win_commit() could be called by previous page
+	 * flip while fimd is transmitting video data so overlay registers
+	 * are updated to new buffer from page flip request before
+	 * the completion of the transmission. That makes screen to be shaked.
+	 */
+	if (ctx->i80_if && atomic_read(&ctx->triggering))
+		fimd_wait_for_vblank(mgr);
+
+	/*
 	 * SHADOWCON/PRTCON register is used for enabling timing.
 	 *
 	 * for example, once only width value of a register is set,
