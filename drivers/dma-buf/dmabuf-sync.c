@@ -201,6 +201,7 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 {
 	struct dmabuf_sync_object *sobj;
 	unsigned long flags;
+	int ret;
 
 	if (!sync)
 		return -EFAULT;
@@ -217,6 +218,14 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 
 	get_dma_buf(dmabuf);
 	sobj->access_type = type;
+
+	if (sobj->access_type & DMA_BUF_ACCESS_R) {
+		ret = reservation_object_reserve_shared(dmabuf->resv);
+		if (ret) {
+			kfree(sobj);
+			return ret;
+		}
+	}
 
 	seqno_fence_init(&sobj->base, &sobj->lock, dmabuf, 0, 0, 0, ++seqno,
 				&fence_default_ops);
