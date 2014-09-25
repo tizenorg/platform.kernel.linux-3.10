@@ -51,8 +51,6 @@ static const char *dmabuf_sync_get_timeline_name(struct fence *fence)
 
 static bool dmabuf_sync_enable_sw_signaling(struct fence *fence)
 {
-	fence_enable_sw_signaling(fence);
-
 	return true;
 }
 
