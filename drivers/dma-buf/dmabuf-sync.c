@@ -521,6 +521,7 @@ again:
 		if (!is_the_first_requested(sobj))
 			goto again;
 
+		fence_enable_sw_signaling(&sobj->base.base);
 		dmabuf_sync_update(sobj);
 		dmabuf_sync_cache_ops(sobj);
 
@@ -593,6 +594,8 @@ again:
 
 	if (!is_the_first_requested(sobj))
 		goto again;
+
+	fence_enable_sw_signaling(&sobj->base.base);
 
 	dmabuf_sync_update(sobj);
 	dmabuf_sync_cache_ops(sobj);
