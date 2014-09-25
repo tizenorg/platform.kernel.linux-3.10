@@ -399,8 +399,8 @@ static void dmabuf_sync_update(struct dmabuf_sync_object *sobj)
 }
 
 /*
- * is_the_first_requested - check if a given sobj was requested the first for
- *				buffer sync.
+ * make_sure_the_req_ordering- check if a given sobj was requested the first
+ *				for buffer sync.
  *
  * @csobj: An object to dmabuf_sync_object for checking if buffer sync was
  *	requested the first for buffer sync.
@@ -412,12 +412,11 @@ static void dmabuf_sync_update(struct dmabuf_sync_object *sobj)
  * a dmabuf so will try to block again to yield the ownership to other
  * thread that requested earlier buffer sync than current thread.
  */
-static bool is_the_first_requested(struct dmabuf_sync_object *csobj)
+static int make_sure_the_req_ordering(struct dmabuf_sync_object *csobj)
 {
-	struct seqno_fence *csf = &csobj->base;
 	struct dmabuf_sync_object *sobj;
 	unsigned long flags;
-	bool ret = true;
+	bool found = false;
 
 	spin_lock_irqsave(&sync_obj_list_lock, flags);
 
@@ -425,19 +424,29 @@ static bool is_the_first_requested(struct dmabuf_sync_object *csobj)
 		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 		/* There should be no such case. */
 		WARN_ON(1);
-		return true;
+		return -EPERM;
 	}
 
 	list_for_each_entry(sobj, &sync_obj_list_head, g_head) {
 		struct seqno_fence *sf = &sobj->base;
 		/*
-		 * If there is a earlier requested sobj than a given sobj then
-		 * the given sobj should be blocked again to yield the buffer
-		 * ownership to the earier one.
+		 * If there is a requested sobj earlier than a given sobj
+		 * then the given sobj should be blocked again to yield
+		 * the buffer ownership to the earier one.
 		 */
-		if (sf->sync_buf == csf->sync_buf &&
-				sf->base.seqno < csf->base.seqno) {
-			ret = false;
+		if (sobj != csobj) {
+			long timeout;
+
+			timeout = fence_wait_timeout(&sf->base, true,
+					msecs_to_jiffies(DEFAULT_SYNC_TIMEOUT));
+			if (!timeout) {
+				spin_unlock_irqrestore(&sync_obj_list_lock,
+							flags);
+				pr_warning("signal wait has been timed out.\n");
+				return -EAGAIN;
+			}
+		} else {
+			found = true;
 			break;
 		}
 	}
@@ -447,11 +456,11 @@ static bool is_the_first_requested(struct dmabuf_sync_object *csobj)
 	 * sobj of other thread requested earlier than a owner thread of
 	 * a given sobj.
 	 */
-	if (ret)
-		list_del_init(&csobj->g_head);
+	if (found)
+		list_del_init(&sobj->g_head);
 
 	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
-	return ret;
+	return 0;
 }
 
 /**
@@ -475,6 +484,7 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
 		struct dma_buf *dmabuf;
 		struct seqno_fence *sf;
 		bool all_wait;
+		int ret;
 
 		spin_unlock_irqrestore(&sync->lock, flags);
 
@@ -504,8 +514,6 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
 		 * access for a write.
 		 */
 		all_wait = sobj->access_type & DMA_BUF_ACCESS_W;
-
-again:
 		timeout = reservation_object_wait_timeout_rcu(dmabuf->resv,
 				all_wait, true,
 				msecs_to_jiffies(DEFAULT_SYNC_TIMEOUT));
@@ -518,8 +526,17 @@ again:
 		 * yield the ownership of a buffer to other thread for buffer
 		 * access ordering.
 		 */
-		if (!is_the_first_requested(sobj))
-			goto again;
+		ret = make_sure_the_req_ordering(sobj);
+		if (ret) {
+			spin_lock_irqsave(&sync_obj_list_lock, flags);
+			list_del_init(&sobj->g_head);
+			spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+
+			dma_buf_put(dmabuf);
+			kfree(sobj);
+
+			return ret;
+		}
 
 		fence_enable_sw_signaling(&sobj->base.base);
 		dmabuf_sync_update(sobj);
@@ -583,7 +600,6 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int access_type)
 
 	all_wait = access_type & DMA_BUF_ACCESS_W;
 
-again:
 	timeout = reservation_object_wait_timeout_rcu(dmabuf->resv,
 			all_wait, true,
 			msecs_to_jiffies(DEFAULT_SYNC_TIMEOUT));
@@ -592,8 +608,23 @@ again:
 		return timeout;
 	}
 
-	if (!is_the_first_requested(sobj))
-		goto again;
+	/*
+	 * Check if there is any sobj of other thread that requested
+	 * earlier than current thread. If other sobj, then it should
+	 * yield the ownership of a buffer to other thread for buffer
+	 * access ordering.
+	 */
+	ret = make_sure_the_req_ordering(sobj);
+	if (ret) {
+		spin_lock_irqsave(&sync_obj_list_lock, flags);
+		list_del_init(&sobj->g_head);
+		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+
+		dma_buf_put(dmabuf);
+		kfree(sobj);
+
+		return ret;
+	}
 
 	fence_enable_sw_signaling(&sobj->base.base);
 
