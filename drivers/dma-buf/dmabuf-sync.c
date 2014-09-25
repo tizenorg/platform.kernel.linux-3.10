@@ -758,7 +758,6 @@ void dmabuf_sync_fini(struct dmabuf_sync *sync)
 	if (list_empty(&sync->syncs))
 		goto free_sync;
 
-	dmabuf_sync_signal_all(sync);
 	dmabuf_sync_put_all(sync);
 
 free_sync:
