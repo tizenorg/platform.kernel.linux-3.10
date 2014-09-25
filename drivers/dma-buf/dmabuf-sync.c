@@ -216,6 +216,7 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 	if (!sobj)
 		return -ENOMEM;
 
+	spin_lock_init(&sobj->lock);
 	get_dma_buf(dmabuf);
 	sobj->access_type = type;
 
@@ -552,6 +553,7 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int access_type)
 	if (!sobj)
 		return -ENOMEM;
 
+	spin_lock_init(&sobj->lock);
 	get_dma_buf(dmabuf);
 	sobj->access_type = access_type;
 
