@@ -659,8 +659,11 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 		ret = fence_signal(&sf->base);
 		if (ret) {
 			pr_warning("signal request has been failed.\n");
+			dma_buf_put(sf->sync_buf);
 			break;
 		}
+
+		dma_buf_put(sf->sync_buf);
 	}
 
 	spin_unlock_irqrestore(&sync->lock, flags);
