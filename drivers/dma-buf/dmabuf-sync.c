@@ -104,7 +104,7 @@ out:
 }
 
 /**
- * dmabuf_sync_is_needed - check if buffer sync is needed for a given dmabuf.
+ * dmabuf_sync_check - check whether a given buffer is required sync operation.
  *
  * @dmabuf: An object to dma_buf structure.
  *
@@ -112,7 +112,7 @@ out:
  * function before it makes current thread to be blocked. It returnes true if
  * buffer sync is needed else false.
  */
-bool dmabuf_sync_is_needed(struct dma_buf *dmabuf)
+bool dmabuf_sync_check(struct dma_buf *dmabuf)
 {
 	struct reservation_object_list *rol;
 	struct reservation_object *ro;
@@ -144,7 +144,7 @@ bool dmabuf_sync_is_needed(struct dma_buf *dmabuf)
 	fence = rcu_dereference(ro->fence_excl);
 unlock_rcu:
 	rcu_read_unlock();
-	return !fence ? false : true;
+	return fence ? true : false;
 }
 
 /**
@@ -489,7 +489,7 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
 		sf = &sobj->base;
 		dmabuf = sf->sync_buf;
 
-		if (!dmabuf_sync_is_needed(dmabuf)) {
+		if (!dmabuf_sync_check(dmabuf)) {
 			fence_enable_sw_signaling(&sf->base);
 			dmabuf_sync_update(sobj);
 			spin_lock_irqsave(&sync->lock, flags);
@@ -571,7 +571,8 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int access_type)
 	list_add_tail(&sobj->g_head, &sync_obj_list_head);
 	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
-	if (!dmabuf_sync_is_needed(dmabuf)) {
+	if (!dmabuf_sync_check(dmabuf)) {
+		/* If there is no need to wait, just signal the fence */
 		fence_enable_sw_signaling(&sobj->base.base);
 		dmabuf_sync_update(sobj);
 		return timeout;
