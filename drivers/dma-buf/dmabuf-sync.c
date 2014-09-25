@@ -719,12 +719,13 @@ int dmabuf_sync_signal(struct dma_buf *dmabuf)
 		return -EPERM;
 	}
 
+	rcu_read_unlock();
+
 found:
 	ret = fence_signal(fence);
 	if (ret)
 		pr_warning("signal request has been failed.\n");
 
-	rcu_read_unlock();
 	dma_buf_put(dmabuf);
 
 	sf = to_seqno_fence(fence);
