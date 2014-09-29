@@ -319,7 +319,7 @@ static int exynos_drm_crtc_page_flip(struct drm_crtc *crtc,
 				continue;
 
 			ret = dmabuf_sync_get(sync,
-					obj->dma_buf,
+					obj->dma_buf, (unsigned int)crtc,
 					DMA_BUF_ACCESS_DMA_R);
 			if (WARN_ON(ret < 0))
 				continue;

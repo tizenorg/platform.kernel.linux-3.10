@@ -696,6 +696,7 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 {
 	struct g2d_cmdlist *cmdlist = node->cmdlist;
 	struct g2d_buf_info *buf_info = &node->buf_info;
+	struct drm_exynos_file_private *file_priv = file->driver_priv;
 	int offset;
 	int ret;
 	int i;
@@ -745,7 +746,9 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 			else
 				type = DMA_BUF_ACCESS_DMA_R;
 
-			ret = dmabuf_sync_get(node->sync, dma_buf, type);
+			ret = dmabuf_sync_get(node->sync, dma_buf,
+					(unsigned int)file_priv->g2d_priv,
+					type);
 			if (ret < 0) {
 				WARN_ON(1);
 				dmabuf_sync_put_all(node->sync);

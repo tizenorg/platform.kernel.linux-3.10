@@ -115,13 +115,14 @@ struct dmabuf_sync *dmabuf_sync_init(const char *name,
 void dmabuf_sync_fini(struct dmabuf_sync *sync);
 
 int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf,
-				unsigned int type);
+				unsigned int ctx, unsigned int type);
 
 void dmabuf_sync_put(struct dmabuf_sync *sync, struct dma_buf *dmabuf);
 
 void dmabuf_sync_put_all(struct dmabuf_sync *sync);
 
-long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int access_type);
+long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
+			unsigned int access_type);
 
 long dmabuf_sync_wait_all(struct dmabuf_sync *sync);
 

@@ -274,7 +274,7 @@ static int dma_buf_lock(struct file *file, int cmd, struct file_lock *fl)
 	else
 		return -EINVAL;
 
-	return dmabuf_sync_wait(dmabuf, type);
+	return dmabuf_sync_wait(dmabuf, (unsigned int)current, type);
 }
 
 static const struct file_operations dma_buf_fops = {

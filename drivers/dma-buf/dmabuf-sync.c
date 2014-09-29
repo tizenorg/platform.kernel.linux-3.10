@@ -209,7 +209,7 @@ EXPORT_SYMBOL_GPL(dmabuf_sync_init);
  * per a dmabuf.
  */
 static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
-					unsigned int type)
+					unsigned int ctx, unsigned int type)
 {
 	struct dmabuf_sync_object *sobj;
 	unsigned long flags;
@@ -241,8 +241,8 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 		}
 	}
 
-	seqno_fence_init(&sobj->base, &sobj->lock, dmabuf, 0, 0, 0, ++seqno,
-				&fence_default_ops);
+	seqno_fence_init(&sobj->base, &sobj->lock, dmabuf, ctx,
+				0, 0, ++seqno, &fence_default_ops);
 
 	spin_lock_irqsave(&sync->lock, flags);
 	list_add_tail(&sobj->l_head, &sync->syncs);
@@ -325,14 +325,15 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
  * The caller can tie up multiple dmabufs into one sync object by calling this
  * function several times.
  */
-int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf, unsigned int type)
+int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf,
+			unsigned int ctx, unsigned int type)
 {
 	int ret;
 
 	if (!sync || !sync_buf)
 		return -EFAULT;
 
-	ret = dmabuf_sync_get_obj(sync, sync_buf, type);
+	ret = dmabuf_sync_get_obj(sync, sync_buf, ctx, type);
 	if (ret < 0)
 		return ret;
 
@@ -582,7 +583,8 @@ EXPORT_SYMBOL_GPL(dmabuf_sync_wait_all);
  * The caller should call this function prior to CPU or DMA access to
  * a dmabuf so that another thread can not access the dmabuf.
  */
-long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int access_type)
+long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
+			unsigned int access_type)
 {
 	struct dmabuf_sync_object *sobj;
 	unsigned long timeout = 0;
@@ -607,7 +609,7 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int access_type)
 		}
 	}
 
-	seqno_fence_init(&sobj->base, &sobj->lock, dmabuf, 0, 0, 0, ++seqno,
+	seqno_fence_init(&sobj->base, &sobj->lock, dmabuf, ctx, 0, 0, ++seqno,
 				&fence_default_ops);
 
 	spin_lock_irqsave(&sync_obj_list_lock, flags);
