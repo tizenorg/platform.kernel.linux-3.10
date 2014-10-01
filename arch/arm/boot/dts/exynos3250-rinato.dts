@@ -62,34 +62,34 @@
 		cm-poll-mode = <2>;
 		cm-poll-interval = <30000>;
 
-		cm-fullbatt-vchkdrop-ms = <30000>;
-		cm-fullbatt-vchkdrop-volt = <150000>;
-		cm-fullbatt-soc = <100>;
+		constraints {
+			cm-charging-duration = <21600000>; /* 6 hours */
+			cm-temp-cold = <0>;
+			cm-temp-hot = <600>;
+			cm-temp-diff = <150>;
 
-		/* Checking battery present with fuelgauge */
-		cm-battery-stat = <0>;
+			cm-fullbatt-soc = <100>;
+			cm-fullbatt-status;
+			cm-recharging-voltage = <4200000>;
+		};
 
-		cm-fuel-gauge = "max17040";
-
-		cm-charging-max = <21600000>;	/* 60 hours */
-		cm-discharging-max = <300000>;	/* 5 minutes */
-
-		cm-num-chargers = <1>;
-		cm-chargers = "max14577-charger";
+		battery {
+			cm-fuelgauge = <&fuelgauge>;
+			cm-thermal-zone = "battery";
+		};
 
 		charger@0 {
+			cm-charger = <&charger>;
 			cm-regulator-name = "CHARGER";
 			cable@0 {
 				cm-cable-name = "USB";
 				cm-cable-extcon = "max77836-muic";
-				cm-cable-min = <450000>;
 				cm-cable-max = <450000>;
 			};
 			cable@1 {
 				cm-cable-name = "TA";
 				cm-cable-extcon = "max77836-muic";
-				cm-cable-min = <2000000>;
-				cm-cable-max = <2000000>;
+				cm-cable-max = <450000>;
 			};
 		};
 	};
