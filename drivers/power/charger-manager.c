@@ -1390,7 +1390,8 @@ static int charger_manager_probe(struct platform_device *pdev)
 		i++;
 
 	cm->charger_stat = devm_kzalloc(&pdev->dev,
-				sizeof(struct power_supply *) * i, GFP_KERNEL);
+				sizeof(struct power_supply *) * (i + 1),
+				GFP_KERNEL);
 	if (!cm->charger_stat)
 		return -ENOMEM;
 
