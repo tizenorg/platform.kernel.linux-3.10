@@ -125,8 +125,8 @@ int print_mcu_debug(char *pchRcvDataFrame, int *pDataIdx,
 	int iLength = pchRcvDataFrame[(*pDataIdx)++];
 
 	if (iLength > iRcvDataFrameLength - *pDataIdx || iLength <= 0) {
-		ssp_dbg("MSG From MCU - invalid debug length(%d/%d/%d)\n",
-			iLength, iRcvDataFrameLength, cur);
+		ssp_dbg("MSG From MCU - invalid debug length(%d/%d)\n",
+			iLength, iRcvDataFrameLength);
 		return iLength ? iLength : ERROR;
 	}
 
