@@ -16,12 +16,13 @@
 #include <linux/slab.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <linux/delay.h>
 
 #include <linux/seqno-fence.h>
 #include <linux/reservation.h>
 #include <linux/dmabuf-sync.h>
 
-#define DEFAULT_SYNC_TIMEOUT	500	/* in millisecond. */
+#define DEFAULT_SYNC_TIMEOUT	2000	/* in millisecond. */
 #define BEGIN_CPU_ACCESS(old, new_type)	\
 			((old->accessed_type & DMA_BUF_ACCESS_DMA_W) == \
 			  DMA_BUF_ACCESS_DMA_W && new_type == DMA_BUF_ACCESS_R)
@@ -64,6 +65,7 @@ static void dmabuf_sync_object_release(struct fence *fence)
 	struct seqno_fence *sf = to_seqno_fence(fence);
 	struct dmabuf_sync_object *sobj = to_dmabuf_sync_object(sf);
 
+	dma_buf_put(sf->sync_buf);
 	kfree(sobj);
 }
 
@@ -71,7 +73,6 @@ static const struct fence_ops fence_default_ops = {
 	.get_driver_name = dmabuf_sync_get_driver_name,
 	.get_timeline_name = dmabuf_sync_get_timeline_name,
 	.enable_signaling = dmabuf_sync_enable_sw_signaling,
-	.signaled = fence_is_signaled,
 	.wait = fence_default_wait,
 	.release = dmabuf_sync_object_release,
 };
@@ -124,7 +125,7 @@ out:
  * function before it makes current thread to be blocked. It returnes true if
  * buffer sync is needed else false.
  */
-bool dmabuf_sync_check(struct dma_buf *dmabuf)
+struct fence *dmabuf_sync_check(struct dma_buf *dmabuf)
 {
 	struct reservation_object_list *rol;
 	struct reservation_object *ro;
@@ -134,7 +135,7 @@ bool dmabuf_sync_check(struct dma_buf *dmabuf)
 	rcu_read_lock();
 	ro = rcu_dereference(dmabuf->resv);
 	if (!ro || !ro->fence)
-		goto unlock_rcu;
+		goto check_excl_fence;
 
 	rol = rcu_dereference(ro->fence);
 
@@ -147,16 +148,16 @@ bool dmabuf_sync_check(struct dma_buf *dmabuf)
 		break;
 	}
 
-	if (i != rol->shared_count) {
-		rcu_read_unlock();
-		return true;
-	}
+	if (fence)
+		goto unlock_rcu;
 
+check_excl_fence:
 	/* And then check if there is a fence requested for a write access. */
 	fence = rcu_dereference(ro->fence_excl);
+
 unlock_rcu:
 	rcu_read_unlock();
-	return fence ? true : false;
+	return fence;
 }
 
 /**
@@ -212,8 +213,6 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 					unsigned int ctx, unsigned int type)
 {
 	struct dmabuf_sync_object *sobj;
-	unsigned long flags;
-	int ret;
 
 	if (!sync)
 		return -EFAULT;
@@ -231,7 +230,10 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 	spin_lock_init(&sobj->lock);
 	get_dma_buf(dmabuf);
 	sobj->access_type = type;
+	/* TODO */
+	sobj->access_type = DMA_BUF_ACCESS_DMA_W;
 
+#if 0 /* TODO */
 	if (sobj->access_type & DMA_BUF_ACCESS_R) {
 		ret = reservation_object_reserve_shared(dmabuf->resv);
 		if (ret) {
@@ -240,13 +242,12 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 			return ret;
 		}
 	}
+#endif
 
 	seqno_fence_init(&sobj->base, &sobj->lock, dmabuf, ctx,
 				0, 0, ++seqno, &fence_default_ops);
 
-	spin_lock_irqsave(&sync->lock, flags);
 	list_add_tail(&sobj->l_head, &sync->syncs);
-	spin_unlock_irqrestore(&sync->lock, flags);
 
 	return 0;
 }
@@ -262,9 +263,6 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 static void dmabuf_sync_put_objs(struct dmabuf_sync *sync)
 {
 	struct dmabuf_sync_object *sobj, *next;
-	unsigned long flags;
-
-	spin_lock_irqsave(&sync->lock, flags);
 
 	list_for_each_entry_safe(sobj, next, &sync->syncs, l_head) {
 		struct seqno_fence *sf = &sobj->base;
@@ -273,8 +271,6 @@ static void dmabuf_sync_put_objs(struct dmabuf_sync *sync)
 		list_del_init(&sobj->l_head);
 		fence_put(&sf->base);
 	}
-
-	spin_unlock_irqrestore(&sync->lock, flags);
 }
 
 /*
@@ -290,9 +286,6 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
 					struct dma_buf *dmabuf)
 {
 	struct dmabuf_sync_object *sobj, *next;
-	unsigned long flags;
-
-	spin_lock_irqsave(&sync->lock, flags);
 
 	list_for_each_entry_safe(sobj, next, &sync->syncs, l_head) {
 		struct seqno_fence *sf = &sobj->base;
@@ -305,8 +298,6 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
 
 		break;
 	}
-
-	spin_unlock_irqrestore(&sync->lock, flags);
 }
 
 /**
@@ -328,15 +319,21 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
 int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf,
 			unsigned int ctx, unsigned int type)
 {
+	unsigned long flags;
 	int ret;
 
 	if (!sync || !sync_buf)
 		return -EFAULT;
 
-	ret = dmabuf_sync_get_obj(sync, sync_buf, ctx, type);
-	if (ret < 0)
-		return ret;
+	spin_lock_irqsave(&sync_obj_list_lock, flags);
 
+	ret = dmabuf_sync_get_obj(sync, sync_buf, ctx, type);
+	if (ret < 0) {
+		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+		return ret;
+	}
+
+	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(dmabuf_sync_get);
@@ -353,15 +350,22 @@ EXPORT_SYMBOL_GPL(dmabuf_sync_get);
  */
 void dmabuf_sync_put(struct dmabuf_sync *sync, struct dma_buf *dmabuf)
 {
+	unsigned long flags;
+
 	if (!sync || !dmabuf) {
 		WARN_ON(1);
 		return;
 	}
 
-	if (list_empty(&sync->syncs))
+	spin_lock_irqsave(&sync_obj_list_lock, flags);
+
+	if (list_empty(&sync->syncs)) {
+		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 		return;
+	}
 
 	dmabuf_sync_put_obj(sync, dmabuf);
+	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 }
 EXPORT_SYMBOL_GPL(dmabuf_sync_put);
 
@@ -376,15 +380,23 @@ EXPORT_SYMBOL_GPL(dmabuf_sync_put);
  */
 void dmabuf_sync_put_all(struct dmabuf_sync *sync)
 {
+	unsigned long flags;
+
 	if (!sync) {
 		WARN_ON(1);
 		return;
 	}
 
-	if (list_empty(&sync->syncs))
+	spin_lock_irqsave(&sync_obj_list_lock, flags);
+
+	if (list_empty(&sync->syncs)) {
+		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 		return;
+	}
 
 	dmabuf_sync_put_objs(sync);
+
+	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 }
 EXPORT_SYMBOL_GPL(dmabuf_sync_put_all);
 
@@ -408,6 +420,77 @@ static void dmabuf_sync_update(struct dmabuf_sync_object *sobj)
 		reservation_object_add_excl_fence(dmabuf->resv, &sf->base);
 	else
 		reservation_object_add_shared_fence(dmabuf->resv, &sf->base);
+
+#if 0 /* TODO */
+	/* Above functions takes a reference of fence object so drop it. */
+	fence_put(&sf->base);
+#endif
+}
+
+static void dmabuf_sync_clear_sync_obj(struct dma_buf *dmabuf,
+					struct dmabuf_sync_object *sobj)
+{
+	struct reservation_object_list *rol;
+	struct reservation_object *ro;
+	struct fence *fence = NULL;
+	unsigned int i;
+
+	rcu_read_lock();
+	ro = rcu_dereference(dmabuf->resv);
+	if (!ro || !ro->fence)
+		goto check_excl_fence;
+
+	rol = rcu_dereference(ro->fence);
+
+	/* Check if there is any fence requested for a read access. */
+	for (i = 0; i < rol->shared_count; i++) {
+		fence = rcu_dereference(rol->shared[i]);
+		if (!fence)
+			continue;
+
+		/* TODO - index ordering to array */
+		if (fence == &sobj->base.base) {
+			rol->shared[i] = NULL;
+			rol->shared_count--;
+		}
+
+		break;
+	}
+
+	if (fence)
+		goto unlock_rcu;
+
+check_excl_fence:
+	/* And then check if there is a fence requested for a write access. */
+	fence = rcu_dereference(ro->fence_excl);
+	if (fence == &sobj->base.base)
+		ro->fence_excl = NULL;
+
+	/* There should be no such case. */
+	if (!fence)
+		WARN_ON(1);
+
+unlock_rcu:
+	rcu_read_unlock();
+}
+
+static void remove_obj_from_req_queue(struct dmabuf_sync_object *csobj)
+{
+	struct dmabuf_sync_object *sobj, *next;
+
+	if (list_empty(&sync_obj_list_head)) {
+		/* There should be no such case. */
+		WARN_ON(1);
+		return;
+	}
+
+	list_for_each_entry_safe(sobj, next, &sync_obj_list_head, g_head) {
+		if (sobj == csobj) {
+			list_del_init(&sobj->g_head);
+			break;
+		}
+
+	}
 }
 
 /*
@@ -417,67 +500,33 @@ static void dmabuf_sync_update(struct dmabuf_sync_object *sobj)
  * @csobj: An object to dmabuf_sync_object for checking if buffer sync was
  *	requested the first for buffer sync.
  *
- * This function is called by dmabuf_sync_wait and dmabuf_sync_wait_all
- * after current thread is waked up to check if there is any object that
- * buffer sync was earlier requested than current thread.
+ * This function can be called by dmabuf_sync_wait and dmabuf_sync_wait_all
+ * to check if there is any object that buffer sync was requested earlier
+ * than current thread.
  * If there is a object, the current thread doesn't have the ownership of
- * a dmabuf so will try to block again to yield the ownership to other
- * thread that requested earlier buffer sync than current thread.
+ * a dmabuf so will try to check the priority again to yield the ownership
+ * to other threads that requested buffer sync earlier than current thread.
  */
-static int make_sure_the_req_ordering(struct dmabuf_sync_object *csobj)
+static bool is_higher_priority_than_current(struct dma_buf *dmabuf,
+					struct dmabuf_sync_object *csobj)
 {
 	struct dmabuf_sync_object *sobj;
-	unsigned long flags;
-	bool found = false;
-
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
+	bool ret = false;
 
 	if (list_empty(&sync_obj_list_head)) {
-		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 		/* There should be no such case. */
 		WARN_ON(1);
-		return -EPERM;
+		goto out;
 	}
 
 	list_for_each_entry(sobj, &sync_obj_list_head, g_head) {
-		struct seqno_fence *sf = &sobj->base;
-		/*
-		 * If there is a requested sobj earlier than a given sobj
-		 * then the given sobj should be blocked again to yield
-		 * the buffer ownership to the earier one.
-		 */
-		if (sobj != csobj) {
-			long timeout;
-
-			fence_get(&sf->base);
-
-			timeout = fence_wait_timeout(&sf->base, true,
-					msecs_to_jiffies(DEFAULT_SYNC_TIMEOUT));
-			if (!timeout) {
-				fence_put(&sf->base);
-				spin_unlock_irqrestore(&sync_obj_list_lock,
-							flags);
-				pr_warning("signal wait has been timed out.\n");
-				return -EAGAIN;
-			}
-
-			fence_put(&sf->base);
-		} else {
-			found = true;
-			break;
-		}
+		if (sobj != csobj)
+			ret = true;
+		break;
 	}
 
-	/*
-	 * Delete a given sobj from sync_obj_list_head if there is no any
-	 * sobj of other thread requested earlier than a owner thread of
-	 * a given sobj.
-	 */
-	if (found)
-		list_del_init(&sobj->g_head);
-
-	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
-	return 0;
+out:
+	return ret;
 }
 
 /**
@@ -495,42 +544,32 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
 	unsigned long timeout = 0;
 	unsigned long flags;
 
-	spin_lock_irqsave(&sync->lock, flags);
+	spin_lock_irqsave(&sync_obj_list_lock, flags);
 
 	list_for_each_entry(sobj, &sync->syncs, l_head) {
 		struct dma_buf *dmabuf;
 		struct seqno_fence *sf;
 		bool all_wait;
-		int ret;
 
-		spin_unlock_irqrestore(&sync->lock, flags);
-
-		spin_lock_irqsave(&sync_obj_list_lock, flags);
 		/*
 		 * sync_obj_list_head is used to check if there is any sobj
 		 * of other thread that requested earlier buffer sync than
 		 * current thread.
 		 */
 		list_add_tail(&sobj->g_head, &sync_obj_list_head);
-		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+
+		/*
+		 * It doesn't need to wait for other thread or threads
+		 * if there is no any sync object which has higher priority
+		 * than this one, sobj so go update a fence.
+		 */
+		if (!is_higher_priority_than_current(dmabuf, sobj))
+			goto out_enable_signal;
 
 		sf = &sobj->base;
 		dmabuf = sf->sync_buf;
 
-		if (!dmabuf_sync_check(dmabuf)) {
-			fence_enable_sw_signaling(&sf->base);
-			dmabuf_sync_update(sobj);
-			spin_lock_irqsave(&sync->lock, flags);
-			continue;
-		}
-
-		/*
-		 * Take one referce to this fence.
-		 *
-		 * This fence is from order driver so if this fence is signaled
-		 * by him, fence_default_wait() could access invalid memory.
-		 */
-		fence_get(&sf->base);
+		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
 		/*
 		 * Need to wait for all buffers for a read or a write
@@ -539,37 +578,35 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
 		 * access for a write.
 		 */
 		all_wait = sobj->access_type & DMA_BUF_ACCESS_W;
+
 		timeout = reservation_object_wait_timeout_rcu(dmabuf->resv,
 				all_wait, true,
 				msecs_to_jiffies(DEFAULT_SYNC_TIMEOUT));
 		if (!timeout)
-			pr_warning("signal wait has been timed out.\n");
+			pr_warning("[DMA] signal wait has been timed out.\n");
 
-		fence_put(&sf->base);
+go_back_to_wait:
+		spin_lock_irqsave(&sync_obj_list_lock, flags);
 
 		/*
 		 * Check if there is any sobj of other thread that requested
 		 * earlier than current thread. If other sobj, then it should
 		 * yield the ownership of a buffer to other thread for buffer
-		 * access ordering.
+		 * access ordering so go wait for the thread.
 		 */
-		ret = make_sure_the_req_ordering(sobj);
-		if (ret) {
-			spin_lock_irqsave(&sync_obj_list_lock, flags);
-			list_del_init(&sobj->g_head);
+		if (is_higher_priority_than_current(dmabuf, sobj)) {
+			/* TODO */
 			spin_unlock_irqrestore(&sync_obj_list_lock, flags);
-
-			return ret;
+			goto go_back_to_wait;
 		}
 
+out_enable_signal:
 		fence_enable_sw_signaling(&sobj->base.base);
 		dmabuf_sync_update(sobj);
 		dmabuf_sync_cache_ops(sobj);
-
-		spin_lock_irqsave(&sync->lock, flags);
 	}
 
-	spin_unlock_irqrestore(&sync->lock, flags);
+	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
 	return timeout;
 }
@@ -590,40 +627,46 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 	unsigned long timeout = 0;
 	bool all_wait;
 	unsigned long flags;
-	int ret;
 
 	sobj = kzalloc(sizeof(*sobj), GFP_KERNEL);
 	if (!sobj)
 		return -ENOMEM;
 
+	spin_lock_irqsave(&sync_obj_list_lock, flags);
+
 	spin_lock_init(&sobj->lock);
 	get_dma_buf(dmabuf);
-	sobj->access_type = access_type;
 
+	sobj->access_type = access_type;
+	/* TODO */
+	sobj->access_type = DMA_BUF_ACCESS_W;
+
+#if 0 /* TODO */
 	if (sobj->access_type & DMA_BUF_ACCESS_R) {
 		ret = reservation_object_reserve_shared(dmabuf->resv);
 		if (ret) {
 			dma_buf_put(dmabuf);
 			kfree(sobj);
+			spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 			return ret;
 		}
 	}
+#endif
 
 	seqno_fence_init(&sobj->base, &sobj->lock, dmabuf, ctx, 0, 0, ++seqno,
 				&fence_default_ops);
 
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
 	list_add_tail(&sobj->g_head, &sync_obj_list_head);
+
+	/*
+	 * It doesn't need to wait for other thread or threads
+	 * if there is no any sync object which has higher priority
+	 * than this one, sobj so go update a fence.
+	 */
+	if (!is_higher_priority_than_current(dmabuf, sobj))
+		goto out_enable_signal;
+
 	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
-
-	if (!dmabuf_sync_check(dmabuf)) {
-		/* If there is no need to wait, just signal the fence */
-		fence_enable_sw_signaling(&sobj->base.base);
-		dmabuf_sync_update(sobj);
-		return timeout;
-	}
-
-	fence_get(&sobj->base.base);
 
 	all_wait = access_type & DMA_BUF_ACCESS_W;
 
@@ -631,32 +674,33 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 			all_wait, true,
 			msecs_to_jiffies(DEFAULT_SYNC_TIMEOUT));
 	if (!timeout)
-		pr_warning("signal wait has been timed out.\n");
+		pr_warning("[CPU] signal wait has been timed out.\n");
 
-	fence_put(&sobj->base.base);
+go_back_to_wait:
+	spin_lock_irqsave(&sync_obj_list_lock, flags);
 
 	/*
 	 * Check if there is any sobj of other thread that requested
 	 * earlier than current thread. If other sobj, then it should
 	 * yield the ownership of a buffer to other thread for buffer
-	 * access ordering.
+	 * access ordering so go wait for the thread.
 	 */
-	ret = make_sure_the_req_ordering(sobj);
-	if (ret) {
-		spin_lock_irqsave(&sync_obj_list_lock, flags);
-		list_del_init(&sobj->g_head);
+	if (is_higher_priority_than_current(dmabuf, sobj)) {
+		/* TODO */
 		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
-
-		dma_buf_put(dmabuf);
-		fence_put(&sobj->base.base);
-
-		return ret;
+		goto go_back_to_wait;
 	}
 
+out_enable_signal:
 	fence_enable_sw_signaling(&sobj->base.base);
-
 	dmabuf_sync_update(sobj);
 	dmabuf_sync_cache_ops(sobj);
+
+#if 0 /* TODO */
+	fence_put(&sobj->base.base);
+#endif
+
+	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
 	return timeout;
 }
@@ -678,21 +722,27 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 	unsigned long flags;
 	int ret = -EAGAIN;
 
-	spin_lock_irqsave(&sync->lock, flags);
+	spin_lock_irqsave(&sync_obj_list_lock, flags);
 
 	list_for_each_entry(sobj, &sync->syncs, l_head) {
 		struct seqno_fence *sf = &sobj->base;
 
+		dmabuf_sync_clear_sync_obj(sf->sync_buf, sobj);
+		remove_obj_from_req_queue(sobj);
+
 		ret = fence_signal(&sf->base);
 		if (ret) {
 			pr_warning("signal request has been failed.\n");
+			spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 			break;
 		}
 
+#if 0 /* TODO */
 		fence_put(&sf->base);
+#endif
 	}
 
-	spin_unlock_irqrestore(&sync->lock, flags);
+	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
 	return ret;
 }
@@ -710,10 +760,15 @@ EXPORT_SYMBOL_GPL(dmabuf_sync_signal_all);
 int dmabuf_sync_signal(struct dma_buf *dmabuf)
 {
 	struct reservation_object_list *rol;
+	struct dmabuf_sync_object *sobj;
 	struct reservation_object *ro;
+	struct seqno_fence *sf;
 	struct fence *fence;
+	unsigned long flags;
 	int ret = -EINVAL;
 	int i;
+
+	spin_lock_irqsave(&sync_obj_list_lock, flags);
 
 	rcu_read_lock();
 
@@ -722,8 +777,16 @@ int dmabuf_sync_signal(struct dma_buf *dmabuf)
 
 	/* Was it a fence for a write? */
 	fence = rcu_dereference(ro->fence_excl);
-	if (fence)
+	if (fence && fence->context == (unsigned int)current)
 		goto found;
+
+	/* it shouldn't be such case. */
+	if (fence && fence->context != (unsigned int)current) {
+		rcu_read_unlock();
+		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+		WARN_ON(1);
+		return ret;
+	}
 
 	/* Was it a fence for a read. */
 	for (i = 0; i < rol->shared_count; i++) {
@@ -731,28 +794,37 @@ int dmabuf_sync_signal(struct dma_buf *dmabuf)
 		if (!fence)
 			continue;
 
+		if (fence && fence->context != (unsigned int)current)
+			continue;
+
 		break;
 	}
 
-	if (!fence) {
+	if (!fence || i == rol->shared_count) {
 		rcu_read_unlock();
-		dma_buf_put(dmabuf);
 		fence_put(fence);
 
 		/* There should be no such case. */
 		WARN_ON(1);
+		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 		return -EPERM;
 	}
 
+found:
 	rcu_read_unlock();
 
-found:
+	sf = to_seqno_fence(fence);
+	sobj = to_dmabuf_sync_object(sf);
+
+	dmabuf_sync_clear_sync_obj(dmabuf, sobj);
+	remove_obj_from_req_queue(sobj);
+
 	ret = fence_signal(fence);
 	if (ret)
 		pr_warning("signal request has been failed.\n");
 
-	dma_buf_put(dmabuf);
 	fence_put(fence);
+	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
 	return ret;
 }
@@ -774,15 +846,18 @@ void dmabuf_sync_fini(struct dmabuf_sync *sync)
 	if (WARN_ON(!sync))
 		return;
 
-	spin_lock_irqsave(&sync->lock, flags);
+	spin_lock_irqsave(&sync_obj_list_lock, flags);
 
 	if (list_empty(&sync->syncs))
 		goto free_sync;
 
+	/*
+	 * It considers a case that a caller never call dmabuf_sync_put_all().
+	 */
 	dmabuf_sync_put_all(sync);
 
 free_sync:
-	spin_unlock_irqrestore(&sync->lock, flags);
+	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
 	if (sync->ops && sync->ops->free)
 		sync->ops->free(sync->priv);
