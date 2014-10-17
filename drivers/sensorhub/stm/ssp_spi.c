@@ -142,7 +142,7 @@ int select_irq_msg(struct ssp_data *data)
 	bool found = false;
 	u16 chLength = 0, msg_options = 0;
 	u8 msg_type = 0;
-	int iRet = 0;
+	int iRet = 0, i = 0;
 	char* buffer;
 	char chTempBuf[4] = { -1 };
 
@@ -210,11 +210,24 @@ exit:
 			iRet = -ENOMEM;
 			break;
 		}
-		iRet = spi_read(data->spi, buffer, chLength);
-		if (iRet < 0)
-			ssp_err("spi_read fail\n");
-		else
-			parse_dataframe(data, buffer, chLength);
+
+		/* FIXME : spi_read error
+		 * When try to read spi ,sometimes buffer filled with 0.
+		 * But spi_read dees not retrun error.
+		 * In this case, retry spi_read again.
+		 */
+		for (i = 0; i < 3; i++) {
+			iRet = spi_read(data->spi, buffer, chLength);
+			if (iRet < 0) {
+				ssp_err("spi_read fail\n");
+				return ERROR;
+			}
+
+			if (buffer[0] != 0)
+				break;
+		}
+
+		parse_dataframe(data, buffer, chLength);
 		kfree(buffer);
 		break;
 	default:
