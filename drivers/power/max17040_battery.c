@@ -53,24 +53,37 @@ struct max17040_chip {
 	int status;
 };
 
+static int max17040_regmap_read(struct regmap *regmap, int reg, u8 *data)
+{
+	unsigned int temp;
+	int ret;
+
+	ret = regmap_read(regmap, reg, &temp);
+	if (ret)
+		return ret;
+
+	data[0] = (temp & 0xFF);
+	data[1] = (temp & 0xFF00) >> 8;
+
+	return ret;
+}
+
 static void max17040_reset(struct i2c_client *client)
 {
 	struct max17040_chip *chip = i2c_get_clientdata(client);
 
-	regmap_write(chip->regmap, MAX17040_CMD_MSB, 0x40);
-	regmap_write(chip->regmap, MAX17040_CMD_LSB, 0x00);
+	regmap_write(chip->regmap, MAX17040_CMD_MSB, 0x4000);
 }
 
 static void max17040_get_vcell(struct i2c_client *client)
 {
 	struct max17040_chip *chip = i2c_get_clientdata(client);
-	u32 msb;
-	u32 lsb;
+	u8 data[2];
 
-	regmap_read(chip->regmap, MAX17040_VCELL_MSB, &msb);
-	regmap_read(chip->regmap, MAX17040_VCELL_LSB, &lsb);
+	max17040_regmap_read(chip->regmap, MAX17040_VCELL_MSB, data);
 
-	chip->vcell = ((msb << 4) + (lsb >> 4)) * 1250 / 1000;
+	/* msb : data[0], lsb : data[1] */
+	chip->vcell = ((data[0] << 4) + (data[1] >> 4)) * 1250 / 1000;
 }
 
 /* capacity is  0.1% unit */
@@ -88,13 +101,13 @@ static void max17040_get_scaled_capacity(int *val)
 static void max17040_get_soc(struct i2c_client *client)
 {
 	struct max17040_chip *chip = i2c_get_clientdata(client);
-	u32 msb, lsb;
+	u8 data[2];
 	int soc;
 
-	regmap_read(chip->regmap, MAX17040_SOC_MSB, &msb);
-	regmap_read(chip->regmap, MAX17040_SOC_LSB, &lsb);
+	max17040_regmap_read(chip->regmap, MAX17040_SOC_MSB, data);
 
-	soc = (lsb * 100) + (msb * 100 / 256);
+	/* msb : data[0], lsb : data[1] */
+	soc = (data[0] * 100) + (data[1] * 100 / 256);
 	soc /= 10;
 
 	max17040_get_scaled_capacity(&soc);
@@ -115,13 +128,12 @@ static void max17040_get_soc(struct i2c_client *client)
 static void max17040_get_version(struct i2c_client *client)
 {
 	struct max17040_chip *chip = i2c_get_clientdata(client);
-	u32 msb;
-	u32 lsb;
+	u8 data[2];
 
-	regmap_read(chip->regmap, MAX17040_VER_MSB, &msb);
-	regmap_read(chip->regmap, MAX17040_VER_LSB, &lsb);
+	max17040_regmap_read(chip->regmap, MAX17040_VER_MSB, data);
 
-	dev_info(&client->dev, "MAX17040 Fuel-Gauge Ver %d%d\n", msb, lsb);
+	dev_info(&client->dev,
+		"MAX17040 Fuel-Gauge Ver %d%d\n", data[0], data[1]);
 }
 
 static void max17040_get_status(struct i2c_client *client)
@@ -180,7 +192,7 @@ static enum power_supply_property max17040_battery_props[] = {
 
 static struct regmap_config max17040_regmap_config = {
 	.reg_bits = 8,
-	.val_bits = 8,
+	.val_bits = 16,
 	.val_format_endian = REGMAP_ENDIAN_NATIVE,
 };
 
