@@ -34,8 +34,8 @@
 
 static int dmabuf_sync_enabled = 1;
 static unsigned long seqno;
-static LIST_HEAD(sync_obj_list_head);
-static DEFINE_SPINLOCK(sync_obj_list_lock);
+static LIST_HEAD(orders);
+static DEFINE_SPINLOCK(orders_lock);
 
 MODULE_PARM_DESC(enabled, "Check if dmabuf sync is supported or not");
 module_param_named(enabled, dmabuf_sync_enabled, int, 0444);
@@ -213,6 +213,7 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 					unsigned int ctx, unsigned int type)
 {
 	struct dmabuf_sync_object *sobj;
+	unsigned long s_flags;
 
 	if (!sync)
 		return -EFAULT;
@@ -246,7 +247,9 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 	seqno_fence_init(&sobj->base, &sobj->lock, dmabuf, ctx,
 				0, 0, ++seqno, &fence_default_ops);
 
+	spin_lock_irqsave(&sync->lock, s_flags);
 	list_add_tail(&sobj->l_head, &sync->syncs);
+	spin_unlock_irqrestore(&sync->lock, s_flags);
 
 	return 0;
 }
@@ -262,13 +265,21 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 static void dmabuf_sync_put_objs(struct dmabuf_sync *sync)
 {
 	struct dmabuf_sync_object *sobj, *next;
+	unsigned long s_flags;
 
+	spin_lock_irqsave(&sync->lock, s_flags);
 	list_for_each_entry_safe(sobj, next, &sync->syncs, l_head) {
-		struct seqno_fence *sf = &sobj->base;
+		struct seqno_fence *sf;
 
+		spin_unlock_irqrestore(&sync->lock, s_flags);
+
+		sf = &sobj->base;
 		list_del_init(&sobj->l_head);
 		fence_put(&sf->base);
+
+		spin_lock_irqsave(&sync->lock, s_flags);
 	}
+	spin_unlock_irqrestore(&sync->lock, s_flags);
 }
 
 /*
@@ -284,17 +295,30 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
 					struct dma_buf *dmabuf)
 {
 	struct dmabuf_sync_object *sobj, *next;
+	unsigned long s_flags;
 
+	spin_lock_irqsave(&sync->lock, s_flags);
 	list_for_each_entry_safe(sobj, next, &sync->syncs, l_head) {
-		struct seqno_fence *sf = &sobj->base;
+		struct seqno_fence *sf;
+		unsigned long so_flags;
 
-		if (sf->sync_buf != dmabuf)
+		spin_unlock_irqrestore(&sync->lock, s_flags);
+
+		spin_lock_irqsave(&sobj->lock, so_flags);
+		sf = &sobj->base;
+
+		if (sf->sync_buf != dmabuf) {
+			spin_lock_irqsave(&sync->lock, s_flags);
 			continue;
+		}
 
 		list_del_init(&sobj->l_head);
+		spin_unlock_irqrestore(&sobj->lock, so_flags);
 
+		spin_lock_irqsave(&sync->lock, s_flags);
 		break;
 	}
+	spin_unlock_irqrestore(&sync->lock, s_flags);
 }
 
 /**
@@ -316,22 +340,10 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
 int dmabuf_sync_get(struct dmabuf_sync *sync, void *sync_buf,
 			unsigned int ctx, unsigned int type)
 {
-	unsigned long flags;
-	int ret;
-
 	if (!sync || !sync_buf)
 		return -EFAULT;
 
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
-
-	ret = dmabuf_sync_get_obj(sync, sync_buf, ctx, type);
-	if (ret < 0) {
-		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
-		return ret;
-	}
-
-	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
-	return 0;
+	return dmabuf_sync_get_obj(sync, sync_buf, ctx, type);
 }
 EXPORT_SYMBOL_GPL(dmabuf_sync_get);
 
@@ -347,22 +359,21 @@ EXPORT_SYMBOL_GPL(dmabuf_sync_get);
  */
 void dmabuf_sync_put(struct dmabuf_sync *sync, struct dma_buf *dmabuf)
 {
-	unsigned long flags;
+	unsigned long s_flags;
 
 	if (!sync || !dmabuf) {
 		WARN_ON(1);
 		return;
 	}
 
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
-
+	spin_lock_irqsave(&sync->lock, s_flags);
 	if (list_empty(&sync->syncs)) {
-		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+		spin_unlock_irqrestore(&sync->lock, s_flags);
 		return;
 	}
+	spin_unlock_irqrestore(&sync->lock, s_flags);
 
 	dmabuf_sync_put_obj(sync, dmabuf);
-	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 }
 EXPORT_SYMBOL_GPL(dmabuf_sync_put);
 
@@ -377,23 +388,21 @@ EXPORT_SYMBOL_GPL(dmabuf_sync_put);
  */
 void dmabuf_sync_put_all(struct dmabuf_sync *sync)
 {
-	unsigned long flags;
+	unsigned long s_flags;
 
 	if (!sync) {
 		WARN_ON(1);
 		return;
 	}
 
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
-
+	spin_lock_irqsave(&sync->lock, s_flags);
 	if (list_empty(&sync->syncs)) {
-		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+		spin_unlock_irqrestore(&sync->lock, s_flags);
 		return;
 	}
+	spin_unlock_irqrestore(&sync->lock, s_flags);
 
 	dmabuf_sync_put_objs(sync);
-
-	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 }
 EXPORT_SYMBOL_GPL(dmabuf_sync_put_all);
 
@@ -469,20 +478,24 @@ unlock_rcu:
 static void remove_obj_from_req_queue(struct dmabuf_sync_object *csobj)
 {
 	struct dmabuf_sync_object *sobj, *next;
+	unsigned long o_flags;
 
-	if (list_empty(&sync_obj_list_head)) {
+	spin_lock_irqsave(&orders_lock, o_flags);
+	if (list_empty(&orders)) {
+		spin_unlock_irqrestore(&orders_lock, o_flags);
 		/* There should be no such case. */
 		WARN_ON(1);
 		return;
 	}
 
-	list_for_each_entry_safe(sobj, next, &sync_obj_list_head, g_head) {
+	list_for_each_entry_safe(sobj, next, &orders, g_head) {
 		if (sobj == csobj) {
 			list_del_init(&sobj->g_head);
 			break;
 		}
 
 	}
+	spin_unlock_irqrestore(&orders_lock, o_flags);
 }
 
 /*
@@ -503,21 +516,24 @@ static bool is_higher_priority_than_current(struct dma_buf *dmabuf,
 					struct dmabuf_sync_object *csobj)
 {
 	struct dmabuf_sync_object *sobj;
+	unsigned long o_flags;
 	bool ret = false;
 
-	if (list_empty(&sync_obj_list_head)) {
+	spin_lock_irqsave(&orders_lock, o_flags);
+	if (list_empty(&orders)) {
 		/* There should be no such case. */
 		WARN_ON(1);
 		goto out;
 	}
 
-	list_for_each_entry(sobj, &sync_obj_list_head, g_head) {
+	list_for_each_entry(sobj, &orders, g_head) {
 		if (sobj != csobj)
 			ret = true;
 		break;
 	}
 
 out:
+	spin_unlock_irqrestore(&orders_lock, o_flags);
 	return ret;
 }
 
@@ -534,21 +550,25 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
 {
 	struct dmabuf_sync_object *sobj;
 	unsigned long timeout = 0;
-	unsigned long flags;
+	unsigned long s_flags;
 
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
-
+	spin_lock_irqsave(&sync->lock, s_flags);
 	list_for_each_entry(sobj, &sync->syncs, l_head) {
 		struct dma_buf *dmabuf;
 		struct seqno_fence *sf;
+		unsigned long o_flags;
 		bool all_wait;
 
+		spin_unlock_irqrestore(&sync->lock, s_flags);
+
 		/*
-		 * sync_obj_list_head is used to check if there is any sobj
+		 * orders is used to check if there is any sobj
 		 * of other thread that requested earlier buffer sync than
 		 * current thread.
 		 */
-		list_add_tail(&sobj->g_head, &sync_obj_list_head);
+		spin_lock_irqsave(&orders_lock, o_flags);
+		list_add_tail(&sobj->g_head, &orders);
+		spin_unlock_irqrestore(&orders_lock, o_flags);
 
 		sf = &sobj->base;
 		dmabuf = sf->sync_buf;
@@ -560,8 +580,6 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
 		 */
 		if (!is_higher_priority_than_current(dmabuf, sobj))
 			goto out_enable_signal;
-
-		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
 		/*
 		 * Need to wait for all buffers for a read or a write
@@ -578,8 +596,6 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync)
 			pr_warning("[DMA] signal wait has been timed out.\n");
 
 go_back_to_wait:
-		spin_lock_irqsave(&sync_obj_list_lock, flags);
-
 		/*
 		 * Check if there is any sobj of other thread that requested
 		 * earlier than current thread. If other sobj, then it should
@@ -588,7 +604,6 @@ go_back_to_wait:
 		 */
 		if (is_higher_priority_than_current(dmabuf, sobj)) {
 			/* TODO */
-			spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 			goto go_back_to_wait;
 		}
 
@@ -596,9 +611,10 @@ out_enable_signal:
 		fence_enable_sw_signaling(&sobj->base.base);
 		dmabuf_sync_update(sobj);
 		dmabuf_sync_cache_ops(sobj);
-	}
 
-	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+		spin_lock_irqsave(&sync->lock, s_flags);
+	}
+	spin_unlock_irqrestore(&sync->lock, s_flags);
 
 	return timeout;
 }
@@ -618,13 +634,11 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 	struct dmabuf_sync_object *sobj;
 	unsigned long timeout = 0;
 	bool all_wait;
-	unsigned long flags;
+	unsigned long o_flags;
 
 	sobj = kzalloc(sizeof(*sobj), GFP_KERNEL);
 	if (!sobj)
 		return -ENOMEM;
-
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
 
 	spin_lock_init(&sobj->lock);
 
@@ -638,7 +652,6 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 		if (ret) {
 			dma_buf_put(dmabuf);
 			kfree(sobj);
-			spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 			return ret;
 		}
 	}
@@ -647,7 +660,9 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 	seqno_fence_init(&sobj->base, &sobj->lock, dmabuf, ctx, 0, 0, ++seqno,
 				&fence_default_ops);
 
-	list_add_tail(&sobj->g_head, &sync_obj_list_head);
+	spin_lock_irqsave(&orders_lock, o_flags);
+	list_add_tail(&sobj->g_head, &orders);
+	spin_unlock_irqrestore(&orders_lock, o_flags);
 
 	/*
 	 * It doesn't need to wait for other thread or threads
@@ -656,8 +671,6 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 	 */
 	if (!is_higher_priority_than_current(dmabuf, sobj))
 		goto out_enable_signal;
-
-	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
 	all_wait = access_type & DMA_BUF_ACCESS_W;
 
@@ -668,8 +681,6 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 		pr_warning("[CPU] signal wait has been timed out.\n");
 
 go_back_to_wait:
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
-
 	/*
 	 * Check if there is any sobj of other thread that requested
 	 * earlier than current thread. If other sobj, then it should
@@ -678,7 +689,6 @@ go_back_to_wait:
 	 */
 	if (is_higher_priority_than_current(dmabuf, sobj)) {
 		/* TODO */
-		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 		goto go_back_to_wait;
 	}
 
@@ -687,8 +697,6 @@ out_enable_signal:
 	dmabuf_sync_update(sobj);
 	fence_put(&sobj->base.base);
 	dmabuf_sync_cache_ops(sobj);
-
-	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 
 	return timeout;
 }
@@ -707,13 +715,16 @@ EXPORT_SYMBOL_GPL(dmabuf_sync_wait);
 int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 {
 	struct dmabuf_sync_object *sobj;
-	unsigned long flags;
+	unsigned long s_flags;
 	int ret = -EAGAIN;
 
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
-
+	spin_lock_irqsave(&sync->lock, s_flags);
 	list_for_each_entry(sobj, &sync->syncs, l_head) {
-		struct seqno_fence *sf = &sobj->base;
+		struct seqno_fence *sf;
+
+		spin_unlock_irqrestore(&sync->lock, s_flags);
+
+		sf = &sobj->base;
 
 		dmabuf_sync_clear_sync_obj(sf->sync_buf, sobj);
 		remove_obj_from_req_queue(sobj);
@@ -721,14 +732,15 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 		ret = fence_signal(&sf->base);
 		if (ret) {
 			pr_warning("signal request has been failed.\n");
-			spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+			spin_lock_irqsave(&sync->lock, s_flags);
 			break;
 		}
 
 		fence_put(&sf->base);
-	}
 
-	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+		spin_lock_irqsave(&sync->lock, s_flags);
+	}
+	spin_unlock_irqrestore(&sync->lock, s_flags);
 
 	return ret;
 }
@@ -750,11 +762,8 @@ int dmabuf_sync_signal(struct dma_buf *dmabuf)
 	struct reservation_object *ro;
 	struct seqno_fence *sf;
 	struct fence *fence;
-	unsigned long flags;
 	int ret = -EINVAL;
 	int i;
-
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
 
 	rcu_read_lock();
 
@@ -769,7 +778,6 @@ int dmabuf_sync_signal(struct dma_buf *dmabuf)
 	/* it shouldn't be such case. */
 	if (fence && fence->context != (unsigned int)current) {
 		rcu_read_unlock();
-		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 		WARN_ON(1);
 		return ret;
 	}
@@ -792,7 +800,6 @@ int dmabuf_sync_signal(struct dma_buf *dmabuf)
 
 		/* There should be no such case. */
 		WARN_ON(1);
-		spin_unlock_irqrestore(&sync_obj_list_lock, flags);
 		return -EPERM;
 	}
 
@@ -811,8 +818,6 @@ found:
 
 	fence_put(fence);
 
-	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
-
 	return ret;
 }
 EXPORT_SYMBOL_GPL(dmabuf_sync_signal);
@@ -828,13 +833,12 @@ EXPORT_SYMBOL_GPL(dmabuf_sync_signal);
  */
 void dmabuf_sync_fini(struct dmabuf_sync *sync)
 {
-	unsigned long flags;
+	unsigned long s_flags;
 
 	if (WARN_ON(!sync))
 		return;
 
-	spin_lock_irqsave(&sync_obj_list_lock, flags);
-
+	spin_lock_irqsave(&sync->lock, s_flags);
 	if (list_empty(&sync->syncs))
 		goto free_sync;
 
@@ -844,7 +848,7 @@ void dmabuf_sync_fini(struct dmabuf_sync *sync)
 	dmabuf_sync_put_all(sync);
 
 free_sync:
-	spin_unlock_irqrestore(&sync_obj_list_lock, flags);
+	spin_unlock_irqrestore(&sync->lock, s_flags);
 
 	if (sync->ops && sync->ops->free)
 		sync->ops->free(sync->priv);
