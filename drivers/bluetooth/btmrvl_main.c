@@ -187,7 +187,6 @@ int btmrvl_send_module_cfg_cmd(struct btmrvl_private *priv, int subcmd)
 
 	bt_cb(skb)->pkt_type = MRVL_VENDOR_PKT;
 
-	skb->dev = (void *) priv->btmrvl_dev.hcidev;
 	skb_queue_head(&priv->adapter->tx_queue, skb);
 
 	priv->btmrvl_dev.sendcmdflag = true;
@@ -409,9 +408,8 @@ static int btmrvl_ioctl(struct hci_dev *hdev,
 	return -ENOIOCTLCMD;
 }
 
-static int btmrvl_send_frame(struct sk_buff *skb)
+static int btmrvl_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 {
-	struct hci_dev *hdev = (struct hci_dev *) skb->dev;
 	struct btmrvl_private *priv = NULL;
 
 	BT_DBG("type=%d, len=%d", skb->pkt_type, skb->len);

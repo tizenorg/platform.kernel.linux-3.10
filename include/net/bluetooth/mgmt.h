@@ -93,6 +93,7 @@ struct mgmt_rp_read_index_list {
 #define MGMT_SETTING_BREDR		0x00000080
 #define MGMT_SETTING_HS			0x00000100
 #define MGMT_SETTING_LE			0x00000200
+#define MGMT_SETTING_ADVERTISING	0x00000400
 
 #define MGMT_OP_READ_INFO		0x0004
 #define MGMT_READ_INFO_SIZE		0
@@ -351,6 +352,89 @@ struct mgmt_cp_set_device_id {
 } __packed;
 #define MGMT_SET_DEVICE_ID_SIZE		8
 
+#define MGMT_OP_SET_ADVERTISING		0x0029
+
+#define MGMT_OP_SET_BREDR		0x002A
+
+#define MGMT_OP_SET_STATIC_ADDRESS	0x002B
+struct mgmt_cp_set_static_address {
+	bdaddr_t bdaddr;
+} __packed;
+#define MGMT_SET_STATIC_ADDRESS_SIZE	6
+
+#define MGMT_OP_SET_SCAN_PARAMS		0x002C
+struct mgmt_cp_set_scan_params {
+	__le16	interval;
+	__le16	window;
+} __packed;
+#define MGMT_SET_SCAN_PARAMS_SIZE	4
+
+#ifdef CONFIG_TIZEN_WIP
+#define MGMT_OP_SET_ADVERTISING_PARAMS	0x002D
+struct mgmt_cp_set_advertising_params {
+	__le16  interval_min;
+	__le16  interval_max;
+	__u8 filter_policy;
+	__u8 type;
+} __packed;
+#define MGMT_SET_ADVERTISING_PARAMS_SIZE 6
+
+#define MGMT_OP_SET_ADVERTISING_DATA	0x002E
+struct mgmt_cp_set_advertising_data {
+	__u8    data[HCI_MAX_AD_LENGTH - 3];
+} __packed;
+#define MGMT_SET_ADVERTISING_DATA_SIZE	(HCI_MAX_AD_LENGTH - 3)
+
+#define MGMT_OP_SET_SCAN_RSP_DATA	0x002F
+struct mgmt_cp_set_scan_rsp_data {
+	__u8    data[HCI_MAX_AD_LENGTH];
+} __packed;
+#define MGMT_SET_SCAN_RSP_DATA_SIZE	HCI_MAX_AD_LENGTH
+
+#define MGMT_OP_ADD_DEV_WHITE_LIST		0x0030
+struct mgmt_cp_add_dev_white_list {
+	__u8	bdaddr_type;
+	bdaddr_t bdaddr;
+} __packed;
+#define MGMT_ADD_DEV_WHITE_LIST_SIZE	7
+
+#define MGMT_OP_REMOVE_DEV_FROM_WHITE_LIST		0x0031
+struct mgmt_cp_remove_dev_from_white_list {
+	__u8	bdaddr_type;
+	bdaddr_t bdaddr;
+} __packed;
+#define MGMT_REMOVE_DEV_FROM_WHITE_LIST_SIZE	7
+
+#define MGMT_OP_CLEAR_DEV_WHITE_LIST		0x0032
+#define MGMT_OP_CLEAR_DEV_WHITE_LIST_SIZE		0
+
+#ifdef CONFIG_TIZEN_RANDOM
+struct mgmt_irk_info {
+	struct mgmt_addr_info addr;
+	bdaddr_t identity_addr;
+	uint8_t	master;
+	uint8_t	val[16];
+} __packed;
+
+struct mgmt_id_addr_info {
+	struct mgmt_addr_info rpa_addr;
+	struct mgmt_addr_info id_addr;
+} __packed;
+#define MGMT_OP_RESOLVE_RPA		0x0033
+#define MGMT_RESOLVE_RPA_SIZE		6
+struct mgmt_cp_resolve_rpa {
+	bdaddr_t bdaddr;
+} __packed;
+
+#define MGMT_OP_LOAD_REMOTE_IRKS		0x0034
+struct mgmt_cp_load_remote_irks {
+	__le16	key_count;
+	struct mgmt_irk_info keys[0];
+} __packed;
+#define MGMT_LOAD_REMOTE_IRKS_SIZE	2
+#endif /* CONFIG_TIZEN_RANDOM */
+#endif
+
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
 	__le16	opcode;
@@ -401,6 +485,9 @@ struct mgmt_ev_new_long_term_key {
 #define MGMT_EV_DEVICE_CONNECTED	0x000B
 struct mgmt_ev_device_connected {
 	struct mgmt_addr_info addr;
+#ifdef CONFIG_TIZEN_RANDOM
+	bdaddr_t identity_addr;
+#endif
 	__le32	flags;
 	__le16	eir_len;
 	__u8	eir[0];
@@ -486,3 +573,32 @@ struct mgmt_ev_passkey_notify {
 	__le32	passkey;
 	__u8	entered;
 } __packed;
+
+#ifdef CONFIG_TIZEN_RANDOM
+#define MGMT_EV_NEW_REMOTE_IRK	0x0019
+struct mgmt_ev_new_remote_irk {
+	__u8	store_hint;
+	struct mgmt_irk_info key;
+} __packed;
+
+#define MGMT_EV_NEW_RPA		0x0020
+struct mgmt_ev_new_rpa {
+	struct mgmt_addr_info rp_addr;
+} __packed;
+
+#define MGMT_EV_NEW_REMOTE_IDENTITY_ADDRESS	0x0021
+struct mgmt_ev_new_remote_idaddr {
+	__u8	store_hint;
+	struct mgmt_id_addr_info id_addr;
+} __packed;
+#endif
+
+#ifdef CONFIG_TIZEN_WIP
+#define MGMT_EV_HARDWARE_ERROR		0x0022
+struct mgmt_ev_hardware_error {
+	__u8	error_code;
+} __packed;
+
+#define MGMT_EV_TX_TIMEOUT_ERROR		0x0023
+#endif
+

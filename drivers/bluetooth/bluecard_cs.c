@@ -399,7 +399,6 @@ static void bluecard_receive(bluecard_info_t *info, unsigned int offset)
 
 		if (info->rx_state == RECV_WAIT_PACKET_TYPE) {
 
-			info->rx_skb->dev = (void *) info->hdev;
 			bt_cb(info->rx_skb)->pkt_type = buf[i];
 
 			switch (bt_cb(info->rx_skb)->pkt_type) {
@@ -477,7 +476,7 @@ static void bluecard_receive(bluecard_info_t *info, unsigned int offset)
 					break;
 
 				case RECV_WAIT_DATA:
-					hci_recv_frame(info->rx_skb);
+					hci_recv_frame(info->hdev, info->rx_skb);
 					info->rx_skb = NULL;
 					break;
 
@@ -659,10 +658,9 @@ static int bluecard_hci_close(struct hci_dev *hdev)
 }
 
 
-static int bluecard_hci_send_frame(struct sk_buff *skb)
+static int bluecard_hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	bluecard_info_t *info;
-	struct hci_dev *hdev = (struct hci_dev *)(skb->dev);
 
 	if (!hdev) {
 		BT_ERR("Frame for unknown HCI device (hdev=NULL)");

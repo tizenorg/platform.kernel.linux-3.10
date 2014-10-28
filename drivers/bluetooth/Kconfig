@@ -26,7 +26,7 @@ config BT_HCIBTSDIO
 
 config BT_HCIUART
 	tristate "HCI UART driver"
-	depends on TTY
+#	depends on TTY /* TIZEN_Bluetooth :: UART not getting compiled issue */
 	help
 	  Bluetooth HCI UART driver.
 	  This driver is required if you want to use Bluetooth devices with

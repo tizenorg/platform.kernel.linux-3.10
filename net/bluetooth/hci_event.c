@@ -29,8 +29,9 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/mgmt.h>
-#include <net/bluetooth/a2mp.h>
-#include <net/bluetooth/amp.h>
+
+#include "a2mp.h"
+#include "amp.h"
 
 /* Handle HCI Event packets */
 
@@ -40,20 +41,12 @@ static void hci_cc_inquiry_cancel(struct hci_dev *hdev, struct sk_buff *skb)
 
 	BT_DBG("%s status 0x%2.2x", hdev->name, status);
 
-	if (status) {
-		hci_dev_lock(hdev);
-		mgmt_stop_discovery_failed(hdev, status);
-		hci_dev_unlock(hdev);
+	if (status)
 		return;
-	}
 
 	clear_bit(HCI_INQUIRY, &hdev->flags);
 	smp_mb__after_clear_bit(); /* wake_up_bit advises about this barrier */
 	wake_up_bit(&hdev->flags, HCI_INQUIRY);
-
-	hci_dev_lock(hdev);
-	hci_discovery_set_state(hdev, DISCOVERY_STOPPED);
-	hci_dev_unlock(hdev);
 
 	hci_conn_check_pending(hdev);
 }
@@ -202,6 +195,11 @@ static void hci_cc_reset(struct hci_dev *hdev, struct sk_buff *skb)
 
 	memset(hdev->adv_data, 0, sizeof(hdev->adv_data));
 	hdev->adv_data_len = 0;
+
+	memset(hdev->scan_rsp_data, 0, sizeof(hdev->scan_rsp_data));
+	hdev->scan_rsp_data_len = 0;
+
+	hdev->ssp_debug_mode = 0;
 }
 
 static void hci_cc_write_local_name(struct hci_dev *hdev, struct sk_buff *skb)
@@ -305,6 +303,11 @@ static void hci_cc_write_scan_enable(struct hci_dev *hdev, struct sk_buff *skb)
 		goto done;
 	}
 
+	/* We need to ensure that we set this back on if someone changed
+	 * the scan mode through a raw HCI socket.
+	 */
+	set_bit(HCI_BREDR_ENABLED, &hdev->dev_flags);
+
 	old_pscan = test_and_clear_bit(HCI_PSCAN, &hdev->flags);
 	old_iscan = test_and_clear_bit(HCI_ISCAN, &hdev->flags);
 
@@ -312,11 +315,6 @@ static void hci_cc_write_scan_enable(struct hci_dev *hdev, struct sk_buff *skb)
 		set_bit(HCI_ISCAN, &hdev->flags);
 		if (!old_iscan)
 			mgmt_discoverable(hdev, 1);
-		if (hdev->discov_timeout > 0) {
-			int to = msecs_to_jiffies(hdev->discov_timeout * 1000);
-			queue_delayed_work(hdev->workqueue, &hdev->discov_off,
-					   to);
-		}
 	} else if (old_iscan)
 		mgmt_discoverable(hdev, 0);
 
@@ -420,6 +418,21 @@ static void hci_cc_write_voice_setting(struct hci_dev *hdev,
 		hdev->notify(hdev, HCI_NOTIFY_VOICE_SETTING);
 }
 
+static void hci_cc_read_num_supported_iac(struct hci_dev *hdev,
+					  struct sk_buff *skb)
+{
+	struct hci_rp_read_num_supported_iac *rp = (void *) skb->data;
+
+	BT_DBG("%s status 0x%2.2x", hdev->name, rp->status);
+
+	if (rp->status)
+		return;
+
+	hdev->num_iac = rp->num_iac;
+
+	BT_DBG("%s num iac %d", hdev->name, hdev->num_iac);
+}
+
 static void hci_cc_write_ssp_mode(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	__u8 status = *((__u8 *) skb->data);
@@ -457,14 +470,13 @@ static void hci_cc_read_local_version(struct hci_dev *hdev, struct sk_buff *skb)
 	if (rp->status)
 		return;
 
-	hdev->hci_ver = rp->hci_ver;
-	hdev->hci_rev = __le16_to_cpu(rp->hci_rev);
-	hdev->lmp_ver = rp->lmp_ver;
-	hdev->manufacturer = __le16_to_cpu(rp->manufacturer);
-	hdev->lmp_subver = __le16_to_cpu(rp->lmp_subver);
-
-	BT_DBG("%s manufacturer 0x%4.4x hci ver %d:%d", hdev->name,
-	       hdev->manufacturer, hdev->hci_ver, hdev->hci_rev);
+	if (test_bit(HCI_SETUP, &hdev->dev_flags)) {
+		hdev->hci_ver = rp->hci_ver;
+		hdev->hci_rev = __le16_to_cpu(rp->hci_rev);
+		hdev->lmp_ver = rp->lmp_ver;
+		hdev->manufacturer = __le16_to_cpu(rp->manufacturer);
+		hdev->lmp_subver = __le16_to_cpu(rp->lmp_subver);
+	}
 }
 
 static void hci_cc_read_local_commands(struct hci_dev *hdev,
@@ -474,7 +486,10 @@ static void hci_cc_read_local_commands(struct hci_dev *hdev,
 
 	BT_DBG("%s status 0x%2.2x", hdev->name, rp->status);
 
-	if (!rp->status)
+	if (rp->status)
+		return;
+
+	if (test_bit(HCI_SETUP, &hdev->dev_flags))
 		memcpy(hdev->commands, rp->commands, sizeof(hdev->commands));
 }
 
@@ -526,12 +541,6 @@ static void hci_cc_read_local_features(struct hci_dev *hdev,
 
 	if (hdev->features[0][5] & LMP_EDR_3S_ESCO)
 		hdev->esco_type |= (ESCO_2EV5 | ESCO_3EV5);
-
-	BT_DBG("%s features 0x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x", hdev->name,
-	       hdev->features[0][0], hdev->features[0][1],
-	       hdev->features[0][2], hdev->features[0][3],
-	       hdev->features[0][4], hdev->features[0][5],
-	       hdev->features[0][6], hdev->features[0][7]);
 }
 
 static void hci_cc_read_local_ext_features(struct hci_dev *hdev,
@@ -544,7 +553,8 @@ static void hci_cc_read_local_ext_features(struct hci_dev *hdev,
 	if (rp->status)
 		return;
 
-	hdev->max_page = rp->max_page;
+	if (hdev->max_page < rp->max_page)
+		hdev->max_page = rp->max_page;
 
 	if (rp->page < HCI_MAX_PAGES)
 		memcpy(hdev->features[rp->page], rp->features, 8);
@@ -921,34 +931,12 @@ static void hci_cc_le_set_adv_enable(struct hci_dev *hdev, struct sk_buff *skb)
 
 	if (!status) {
 		if (*sent)
-			set_bit(HCI_LE_PERIPHERAL, &hdev->dev_flags);
+			set_bit(HCI_ADVERTISING, &hdev->dev_flags);
 		else
-			clear_bit(HCI_LE_PERIPHERAL, &hdev->dev_flags);
-	}
-
-	if (!test_bit(HCI_INIT, &hdev->flags)) {
-		struct hci_request req;
-
-		hci_req_init(&req, hdev);
-		hci_update_ad(&req);
-		hci_req_run(&req, NULL);
+			clear_bit(HCI_ADVERTISING, &hdev->dev_flags);
 	}
 
 	hci_dev_unlock(hdev);
-}
-
-static void hci_cc_le_set_scan_param(struct hci_dev *hdev, struct sk_buff *skb)
-{
-	__u8 status = *((__u8 *) skb->data);
-
-	BT_DBG("%s status 0x%2.2x", hdev->name, status);
-
-	if (status) {
-		hci_dev_lock(hdev);
-		mgmt_start_discovery_failed(hdev, status);
-		hci_dev_unlock(hdev);
-		return;
-	}
 }
 
 static void hci_cc_le_set_scan_enable(struct hci_dev *hdev,
@@ -963,41 +951,16 @@ static void hci_cc_le_set_scan_enable(struct hci_dev *hdev,
 	if (!cp)
 		return;
 
+	if (status)
+		return;
+
 	switch (cp->enable) {
 	case LE_SCAN_ENABLE:
-		if (status) {
-			hci_dev_lock(hdev);
-			mgmt_start_discovery_failed(hdev, status);
-			hci_dev_unlock(hdev);
-			return;
-		}
-
 		set_bit(HCI_LE_SCAN, &hdev->dev_flags);
-
-		hci_dev_lock(hdev);
-		hci_discovery_set_state(hdev, DISCOVERY_FINDING);
-		hci_dev_unlock(hdev);
 		break;
 
 	case LE_SCAN_DISABLE:
-		if (status) {
-			hci_dev_lock(hdev);
-			mgmt_stop_discovery_failed(hdev, status);
-			hci_dev_unlock(hdev);
-			return;
-		}
-
 		clear_bit(HCI_LE_SCAN, &hdev->dev_flags);
-
-		if (hdev->discovery.type == DISCOV_TYPE_INTERLEAVED &&
-		    hdev->discovery.state == DISCOVERY_FINDING) {
-			mgmt_interleaved_discovery(hdev);
-		} else {
-			hci_dev_lock(hdev);
-			hci_discovery_set_state(hdev, DISCOVERY_STOPPED);
-			hci_dev_unlock(hdev);
-		}
-
 		break;
 
 	default:
@@ -1041,20 +1004,20 @@ static void hci_cc_write_le_host_supported(struct hci_dev *hdev,
 		return;
 
 	if (!status) {
-		if (sent->le)
+		if (sent->le) {
 			hdev->features[1][0] |= LMP_HOST_LE;
-		else
+			set_bit(HCI_LE_ENABLED, &hdev->dev_flags);
+		} else {
 			hdev->features[1][0] &= ~LMP_HOST_LE;
+			clear_bit(HCI_LE_ENABLED, &hdev->dev_flags);
+			clear_bit(HCI_ADVERTISING, &hdev->dev_flags);
+		}
 
 		if (sent->simul)
 			hdev->features[1][0] |= LMP_HOST_LE_BREDR;
 		else
 			hdev->features[1][0] &= ~LMP_HOST_LE_BREDR;
 	}
-
-	if (test_bit(HCI_MGMT, &hdev->dev_flags) &&
-	    !test_bit(HCI_INIT, &hdev->flags))
-		mgmt_le_enable_complete(hdev, sent->le, status);
 }
 
 static void hci_cc_write_remote_amp_assoc(struct hci_dev *hdev,
@@ -1077,18 +1040,10 @@ static void hci_cs_inquiry(struct hci_dev *hdev, __u8 status)
 
 	if (status) {
 		hci_conn_check_pending(hdev);
-		hci_dev_lock(hdev);
-		if (test_bit(HCI_MGMT, &hdev->dev_flags))
-			mgmt_start_discovery_failed(hdev, status);
-		hci_dev_unlock(hdev);
 		return;
 	}
 
 	set_bit(HCI_INQUIRY, &hdev->flags);
-
-	hci_dev_lock(hdev);
-	hci_discovery_set_state(hdev, DISCOVERY_FINDING);
-	hci_dev_unlock(hdev);
 }
 
 static void hci_cs_create_conn(struct hci_dev *hdev, __u8 status)
@@ -1280,8 +1235,13 @@ static void hci_check_pending_name(struct hci_dev *hdev, struct hci_conn *conn,
 	struct inquiry_entry *e;
 
 	if (conn && !test_and_set_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags))
+#ifdef CONFIG_TIZEN_RANDOM
+		mgmt_device_connected(hdev, bdaddr, ACL_LINK, 0x00, 0, name,
+				      name_len, conn->dev_class, NULL);
+#else
 		mgmt_device_connected(hdev, bdaddr, ACL_LINK, 0x00, 0, name,
 				      name_len, conn->dev_class);
+#endif
 
 	if (discov->state == DISCOVERY_STOPPED)
 		return;
@@ -1346,9 +1306,11 @@ static void hci_cs_remote_name_req(struct hci_dev *hdev, __u8 status)
 		goto unlock;
 
 	if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->flags)) {
-		struct hci_cp_auth_requested cp;
-		cp.handle = __cpu_to_le16(conn->handle);
-		hci_send_cmd(hdev, HCI_OP_AUTH_REQUESTED, sizeof(cp), &cp);
+		struct hci_cp_auth_requested auth_cp;
+
+		auth_cp.handle = __cpu_to_le16(conn->handle);
+		hci_send_cmd(hdev, HCI_OP_AUTH_REQUESTED,
+			     sizeof(auth_cp), &auth_cp);
 	}
 
 unlock:
@@ -1518,33 +1480,6 @@ static void hci_cs_disconnect(struct hci_dev *hdev, u8 status)
 				       conn->dst_type, status);
 
 	hci_dev_unlock(hdev);
-}
-
-static void hci_cs_le_create_conn(struct hci_dev *hdev, __u8 status)
-{
-	struct hci_conn *conn;
-
-	BT_DBG("%s status 0x%2.2x", hdev->name, status);
-
-	if (status) {
-		hci_dev_lock(hdev);
-
-		conn = hci_conn_hash_lookup_state(hdev, LE_LINK, BT_CONNECT);
-		if (!conn) {
-			hci_dev_unlock(hdev);
-			return;
-		}
-
-		BT_DBG("%s bdaddr %pMR conn %p", hdev->name, &conn->dst, conn);
-
-		conn->state = BT_CLOSED;
-		mgmt_connect_failed(hdev, &conn->dst, conn->type,
-				    conn->dst_type, status);
-		hci_proto_connect_cfm(conn, status);
-		hci_conn_del(conn);
-
-		hci_dev_unlock(hdev);
-	}
 }
 
 static void hci_cs_create_phylink(struct hci_dev *hdev, u8 status)
@@ -1726,6 +1661,12 @@ static void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 			hci_send_cmd(hdev, HCI_OP_CHANGE_CONN_PTYPE, sizeof(cp),
 				     &cp);
 		}
+
+#ifdef CONFIG_TIZEN_WIP
+		if (conn->link_mode & HCI_LM_MASTER)
+			hci_conn_change_supervision_timeout(conn,
+						LINK_SUPERVISION_TIMEOUT);
+#endif
 	} else {
 		conn->state = BT_CLOSED;
 		if (conn->type == ACL_LINK)
@@ -1748,6 +1689,18 @@ unlock:
 	hci_conn_check_pending(hdev);
 }
 
+bool hci_conn_check_connection_status(struct hci_dev *hdev)
+{
+	struct hci_conn *conn;
+
+	conn = hci_conn_hash_lookup_state(hdev, ACL_LINK, BT_CONNECTED);
+	if (conn != NULL) {
+		BT_DBG("connected ACL channel is existed");
+		return true;
+	}
+	return false;
+}
+
 static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_ev_conn_request *ev = (void *) skb->data;
@@ -1760,8 +1713,11 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	mask |= hci_proto_connect_ind(hdev, &ev->bdaddr, ev->link_type,
 				      &flags);
 
+	if (hci_conn_check_connection_status(hdev))
+		mask |= HCI_LM_MASTER;
+
 	if ((mask & HCI_LM_ACCEPT) &&
-	    !hci_blacklist_lookup(hdev, &ev->bdaddr)) {
+	    !hci_blacklist_lookup(hdev, &ev->bdaddr, BDADDR_BREDR)) {
 		/* Connection accepted */
 		struct inquiry_entry *ie;
 		struct hci_conn *conn;
@@ -1849,7 +1805,9 @@ static u8 hci_to_mgmt_reason(u8 err)
 static void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_ev_disconn_complete *ev = (void *) skb->data;
+	u8 reason = hci_to_mgmt_reason(ev->reason);
 	struct hci_conn *conn;
+	u8 type;
 
 	BT_DBG("%s status 0x%2.2x", hdev->name, ev->status);
 
@@ -1859,28 +1817,66 @@ static void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	if (!conn)
 		goto unlock;
 
-	if (ev->status == 0)
-		conn->state = BT_CLOSED;
+	if (ev->status) {
+		mgmt_disconnect_failed(hdev, &conn->dst, conn->type,
+				       conn->dst_type, ev->status);
+		goto unlock;
+	}
 
-	if (test_and_clear_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags) &&
-	    (conn->type == ACL_LINK || conn->type == LE_LINK)) {
-		if (ev->status) {
-			mgmt_disconnect_failed(hdev, &conn->dst, conn->type,
-					       conn->dst_type, ev->status);
-		} else {
-			u8 reason = hci_to_mgmt_reason(ev->reason);
+	conn->state = BT_CLOSED;
 
-			mgmt_device_disconnected(hdev, &conn->dst, conn->type,
-						 conn->dst_type, reason);
+#if  0
+	if (test_and_clear_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags)) {
+		if (conn->dst_type == ADDR_LE_DEV_RANDOM &&
+		     conn->irk_resolved) {
+			bacpy(&conn->dst, &conn->irk_dst);
+		}
+
+		mgmt_device_disconnected(hdev, &conn->dst, conn->type,
+					 conn->dst_type, reason);
+	}
+#else
+	if (test_and_clear_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags))
+		mgmt_device_disconnected(hdev, &conn->dst, conn->type,
+					 conn->dst_type, reason);
+#endif
+
+	if (conn->type == ACL_LINK && conn->flush_key)
+		hci_remove_link_key(hdev, &conn->dst);
+
+	type = conn->type;
+
+	hci_proto_disconn_cfm(conn, ev->reason);
+	hci_conn_del(conn);
+
+	/* Re-enable advertising if necessary, since it might
+	 * have been disabled by the connection. From the
+	 * HCI_LE_Set_Advertise_Enable command description in
+	 * the core specification (v4.0):
+	 * "The Controller shall continue advertising until the Host
+	 * issues an LE_Set_Advertise_Enable command with
+	 * Advertising_Enable set to 0x00 (Advertising is disabled)
+	 * or until a connection is created or until the Advertising
+	 * is timed out due to Directed Advertising."
+	 */
+	if (type == LE_LINK)
+		mgmt_reenable_advertising(hdev);
+
+#ifdef CONFIG_TIZEN_WIP
+	if (type == ACL_LINK && !hci_conn_num(hdev, ACL_LINK)) {
+		int iscan;
+		int pscan;
+
+		iscan = test_bit(HCI_ISCAN, &hdev->flags);
+		pscan = test_bit(HCI_PSCAN, &hdev->flags);
+		if (!iscan && !pscan) {
+			u8 scan_enable = SCAN_PAGE;
+
+			hci_send_cmd(hdev, HCI_OP_WRITE_SCAN_ENABLE,
+					sizeof(scan_enable), &scan_enable);
 		}
 	}
-
-	if (ev->status == 0) {
-		if (conn->type == ACL_LINK && conn->flush_key)
-			hci_remove_link_key(hdev, &conn->dst);
-		hci_proto_disconn_cfm(conn, ev->reason);
-		hci_conn_del(conn);
-	}
+#endif
 
 unlock:
 	hci_dev_unlock(hdev);
@@ -1898,6 +1894,22 @@ static void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(ev->handle));
 	if (!conn)
 		goto unlock;
+
+#ifdef CONFIG_TIZEN_WIP /*  PIN or Key Missing patch */
+        BT_DBG("remote_auth %x, remote_cap %x, auth_type %x, io_capability %x",
+               conn->remote_auth, conn->remote_cap,
+               conn->auth_type, conn->io_capability);
+
+        if (ev->status == 0x06 && hci_conn_ssp_enabled(conn)) {
+                struct hci_cp_auth_requested cp;
+                BT_DBG("Pin or key missing");
+                hci_remove_link_key(hdev, &conn->dst);
+                cp.handle = cpu_to_le16(conn->handle);
+                hci_send_cmd(conn->hdev, HCI_OP_AUTH_REQUESTED, sizeof(cp),
+							 &cp);
+                goto unlock;
+        }
+#endif
 
 	if (!ev->status) {
 		if (!hci_conn_ssp_enabled(conn) &&
@@ -2093,9 +2105,15 @@ static void hci_remote_features_evt(struct hci_dev *hdev,
 		cp.pscan_rep_mode = 0x02;
 		hci_send_cmd(hdev, HCI_OP_REMOTE_NAME_REQ, sizeof(cp), &cp);
 	} else if (!test_and_set_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags))
+#ifdef CONFIG_TIZEN_RANDOM
+		mgmt_device_connected(hdev, &conn->dst, conn->type,
+				      conn->dst_type, 0, NULL, 0,
+				      conn->dev_class, NULL);
+#else
 		mgmt_device_connected(hdev, &conn->dst, conn->type,
 				      conn->dst_type, 0, NULL, 0,
 				      conn->dev_class);
+#endif
 
 	if (!hci_outgoing_auth_needed(hdev, conn)) {
 		conn->state = BT_CONNECTED;
@@ -2106,6 +2124,32 @@ static void hci_remote_features_evt(struct hci_dev *hdev,
 unlock:
 	hci_dev_unlock(hdev);
 }
+
+#ifdef CONFIG_TIZEN_RANDOM
+static void hci_cc_le_encrypt(struct hci_dev *hdev, struct sk_buff *skb)
+{
+	struct hci_rp_le_encrypt *rp = (void *) skb->data;
+
+	BT_DBG("%s status 0x%2.2x", hdev->name, rp->status);
+
+	if (rp->status)
+		return;
+
+	switch (hdev->le_data_encrypt_for) {
+	case IRK_GENERATION:
+	case RPA_HASH_GENERATION:
+		BT_ERR("Central role: Not yet supported");
+		break;
+	case RPA_HASH_RESOLUTION:
+		mgmt_resolve_private_address(hdev, rp->encrypted_data);
+		break;
+	default:
+		BT_ERR("le data encrypted  for unknown purpose %d",
+					hdev->le_data_encrypt_for);
+		break;
+	}
+}
+#endif
 
 static void hci_cmd_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 {
@@ -2192,6 +2236,10 @@ static void hci_cmd_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 
 	case HCI_OP_WRITE_VOICE_SETTING:
 		hci_cc_write_voice_setting(hdev, skb);
+		break;
+
+	case HCI_OP_READ_NUM_SUPPORTED_IAC:
+		hci_cc_read_num_supported_iac(hdev, skb);
 		break;
 
 	case HCI_OP_WRITE_SSP_MODE:
@@ -2298,10 +2346,6 @@ static void hci_cmd_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		hci_cc_user_passkey_neg_reply(hdev, skb);
 		break;
 
-	case HCI_OP_LE_SET_SCAN_PARAM:
-		hci_cc_le_set_scan_param(hdev, skb);
-		break;
-
 	case HCI_OP_LE_SET_ADV_ENABLE:
 		hci_cc_le_set_adv_enable(hdev, skb);
 		break;
@@ -2322,6 +2366,11 @@ static void hci_cmd_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		hci_cc_write_le_host_supported(hdev, skb);
 		break;
 
+#ifdef CONFIG_TIZEN_RANDOM
+	case HCI_OP_LE_ENCRYPT:
+		hci_cc_le_encrypt(hdev, skb);
+		break;
+#endif
 	case HCI_OP_WRITE_REMOTE_AMP_ASSOC:
 		hci_cc_write_remote_amp_assoc(hdev, skb);
 		break;
@@ -2401,10 +2450,6 @@ static void hci_cmd_status_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		hci_cs_disconnect(hdev, ev->status);
 		break;
 
-	case HCI_OP_LE_CREATE_CONN:
-		hci_cs_le_create_conn(hdev, ev->status);
-		break;
-
 	case HCI_OP_CREATE_PHY_LINK:
 		hci_cs_create_phylink(hdev, ev->status);
 		break;
@@ -2453,6 +2498,12 @@ static void hci_role_change_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		clear_bit(HCI_CONN_RSWITCH_PEND, &conn->flags);
 
 		hci_role_switch_cfm(conn, ev->status, ev->role);
+
+#ifdef CONFIG_TIZEN_WIP
+		if (!ev->status && conn->link_mode & HCI_LM_MASTER)
+			hci_conn_change_supervision_timeout(conn,
+						LINK_SUPERVISION_TIMEOUT);
+#endif
 	}
 
 	hci_dev_unlock(hdev);
@@ -2607,7 +2658,6 @@ static void hci_mode_change_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(ev->handle));
 	if (conn) {
 		conn->mode = ev->mode;
-		conn->interval = __le16_to_cpu(ev->interval);
 
 		if (!test_and_clear_bit(HCI_CONN_MODE_CHANGE_PEND,
 					&conn->flags)) {
@@ -2623,6 +2673,21 @@ static void hci_mode_change_evt(struct hci_dev *hdev, struct sk_buff *skb)
 
 	hci_dev_unlock(hdev);
 }
+
+#ifdef CONFIG_TIZEN_WIP
+static void hci_hardware_error_evt(struct hci_dev *hdev, struct sk_buff *skb)
+{
+	struct hci_ev_hardware_err_info *ev = (void *) skb->data;
+
+	BT_ERR("%s H/W error %d", hdev->name, ev->err_code);
+
+	hci_dev_lock(hdev);
+
+	mgmt_hardware_error(hdev, ev->err_code);
+
+	hci_dev_unlock(hdev);
+}
+#endif
 
 static void hci_pin_code_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 {
@@ -2670,7 +2735,7 @@ static void hci_link_key_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 
 	BT_DBG("%s", hdev->name);
 
-	if (!test_bit(HCI_LINK_KEYS, &hdev->dev_flags))
+	if (!test_bit(HCI_MGMT, &hdev->dev_flags))
 		return;
 
 	hci_dev_lock(hdev);
@@ -2746,7 +2811,7 @@ static void hci_link_key_notify_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		hci_conn_drop(conn);
 	}
 
-	if (test_bit(HCI_LINK_KEYS, &hdev->dev_flags))
+	if (test_bit(HCI_MGMT, &hdev->dev_flags))
 		hci_add_link_key(hdev, conn, 1, &ev->bdaddr, ev->link_key,
 				 ev->key_type, pin_len);
 
@@ -2919,9 +2984,15 @@ static void hci_remote_ext_features_evt(struct hci_dev *hdev,
 		cp.pscan_rep_mode = 0x02;
 		hci_send_cmd(hdev, HCI_OP_REMOTE_NAME_REQ, sizeof(cp), &cp);
 	} else if (!test_and_set_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags))
+#ifdef CONFIG_TIZEN_RANDOM
+		mgmt_device_connected(hdev, &conn->dst, conn->type,
+				      conn->dst_type, 0, NULL, 0,
+				      conn->dev_class, NULL);
+#else
 		mgmt_device_connected(hdev, &conn->dst, conn->type,
 				      conn->dst_type, 0, NULL, 0,
 				      conn->dev_class);
+#endif
 
 	if (!hci_outgoing_auth_needed(hdev, conn)) {
 		conn->state = BT_CONNECTED;
@@ -2963,15 +3034,16 @@ static void hci_sync_conn_complete_evt(struct hci_dev *hdev,
 		hci_conn_add_sysfs(conn);
 		break;
 
+	case 0x0d:	/* Connection Rejected due to Limited Resources */
 	case 0x11:	/* Unsupported Feature or Parameter Value */
 	case 0x1c:	/* SCO interval rejected */
 	case 0x1a:	/* Unsupported Remote Feature */
 	case 0x1f:	/* Unspecified error */
-		if (conn->out && conn->attempt < 2) {
+		if (conn->out) {
 			conn->pkt_type = (hdev->esco_type & SCO_ESCO_MASK) |
 					(hdev->esco_type & EDR_ESCO_MASK);
-			hci_setup_sync(conn, conn->link->handle);
-			goto unlock;
+			if (hci_setup_sync(conn, conn->link->handle))
+				goto unlock;
 		}
 		/* fall through */
 
@@ -2986,6 +3058,23 @@ static void hci_sync_conn_complete_evt(struct hci_dev *hdev,
 
 unlock:
 	hci_dev_unlock(hdev);
+}
+
+static inline size_t eir_get_length(u8 *eir, size_t eir_len)
+{
+	size_t parsed = 0;
+
+	while (parsed < eir_len) {
+		u8 field_len = eir[0];
+
+		if (field_len == 0)
+			return parsed;
+
+		parsed += field_len + 1;
+		eir += field_len + 1;
+	}
+
+	return eir_len;
 }
 
 static void hci_extended_inquiry_result_evt(struct hci_dev *hdev,
@@ -3051,12 +3140,6 @@ static void hci_key_refresh_complete_evt(struct hci_dev *hdev,
 	if (!conn)
 		goto unlock;
 
-	/* For BR/EDR the necessary steps are taken through the
-	 * auth_complete event.
-	 */
-	if (conn->type != LE_LINK)
-		goto unlock;
-
 	if (!ev->status)
 		conn->sec_level = conn->pending_sec_level;
 
@@ -3089,17 +3172,20 @@ unlock:
 static u8 hci_get_auth_req(struct hci_conn *conn)
 {
 	/* If remote requests dedicated bonding follow that lead */
-	if (conn->remote_auth == 0x02 || conn->remote_auth == 0x03) {
+	if (conn->remote_auth == HCI_AT_DEDICATED_BONDING ||
+	    conn->remote_auth == HCI_AT_DEDICATED_BONDING_MITM) {
 		/* If both remote and local IO capabilities allow MITM
 		 * protection then require it, otherwise don't */
-		if (conn->remote_cap == 0x03 || conn->io_capability == 0x03)
-			return 0x02;
+		if (conn->remote_cap == HCI_IO_NO_INPUT_OUTPUT ||
+		    conn->io_capability == HCI_IO_NO_INPUT_OUTPUT)
+			return HCI_AT_DEDICATED_BONDING;
 		else
-			return 0x03;
+			return HCI_AT_DEDICATED_BONDING_MITM;
 	}
 
 	/* If remote requests no-bonding follow that lead */
-	if (conn->remote_auth == 0x00 || conn->remote_auth == 0x01)
+	if (conn->remote_auth == HCI_AT_NO_BONDING ||
+	    conn->remote_auth == HCI_AT_NO_BONDING_MITM)
 		return conn->remote_auth | (conn->auth_type & 0x01);
 
 	return conn->auth_type;
@@ -3131,7 +3217,7 @@ static void hci_io_capa_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		/* Change the IO capability from KeyboardDisplay
 		 * to DisplayYesNo as it is not supported by BT spec. */
 		cp.capability = (conn->io_capability == 0x04) ?
-						0x01 : conn->io_capability;
+				HCI_IO_DISPLAY_YESNO : conn->io_capability;
 		conn->auth_type = hci_get_auth_req(conn);
 		cp.authentication = conn->auth_type;
 
@@ -3205,7 +3291,8 @@ static void hci_user_confirm_request_evt(struct hci_dev *hdev,
 	 * request. The only exception is when we're dedicated bonding
 	 * initiators (connect_cfm_cb set) since then we always have the MITM
 	 * bit set. */
-	if (!conn->connect_cfm_cb && loc_mitm && conn->remote_cap == 0x03) {
+	if (!conn->connect_cfm_cb && loc_mitm &&
+	    conn->remote_cap == HCI_IO_NO_INPUT_OUTPUT) {
 		BT_DBG("Rejecting request: remote device can't provide MITM");
 		hci_send_cmd(hdev, HCI_OP_USER_CONFIRM_NEG_REPLY,
 			     sizeof(ev->bdaddr), &ev->bdaddr);
@@ -3213,16 +3300,13 @@ static void hci_user_confirm_request_evt(struct hci_dev *hdev,
 	}
 
 	/* If no side requires MITM protection; auto-accept */
-	if ((!loc_mitm || conn->remote_cap == 0x03) &&
-	    (!rem_mitm || conn->io_capability == 0x03)) {
+	if ((!loc_mitm || conn->remote_cap == HCI_IO_NO_INPUT_OUTPUT) &&
+	    (!rem_mitm || conn->io_capability == HCI_IO_NO_INPUT_OUTPUT)) {
 
 		/* If we're not the initiators request authorization to
 		 * proceed from user space (mgmt_user_confirm with
-		 * confirm_hint set to 1). The exception is if neither
-		 * side had MITM in which case we do auto-accept.
-		 */
-		if (!test_bit(HCI_CONN_AUTH_PEND, &conn->flags) &&
-		    (loc_mitm || rem_mitm)) {
+		 * confirm_hint set to 1). */
+		if (!test_bit(HCI_CONN_AUTH_PEND, &conn->flags)) {
 			BT_DBG("Confirming auto-accept as acceptor");
 			confirm_hint = 1;
 			goto confirm;
@@ -3233,7 +3317,8 @@ static void hci_user_confirm_request_evt(struct hci_dev *hdev,
 
 		if (hdev->auto_accept_delay > 0) {
 			int delay = msecs_to_jiffies(hdev->auto_accept_delay);
-			mod_timer(&conn->auto_accept_timer, jiffies + delay);
+			queue_delayed_work(conn->hdev->workqueue,
+					   &conn->auto_accept_work, delay);
 			goto unlock;
 		}
 
@@ -3548,6 +3633,17 @@ static void hci_le_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 
 		conn->dst_type = ev->bdaddr_type;
 
+		/* The advertising parameters for own address type
+		 * define which source address and source address
+		 * type this connections has.
+		 */
+		if (bacmp(&conn->src, BDADDR_ANY)) {
+			conn->src_type = ADDR_LE_DEV_PUBLIC;
+		} else {
+			bacpy(&conn->src, &hdev->static_addr);
+			conn->src_type = ADDR_LE_DEV_RANDOM;
+		}
+
 		if (ev->role == LE_CONN_ROLE_MASTER) {
 			conn->out = true;
 			conn->link_mode |= HCI_LM_MASTER;
@@ -3563,9 +3659,34 @@ static void hci_le_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 		goto unlock;
 	}
 
+#ifdef CONFIG_TIZEN_RANDOM
+	/* We should move this part to l2cap connection */
+	baswap((bdaddr_t *)hdev->remote_addr_to_resolve.b, &ev->bdaddr);
+
+	/*
+	* Check whether the device address is resolvable private address
+	* when the device role is peripheral. If so then resolve the address.
+	*/
+	if ((ev->bdaddr_type == 0x01) &&
+	    (hdev->remote_addr_to_resolve.b[0] ==
+	     (hdev->remote_addr_to_resolve.b[0] & 0x7F))) {
+		if (!list_empty(&hdev->identity_resolving_keys)) {
+			conn->handle = __le16_to_cpu(ev->handle);
+			if (generate_hash_from_addr(hdev) >= 0) {
+				BT_DBG("Try to resolve address");
+				goto unlock;
+			}
+		}
+	}
+
+	if (!test_and_set_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags))
+		mgmt_device_connected(hdev, &ev->bdaddr, conn->type,
+				      conn->dst_type, 0, NULL, 0, NULL, NULL);
+#else
 	if (!test_and_set_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags))
 		mgmt_device_connected(hdev, &ev->bdaddr, conn->type,
 				      conn->dst_type, 0, NULL, 0, NULL);
+#endif
 
 	conn->sec_level = BT_SECURITY_LOW;
 	conn->handle = __le16_to_cpu(ev->handle);
@@ -3628,15 +3749,16 @@ static void hci_le_ltk_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 
 	hci_send_cmd(hdev, HCI_OP_LE_LTK_REPLY, sizeof(cp), &cp);
 
-	/* Ref. Bluetooth Core SPEC pages 1975 and 2004. STK is a
-	 * temporary key used to encrypt a connection following
-	 * pairing. It is used during the Encrypted Session Setup to
-	 * distribute the keys. Later, security can be re-established
-	 * using a distributed LTK.
-	 */
-	if (ltk->type == HCI_SMP_STK_SLAVE) {
+	if (ltk->type & HCI_SMP_STK) {
+#ifdef CONFIG_TIZEN_RANDOM
+		if (conn->dst_type != ADDR_LE_DEV_RANDOM) {
+			list_del(&ltk->list);
+			kfree(ltk);
+		}
+#else
 		list_del(&ltk->list);
 		kfree(ltk);
+#endif
 	}
 
 	hci_dev_unlock(hdev);
@@ -3709,8 +3831,8 @@ void hci_event_packet(struct hci_dev *hdev, struct sk_buff *skb)
 	skb_pull(skb, HCI_EVENT_HDR_SIZE);
 
 	if (hdev->sent_cmd && bt_cb(hdev->sent_cmd)->req.event == event) {
-		struct hci_command_hdr *hdr = (void *) hdev->sent_cmd->data;
-		u16 opcode = __le16_to_cpu(hdr->opcode);
+		struct hci_command_hdr *cmd_hdr = (void *) hdev->sent_cmd->data;
+		u16 opcode = __le16_to_cpu(cmd_hdr->opcode);
 
 		hci_req_cmd_complete(hdev, opcode, 0);
 	}
@@ -3883,6 +4005,12 @@ void hci_event_packet(struct hci_dev *hdev, struct sk_buff *skb)
 	case HCI_EV_NUM_COMP_BLOCKS:
 		hci_num_comp_blocks_evt(hdev, skb);
 		break;
+
+#ifdef CONFIG_TIZEN_WIP
+	case HCI_EV_HARDWARE_ERROR:
+		hci_hardware_error_evt(hdev, skb);
+		break;
+#endif
 
 	default:
 		BT_DBG("%s event 0x%2.2x", hdev->name, event);

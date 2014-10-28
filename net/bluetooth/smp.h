@@ -143,4 +143,9 @@ int smp_user_confirm_reply(struct hci_conn *conn, u16 mgmt_op, __le32 passkey);
 
 void smp_chan_destroy(struct l2cap_conn *conn);
 
+#ifdef CONFIG_TIZEN_RANDOM
+void swap128(u8 src[16], u8 dst[16]);
+void swap24(u8 src[3], u8 dst[3]);
+#endif
+
 #endif /* __SMP_H */

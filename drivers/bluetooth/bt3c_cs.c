@@ -247,7 +247,6 @@ static void bt3c_receive(bt3c_info_t *info)
 
 		if (info->rx_state == RECV_WAIT_PACKET_TYPE) {
 
-			info->rx_skb->dev = (void *) info->hdev;
 			bt_cb(info->rx_skb)->pkt_type = inb(iobase + DATA_L);
 			inb(iobase + DATA_H);
 			//printk("bt3c: PACKET_TYPE=%02x\n", bt_cb(info->rx_skb)->pkt_type);
@@ -318,7 +317,7 @@ static void bt3c_receive(bt3c_info_t *info)
 					break;
 
 				case RECV_WAIT_DATA:
-					hci_recv_frame(info->rx_skb);
+					hci_recv_frame(info->hdev, info->rx_skb);
 					info->rx_skb = NULL;
 					break;
 
@@ -416,10 +415,9 @@ static int bt3c_hci_close(struct hci_dev *hdev)
 }
 
 
-static int bt3c_hci_send_frame(struct sk_buff *skb)
+static int bt3c_hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	bt3c_info_t *info;
-	struct hci_dev *hdev = (struct hci_dev *)(skb->dev);
 	unsigned long flags;
 
 	if (!hdev) {

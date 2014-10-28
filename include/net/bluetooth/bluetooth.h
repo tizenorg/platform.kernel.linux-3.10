@@ -34,6 +34,8 @@
 #define PF_BLUETOOTH	AF_BLUETOOTH
 #endif
 
+#define CONFIG_TIZEN_WIP
+
 /* Bluetooth versions */
 #define BLUETOOTH_VER_1_1	1
 #define BLUETOOTH_VER_1_2	2
@@ -107,6 +109,14 @@ struct bt_power {
  */
 #define BT_CHANNEL_POLICY_AMP_PREFERRED		2
 
+#define BT_VOICE		11
+struct bt_voice {
+	__u16 setting;
+};
+
+#define BT_VOICE_TRANSPARENT			0x0003
+#define BT_VOICE_CVSD_16BIT			0x0060
+
 __printf(1, 2)
 int bt_info(const char *fmt, ...);
 __printf(1, 2)
@@ -161,6 +171,17 @@ typedef struct {
 	__u8 b[6];
 } __packed bdaddr_t;
 
+#ifdef CONFIG_TIZEN_RANDOM
+/* Resolvable private address */
+typedef struct {
+	__u8 rand[3];
+	__u8 hash[3];
+	__u8 b[6];
+	__u8 irk_b[6];
+	__u8 ident_addr[6];
+} __packed rpaddr_t;
+#endif
+
 /* BD Address type */
 #define BDADDR_BREDR		0x00
 #define BDADDR_LE_PUBLIC	0x01
@@ -189,8 +210,8 @@ static inline bool bdaddr_type_is_le(__u8 type)
 	return false;
 }
 
-#define BDADDR_ANY   (&(bdaddr_t) {{0, 0, 0, 0, 0, 0} })
-#define BDADDR_LOCAL (&(bdaddr_t) {{0, 0, 0, 0xff, 0xff, 0xff} })
+#define BDADDR_ANY  (&(bdaddr_t) {{0, 0, 0, 0, 0, 0}})
+#define BDADDR_NONE (&(bdaddr_t) {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}})
 
 /* Copy, swap, convert BD Address */
 static inline int bacmp(const bdaddr_t *ba1, const bdaddr_t *ba2)
@@ -210,11 +231,10 @@ void baswap(bdaddr_t *dst, bdaddr_t *src);
 
 struct bt_sock {
 	struct sock sk;
-	bdaddr_t    src;
-	bdaddr_t    dst;
 	struct list_head accept_q;
 	struct sock *parent;
 	unsigned long flags;
+	void (*skb_msg_name)(struct sk_buff *, void *, int *);
 };
 
 enum {
@@ -241,6 +261,7 @@ int  bt_sock_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
 uint bt_sock_poll(struct file *file, struct socket *sock, poll_table *wait);
 int  bt_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
 int  bt_sock_wait_state(struct sock *sk, int state, unsigned long timeo);
+int  bt_sock_wait_ready(struct sock *sk, unsigned long flags);
 
 void bt_accept_enqueue(struct sock *parent, struct sock *sk);
 void bt_accept_unlink(struct sock *sk);
@@ -274,8 +295,11 @@ struct bt_skb_cb {
 	__u8 incoming;
 	__u16 expect;
 	__u8 force_active;
+	struct l2cap_chan *chan;
 	struct l2cap_ctrl control;
 	struct hci_req_ctrl req;
+	bdaddr_t bdaddr;
+	__le16 psm;
 };
 #define bt_cb(skb) ((struct bt_skb_cb *)((skb)->cb))
 

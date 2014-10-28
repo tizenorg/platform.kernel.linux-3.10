@@ -318,7 +318,6 @@ static inline int bfusb_recv_block(struct bfusb_data *data, int hdr, unsigned ch
 			return -ENOMEM;
 		}
 
-		skb->dev = (void *) data->hdev;
 		bt_cb(skb)->pkt_type = pkt_type;
 
 		data->reassembly = skb;
@@ -333,7 +332,7 @@ static inline int bfusb_recv_block(struct bfusb_data *data, int hdr, unsigned ch
 		memcpy(skb_put(data->reassembly, len), buf, len);
 
 	if (hdr & 0x08) {
-		hci_recv_frame(data->reassembly);
+		hci_recv_frame(data->hdev, data->reassembly);
 		data->reassembly = NULL;
 	}
 
@@ -465,9 +464,8 @@ static int bfusb_close(struct hci_dev *hdev)
 	return 0;
 }
 
-static int bfusb_send_frame(struct sk_buff *skb)
+static int bfusb_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 {
-	struct hci_dev *hdev = (struct hci_dev *) skb->dev;
 	struct bfusb_data *data;
 	struct sk_buff *nskb;
 	unsigned char buf[3];
