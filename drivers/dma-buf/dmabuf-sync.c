@@ -127,25 +127,21 @@ struct fence *dmabuf_sync_check(struct dma_buf *dmabuf)
 	rcu_read_lock();
 	ro = rcu_dereference(dmabuf->resv);
 	if (!ro || !ro->fence)
-		goto check_excl_fence;
+		goto unlock_rcu;
 
-	rol = rcu_dereference(ro->fence);
-
-	/* Check if there is any fence requested for a read access. */
-	for (i = 0; i < rol->shared_count; i++) {
-		fence = rcu_dereference(rol->shared[i]);
-		if (!fence)
-			continue;
-
-		break;
-	}
-
+	/* First, check there is a fence for write access. */
+	fence = rcu_dereference(ro->fence_excl);
 	if (fence)
 		goto unlock_rcu;
 
-check_excl_fence:
-	/* And then check if there is a fence requested for a write access. */
-	fence = rcu_dereference(ro->fence_excl);
+	rol = rcu_dereference(ro->fence);
+
+	/* Check if there is any fences requested for read access. */
+	for (i = 0; i < rol->shared_count; i++) {
+		fence = rcu_dereference(rol->shared[i]);
+		if (fence)
+			break;
+	}
 
 unlock_rcu:
 	rcu_read_unlock();
