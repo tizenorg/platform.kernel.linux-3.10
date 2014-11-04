@@ -264,13 +264,13 @@ static void dmabuf_sync_put_objs(struct dmabuf_sync *sync)
 
 	spin_lock_irqsave(&sync->lock, s_flags);
 	list_for_each_entry_safe(sobj, next, &sync->syncs, l_head) {
-		struct seqno_fence *sf;
 
 		spin_unlock_irqrestore(&sync->lock, s_flags);
 
-		sf = sobj->sfence;
 		list_del_init(&sobj->l_head);
-		fence_put(&sf->base);
+		fence_put(&sobj->sfence->base);
+
+		kfree(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
 	}
@@ -294,19 +294,14 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
 
 	spin_lock_irqsave(&sync->lock, s_flags);
 	list_for_each_entry_safe(sobj, next, &sync->syncs, l_head) {
-		unsigned long so_flags;
-
 		spin_unlock_irqrestore(&sync->lock, s_flags);
 
-		spin_lock_irqsave(&sobj->lock, so_flags);
-
-		if (sobj->dmabuf != dmabuf) {
-			spin_lock_irqsave(&sync->lock, s_flags);
+		if (sobj->dmabuf != dmabuf)
 			continue;
-		}
 
 		list_del_init(&sobj->l_head);
-		spin_unlock_irqrestore(&sobj->lock, so_flags);
+		fence_put(&sobj->sfence->base);
+		kfree(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
 		break;
@@ -696,15 +691,11 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 
 	spin_lock_irqsave(&sync->lock, s_flags);
 	list_for_each_entry(sobj, &sync->syncs, l_head) {
-		struct seqno_fence *sf;
-
 		spin_unlock_irqrestore(&sync->lock, s_flags);
-
-		sf = sobj->sfence;
 
 		remove_obj_from_req_queue(sobj);
 
-		ret = fence_signal(&sf->base);
+		ret = fence_signal(&sobj->sfence->base);
 		if (ret) {
 			pr_warning("signal request has been failed.\n");
 			spin_lock_irqsave(&sync->lock, s_flags);
@@ -733,6 +724,8 @@ static int dmabuf_sync_signal_fence(struct fence *fence)
 	ret = fence_signal(fence);
 	if (ret)
 		pr_warning("signal request has been failed.\n");
+
+	kfree(sobj);
 
 	return ret;
 }
