@@ -78,9 +78,11 @@
  *	DMA_BUF_ACCESS_W | DMA_BUF_ACCESS_DMA -> DMA access for write.
  */
 struct dmabuf_sync_object {
-	struct seqno_fence		base;
+	struct kref			refcount;
 	struct list_head		l_head;
 	struct list_head		g_head;
+	struct seqno_fence		*sfence;
+	struct dma_buf			*dmabuf;
 	spinlock_t			lock;
 	unsigned int			access_type;
 };
@@ -100,10 +102,13 @@ struct dmabuf_sync_priv_ops {
 struct dmabuf_sync {
 	struct list_head		list;
 	struct list_head		syncs;
+	struct seqno_fence		*sfence;
 	void				*priv;
+	unsigned int			obj_cnt;
 	struct dmabuf_sync_priv_ops	*ops;
 	char				name[DMABUF_SYNC_NAME_SIZE];
 	spinlock_t			lock;
+	spinlock_t			flock;
 };
 
 bool dmabuf_sync_is_supported(void);
