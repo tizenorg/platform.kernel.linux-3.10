@@ -13,6 +13,7 @@ struct dmabuf_file {
 	dma_addr_t phys;
 	size_t size;
 	void *virt;
+	int fd;
 };
 
 static int dmabuf_attach(struct dma_buf *buf, struct device *dev,
@@ -203,6 +204,8 @@ static int dmabuf_ioctl_create(struct dmabuf_file *priv, const void __user *data
 	if (!priv->virt)
 		return -ENOMEM;
 
+	args.flags |= O_RDWR;
+
 	priv->buf = dma_buf_export(priv, &dmabuf_ops, args.size, args.flags,
 				   NULL);
 	if (!priv->buf) {
@@ -242,13 +245,19 @@ static int dmabuf_ioctl_export(struct dmabuf_file *priv, unsigned long flags)
 {
 	int err;
 
+	struct dmabuf_create *buf = (struct dmabuf_create *)flags;
 	get_dma_buf(priv->buf);
 
 	err = dma_buf_fd(priv->buf, flags);
 	if (err < 0)
 		dma_buf_put(priv->buf);
 
-	return err;
+	priv->fd = err;
+
+	if (copy_to_user(&buf->fd, &err, 4))
+		return -EFAULT;
+
+	return 0;
 }
 
 static long dmabuf_file_ioctl(struct file *file, unsigned int cmd,

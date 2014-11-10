@@ -1,8 +1,10 @@
 #include <linux/ioctl.h>
+#include <linux/types.h>
 
 struct dmabuf_create {
 	__u32 flags;
 	__u32 size;
+	__u32 fd;
 };
 
 #define DMABUF_IOCTL_BASE	'D'

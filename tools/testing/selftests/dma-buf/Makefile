@@ -1,8 +1,8 @@
 CFLAGS=
-LDFLAGS=-lpthread
+LDFLAGS=-lpthread -static
 
 all:
-	gcc $(CFLAGS) $(LDFLAGS) dmabuf-sync-test.c -o dmabuf-sync-test
+	${CROSS_COMPILE}gcc dmabuf-sync-test.c -o dmabuf-sync-test ${CFLAGS} ${LDFLAGS}
 
 run_tests: all
 	@./dmabuf-sync-test || echo "dmabuf-sync-test: [FAIL]"

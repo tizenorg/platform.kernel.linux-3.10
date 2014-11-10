@@ -8,24 +8,73 @@
 #include <string.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/mman.h>
 
-#include "../../../include/uapi/linux/dma-buf-test.h"
+#include "../../../../include/uapi/linux/dma-buf-test.h"
 
 #define DMA_BUF_DEV "/dev/dmabuf"
 
 /* Global variables */
-int thread_count = 1;
+int thread_count = 100;
+int iterations = 10;
+int dmabuf_fd;
+void *vaddr;
+int buf_size = 1 * 1024 * 1024;
 
 struct dmabuf_sync_thread_data {
 	pthread_t thread;
 	int thread_no;
-	int fd;
+};
+
+static int check_results()
+{
+	int i;
+
+	char *data = vaddr;
+	for (i = 0; i < buf_size; i++) {
+		if (data[0] != data[i])
+			return -1;
+	}
+	return 0;
 }
 
 void *dmabuf_sync_thread(void *data)
 {
+	int i, err_count = 0;
 	struct dmabuf_sync_thread_data *sync_data = data;
+	struct flock lock;
 
+	srand(time(0));
+	memset(&lock, 0, sizeof(struct flock));
+	lock.l_whence = SEEK_CUR;
+
+	getchar();
+
+	for (i = 0; i < iterations; i++) {
+		char val = rand() % 256;
+
+		lock.l_type = F_WRLCK;
+		if (fcntl(dmabuf_fd, F_SETLKW, &lock) == -1) {
+			perror("Cannot set lock");
+			return NULL;
+		}
+
+		memset(vaddr, val, buf_size);
+
+		if (check_results())
+			err_count++;
+
+		lock.l_type = F_UNLCK;
+		if (fcntl(dmabuf_fd, F_SETLKW, &lock) == -1) {
+			perror("Cannot set unlock");
+			return NULL;
+		}
+	}
+
+	printf("thread:%d error_count:%d\n",  sync_data->thread_no, err_count);
+
+	return NULL;
 }
 
 static void usage(char *name)
@@ -56,7 +105,7 @@ int main(int argc, char **argv)
 
 	fd = open(DMA_BUF_DEV, O_RDWR);
 	if (fd < 0) {
-		perror("cannot open %s\n", DMA_BUF_DEV);
+		perror("cannot open device\n");
 		return -1;
 	}
 
@@ -68,6 +117,22 @@ int main(int argc, char **argv)
 		perror("ioctl DMABUF_IOCTL_CREATE error\n");
 		goto err_ioctl;
 	}
+
+	err = ioctl(fd, DMABUF_IOCTL_EXPORT, &buf);
+	if (err < 0) {
+		perror("ioctl DMABUF_IOCTL_EXPORT error\n");
+		goto err_alloc;
+	}
+
+	dmabuf_fd = buf.fd;
+
+	vaddr = mmap(NULL, buf.size, PROT_READ | PROT_WRITE, MAP_PRIVATE, dmabuf_fd, 0);
+	if (vaddr == MAP_FAILED) {
+		perror("mmap error\n");
+		goto err_alloc;
+	}
+
+	memset(vaddr, 0xff, 1 * 1024 * 1024);
 
 	data = malloc(sizeof(struct dmabuf_sync_thread_data) * thread_count);
 	if (!data) {
