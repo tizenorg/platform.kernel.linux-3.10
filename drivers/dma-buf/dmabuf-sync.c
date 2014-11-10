@@ -22,7 +22,7 @@
 #include <linux/reservation.h>
 #include <linux/dmabuf-sync.h>
 
-#define DEFAULT_SYNC_TIMEOUT	2000	/* in millisecond. */
+#define DEFAULT_SYNC_TIMEOUT	5000	/* in millisecond. */
 #define BEGIN_CPU_ACCESS(old, new_type)	\
 			((old->accessed_type & DMA_BUF_ACCESS_DMA_W) == \
 			  DMA_BUF_ACCESS_DMA_W && new_type == DMA_BUF_ACCESS_R)
@@ -46,6 +46,7 @@ static void sobj_release(struct kref *kref)
 		container_of(kref, struct dmabuf_sync_object, refcount);
 
 	kfree(sobj);
+	fence_put(&sobj->sfence->base);
 }
 
 /*
@@ -265,6 +266,7 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 	sobj->dmabuf = dmabuf;
 	seqno_fence_init(sobj->sfence, &sync->flock, dmabuf, ctx,
 				0, 0, ++seqno, &fence_default_ops);
+	fence_get(&sobj->sfence->base);
 
 	for (i = 0; i < sync->obj_cnt; i++)
 		fence_get(&sync->sfence->base);
@@ -665,6 +667,7 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 	sobj->dmabuf = dmabuf;
 	seqno_fence_init(sobj->sfence, &sobj->lock, dmabuf, ctx, 0, 0, ++seqno,
 				&fence_default_ops);
+	fence_get(&sobj->sfence->base);
 
 	spin_lock_irqsave(&orders_lock, o_flags);
 	list_add_tail(&sobj->g_head, &orders);
@@ -735,13 +738,20 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 	unsigned long s_flags;
 	int ret = -EAGAIN;
 
+	rcu_read_lock();
+
 	spin_lock_irqsave(&sync->lock, s_flags);
 	list_for_each_entry(sobj, &sync->syncs, l_head) {
+		struct fence *fence;
+
 		spin_unlock_irqrestore(&sync->lock, s_flags);
+
+		fence = &sobj->sfence->base;
+		fence = rcu_dereference(fence);
 
 		remove_obj_from_req_queue(sobj);
 
-		ret = fence_signal(&sobj->sfence->base);
+		ret = fence_signal(fence);
 		if (ret) {
 			pr_warning("signal request has been failed.\n");
 			spin_lock_irqsave(&sync->lock, s_flags);
@@ -751,6 +761,8 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 		spin_lock_irqsave(&sync->lock, s_flags);
 	}
 	spin_unlock_irqrestore(&sync->lock, s_flags);
+
+	rcu_read_unlock();
 
 	return ret;
 }
