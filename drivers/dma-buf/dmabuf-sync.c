@@ -45,8 +45,9 @@ static void sobj_release(struct kref *kref)
 	struct dmabuf_sync_object *sobj =
 		container_of(kref, struct dmabuf_sync_object, refcount);
 
+	/* TODO */
+	//fence_put(&sobj->sfence->base);
 	kfree(sobj);
-	fence_put(&sobj->sfence->base);
 }
 
 /*
@@ -298,9 +299,11 @@ static void dmabuf_sync_put_objs(struct dmabuf_sync *sync)
 
 		spin_unlock_irqrestore(&sync->lock, s_flags);
 
+		sync->obj_cnt--;
 		list_del_init(&sobj->l_head);
 		fence_put(&sobj->sfence->base);
-		sobj_put(sobj);
+		/* TODO. fence->lock could be accessed. */
+//		sobj_put(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
 	}
@@ -329,9 +332,11 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
 		if (sobj->dmabuf != dmabuf)
 			continue;
 
+		sync->obj_cnt--;
 		list_del_init(&sobj->l_head);
 		fence_put(&sobj->sfence->base);
-		sobj_put(sobj);
+		/* TODO. fence->lock could be accessed. */
+//		sobj_put(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
 		break;
@@ -779,9 +784,16 @@ static int dmabuf_sync_signal_fence(struct fence *fence)
 
 	remove_obj_from_req_queue(sobj);
 
+	rcu_read_unlock();
+
 	ret = fence_signal(fence);
 	if (ret)
 		pr_warning("signal request has been failed.\n");
+
+	/* TODO. fence->lock could be accessed. */
+//	sobj_put(sobj);
+
+	rcu_read_lock();
 
 	return ret;
 }
@@ -810,11 +822,22 @@ int dmabuf_sync_signal(struct dma_buf *dmabuf)
 	fence = rcu_dereference(ro->fence_excl);
 	if (fence) {
 		if (fence->context == (unsigned int)current) {
+			/*
+			 * If this fence is already signaled,
+			 * this context has its own shared fence
+			 * so go check the shared fence.
+			 */
+			if (fence_is_signaled(fence)) {
+				fence = NULL;
+				goto out_to_shared;
+			}
 			dmabuf_sync_signal_fence(fence);
 			goto out;
-		}
+		} else
+			fence = NULL;
 	}
 
+out_to_shared:
 	rol = rcu_dereference(ro->fence);
 	if (!rol)
 		goto out;
@@ -825,14 +848,22 @@ int dmabuf_sync_signal(struct dma_buf *dmabuf)
 		if (!fence)
 			continue;
 
-		if (fence && fence->context != (unsigned int)current)
+		if (fence && fence->context != (unsigned int)current) {
+			fence = NULL;
 			continue;
+		}
+
+		/* There should be no such case. */
+		if (fence_is_signaled(fence))
+			WARN_ON(1);
 
 		break;
 	}
 
 	if (fence)
 		dmabuf_sync_signal_fence(fence);
+	else
+		WARN_ON(1);
 
 out:
 	rcu_read_unlock();
@@ -872,6 +903,7 @@ free_sync:
 	if (sync->ops && sync->ops->free)
 		sync->ops->free(sync->priv);
 
-	kfree(sync);
+	/* TODO. fence->lock could be accessed. */
+//	kfree(sync);
 }
 EXPORT_SYMBOL_GPL(dmabuf_sync_fini);
