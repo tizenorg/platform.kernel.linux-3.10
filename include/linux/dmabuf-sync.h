@@ -83,7 +83,6 @@ struct dmabuf_sync_object {
 	struct list_head		g_head;
 	struct seqno_fence		*sfence;
 	struct dma_buf			*dmabuf;
-	spinlock_t			lock;
 	unsigned int			access_type;
 };
 
@@ -102,13 +101,14 @@ struct dmabuf_sync_priv_ops {
 struct dmabuf_sync {
 	struct list_head		list;
 	struct list_head		syncs;
-	struct seqno_fence		*sfence;
-	void				*priv;
+	struct seqno_fence		sfence;
 	unsigned int			obj_cnt;
 	struct dmabuf_sync_priv_ops	*ops;
 	char				name[DMABUF_SYNC_NAME_SIZE];
+	struct dmabuf_sync_object	*single_sobj;
 	spinlock_t			lock;
 	spinlock_t			flock;
+	void				*priv;
 };
 
 bool dmabuf_sync_is_supported(void);
@@ -134,3 +134,11 @@ long dmabuf_sync_wait_all(struct dmabuf_sync *sync);
 int dmabuf_sync_signal(struct dma_buf *dmabuf);
 
 int dmabuf_sync_signal_all(struct dmabuf_sync *sync);
+
+static inline struct dmabuf_sync *to_dmabuf_sync(struct seqno_fence *sf)
+{
+	if (!sf)
+		return NULL;
+
+	return container_of(sf, struct dmabuf_sync, sfence);
+}
