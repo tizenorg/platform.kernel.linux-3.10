@@ -45,6 +45,8 @@ static void sobj_release(struct kref *kref)
 	struct dmabuf_sync_object *sobj =
 		container_of(kref, struct dmabuf_sync_object, refcount);
 
+	/* TODO. */
+//	fence_put(&sobj->sfence->base);
 	kfree(sobj);
 }
 
@@ -88,8 +90,9 @@ static bool dmabuf_sync_enable_sw_signaling(struct fence *fence)
 static void sfence_object_release(struct fence *fence)
 {
 	struct seqno_fence *sf = to_seqno_fence(fence);
+	struct dmabuf_sync *sync = to_dmabuf_sync(sf);
 
-	kfree(sf);
+	kfree(sync);
 }
 
 static const struct fence_ops fence_default_ops = {
@@ -256,7 +259,6 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 	kref_init(&sobj->refcount);
 	sobj->access_type = type;
 	sobj->sfence = &sync->sfence;
-	fence_get(&sync->sfence.base);
 	sobj->dmabuf = dmabuf;
 	get_dma_buf(dmabuf);
 
@@ -288,8 +290,6 @@ static void dmabuf_sync_put_objs(struct dmabuf_sync *sync)
 
 		sync->obj_cnt--;
 		list_del_init(&sobj->l_head);
-		fence_put(&sobj->sfence->base);
-		/* TODO. fence->lock could be accessed. */
 		sobj_put(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
@@ -321,8 +321,6 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
 
 		sync->obj_cnt--;
 		list_del_init(&sobj->l_head);
-		fence_put(&sobj->sfence->base);
-		/* TODO. fence->lock could be accessed. */
 		sobj_put(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
@@ -583,10 +581,8 @@ go_back_to_wait:
 		 * yield the ownership of a buffer to other thread for buffer
 		 * access ordering so go wait for the thread.
 		 */
-		if (is_higher_priority_than_current(dmabuf, sobj)) {
-			/* TODO */
+		if (is_higher_priority_than_current(dmabuf, sobj))
 			goto go_back_to_wait;
-		}
 
 out_enable_signal:
 		fence_enable_sw_signaling(&sf->base);
@@ -637,7 +633,6 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 	sync->single_sobj = sobj;
 	seqno_fence_init(&sync->sfence, &sync->flock, dmabuf, ctx, 0,
 				++seqno, 0, &fence_default_ops);
-	fence_get(&sync->sfence.base);
 
 	spin_lock_irqsave(&orders_lock, o_flags);
 	list_add_tail(&sobj->g_head, &orders);
@@ -677,15 +672,12 @@ go_back_to_wait:
 	 * yield the ownership of a buffer to other thread for buffer
 	 * access ordering so go wait for the thread.
 	 */
-	if (is_higher_priority_than_current(dmabuf, sobj)) {
-		/* TODO */
+	if (is_higher_priority_than_current(dmabuf, sobj))
 		goto go_back_to_wait;
-	}
 
 out_enable_signal:
 	fence_enable_sw_signaling(&sync->sfence.base);
 	dmabuf_sync_update(sobj);
-	fence_put(&sync->sfence.base);
 	dmabuf_sync_cache_ops(sobj);
 
 	return timeout;
@@ -763,7 +755,6 @@ static int dmabuf_sync_signal_fence(struct fence *fence)
 	if (ret)
 		pr_warning("signal request has been failed.\n");
 
-	/* TODO. fence->lock could be accessed. */
 	sobj_put(sync->single_sobj);
 
 	rcu_read_lock();
@@ -875,8 +866,5 @@ free_sync:
 
 	if (sync->ops && sync->ops->free)
 		sync->ops->free(sync->priv);
-
-	/* TODO. fence->lock could be accessed. */
-//	kfree(sync);
 }
 EXPORT_SYMBOL_GPL(dmabuf_sync_fini);
