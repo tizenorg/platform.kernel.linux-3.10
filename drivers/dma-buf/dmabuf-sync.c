@@ -45,8 +45,6 @@ static void sobj_release(struct kref *kref)
 	struct dmabuf_sync_object *sobj =
 		container_of(kref, struct dmabuf_sync_object, refcount);
 
-	/* TODO */
-	//fence_put(&sobj->sfence->base);
 	kfree(sobj);
 }
 
@@ -292,7 +290,7 @@ static void dmabuf_sync_put_objs(struct dmabuf_sync *sync)
 		list_del_init(&sobj->l_head);
 		fence_put(&sobj->sfence->base);
 		/* TODO. fence->lock could be accessed. */
-//		sobj_put(sobj);
+		sobj_put(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
 	}
@@ -325,7 +323,7 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
 		list_del_init(&sobj->l_head);
 		fence_put(&sobj->sfence->base);
 		/* TODO. fence->lock could be accessed. */
-//		sobj_put(sobj);
+		sobj_put(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
 		break;
@@ -685,9 +683,9 @@ go_back_to_wait:
 	}
 
 out_enable_signal:
-	fence_enable_sw_signaling(&sobj->sfence->base);
+	fence_enable_sw_signaling(&sync->sfence.base);
 	dmabuf_sync_update(sobj);
-	fence_put(&sobj->sfence->base);
+	fence_put(&sync->sfence.base);
 	dmabuf_sync_cache_ops(sobj);
 
 	return timeout;
@@ -730,6 +728,14 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 			break;
 		}
 
+		/*
+		 * Set sync_but, which is a signaled buffer recently.
+		 *
+		 * When seqno_release is called, dma_buf_put is called
+		 * with seqno_fence->sync_buf.
+		 */
+		sobj->sfence->sync_buf = sobj->dmabuf;
+
 		spin_lock_irqsave(&sync->lock, s_flags);
 	}
 	spin_unlock_irqrestore(&sync->lock, s_flags);
@@ -758,7 +764,7 @@ static int dmabuf_sync_signal_fence(struct fence *fence)
 		pr_warning("signal request has been failed.\n");
 
 	/* TODO. fence->lock could be accessed. */
-//	sobj_put(sobj);
+	sobj_put(sync->single_sobj);
 
 	rcu_read_lock();
 
