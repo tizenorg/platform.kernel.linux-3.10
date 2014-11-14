@@ -708,6 +708,7 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 	spin_lock_irqsave(&sync->lock, s_flags);
 	list_for_each_entry(sobj, &sync->syncs, l_head) {
 		struct fence *fence;
+		unsigned long flags;
 
 		spin_unlock_irqrestore(&sync->lock, s_flags);
 
@@ -716,6 +717,8 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 
 		remove_obj_from_req_queue(sobj);
 
+		spin_lock_irqsave(fence->lock, flags);
+
 		/*
 		 * Drop a reference if there is no any task waiting for signal.
 		 * if any task then a reference of this fence will be dropped
@@ -723,6 +726,8 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 		 */
 		if (list_empty(&fence->cb_list))
 			fence_put(fence);
+
+		spin_unlock_irqrestore(fence->lock, flags);
 
 		ret = fence_signal(fence);
 		if (ret) {
@@ -755,6 +760,7 @@ static int dmabuf_sync_signal_fence(struct fence *fence)
 {
 	struct dmabuf_sync *sync;
 	struct seqno_fence *sf;
+	unsigned long flags;
 	int ret;
 
 	sf = to_seqno_fence(fence);
@@ -764,6 +770,8 @@ static int dmabuf_sync_signal_fence(struct fence *fence)
 
 	rcu_read_unlock();
 
+	spin_lock_irqsave(fence->lock, flags);
+
 	/*
 	 * Drop a reference if there is no any task waiting for signal.
 	 * if any task then a reference of this fence will be dropped
@@ -771,6 +779,8 @@ static int dmabuf_sync_signal_fence(struct fence *fence)
 	 */
 	if (list_empty(&fence->cb_list))
 		fence_put(fence);
+
+	spin_unlock_irqrestore(fence->lock, flags);
 
 	ret = fence_signal(fence);
 	if (ret)
