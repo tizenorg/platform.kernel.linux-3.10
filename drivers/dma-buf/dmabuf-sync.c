@@ -45,8 +45,7 @@ static void sobj_release(struct kref *kref)
 	struct dmabuf_sync_object *sobj =
 		container_of(kref, struct dmabuf_sync_object, refcount);
 
-	/* TODO. */
-//	fence_put(&sobj->sfence->base);
+	fence_put(&sobj->sfence->base);
 	kfree(sobj);
 }
 
@@ -92,7 +91,8 @@ static void sfence_object_release(struct fence *fence)
 	struct seqno_fence *sf = to_seqno_fence(fence);
 	struct dmabuf_sync *sync = to_dmabuf_sync(sf);
 
-	kfree(sync);
+	/* TODO */
+//	kfree(sync);
 }
 
 static const struct fence_ops fence_default_ops = {
@@ -259,12 +259,14 @@ static int dmabuf_sync_get_obj(struct dmabuf_sync *sync, struct dma_buf *dmabuf,
 	kref_init(&sobj->refcount);
 	sobj->access_type = type;
 	sobj->sfence = &sync->sfence;
+	fence_get(&sobj->sfence->base);
 	sobj->dmabuf = dmabuf;
 	get_dma_buf(dmabuf);
 
 	spin_lock_irqsave(&sync->lock, s_flags);
 	sync->obj_cnt++;
 	list_add_tail(&sobj->l_head, &sync->syncs);
+	sobj_get(sobj);
 	spin_unlock_irqrestore(&sync->lock, s_flags);
 
 	return 0;
@@ -290,6 +292,7 @@ static void dmabuf_sync_put_objs(struct dmabuf_sync *sync)
 
 		sync->obj_cnt--;
 		list_del_init(&sobj->l_head);
+		fence_put(&sobj->sfence->base);
 		sobj_put(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
@@ -321,6 +324,7 @@ static void dmabuf_sync_put_obj(struct dmabuf_sync *sync,
 
 		sync->obj_cnt--;
 		list_del_init(&sobj->l_head);
+		fence_put(&sobj->sfence->base);
 		sobj_put(sobj);
 
 		spin_lock_irqsave(&sync->lock, s_flags);
@@ -455,10 +459,9 @@ static void remove_obj_from_req_queue(struct dmabuf_sync_object *csobj)
 
 	spin_lock_irqsave(&orders_lock, o_flags);
 	if (list_empty(&orders)) {
-		spin_unlock_irqrestore(&orders_lock, o_flags);
 		/* There should be no such case. */
 		WARN_ON(1);
-		return;
+		goto out;
 	}
 
 	list_for_each_entry_safe(sobj, next, &orders, g_head) {
@@ -469,6 +472,7 @@ static void remove_obj_from_req_queue(struct dmabuf_sync_object *csobj)
 		}
 
 	}
+out:
 	spin_unlock_irqrestore(&orders_lock, o_flags);
 }
 
@@ -625,8 +629,8 @@ long dmabuf_sync_wait(struct dma_buf *dmabuf, unsigned int ctx,
 	}
 
 	spin_lock_init(&sync->flock);
-	kref_init(&sobj->refcount);
 
+	kref_init(&sobj->refcount);
 	sobj->access_type = access_type;
 	sobj->sfence = &sync->sfence;
 	sobj->dmabuf = dmabuf;
@@ -684,7 +688,6 @@ out_enable_signal:
 }
 EXPORT_SYMBOL_GPL(dmabuf_sync_wait);
 
-
 /**
  * dmabuf_sync_signal_all - wake up all threads blocked when tried to access
  *				any buffer of sync object.
@@ -713,12 +716,22 @@ int dmabuf_sync_signal_all(struct dmabuf_sync *sync)
 
 		remove_obj_from_req_queue(sobj);
 
+		/*
+		 * Drop a reference if there is no any task waiting for signal.
+		 * if any task then a reference of this fence will be dropped
+		 * by that the task calls dmabuf_sync_update() after waked up.
+		 */
+		if (list_empty(&fence->cb_list))
+			fence_put(fence);
+
 		ret = fence_signal(fence);
 		if (ret) {
 			pr_warning("signal request has been failed.\n");
 			spin_lock_irqsave(&sync->lock, s_flags);
 			break;
 		}
+
+		sobj_put(sobj);
 
 		/*
 		 * Set sync_but, which is a signaled buffer recently.
@@ -750,6 +763,14 @@ static int dmabuf_sync_signal_fence(struct fence *fence)
 	remove_obj_from_req_queue(sync->single_sobj);
 
 	rcu_read_unlock();
+
+	/*
+	 * Drop a reference if there is no any task waiting for signal.
+	 * if any task then a reference of this fence will be dropped
+	 * by that the task calls dmabuf_sync_update() after waked up.
+	 */
+	if (list_empty(&fence->cb_list))
+		fence_put(fence);
 
 	ret = fence_signal(fence);
 	if (ret)
