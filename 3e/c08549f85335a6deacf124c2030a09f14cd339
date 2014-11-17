@@ -1,0 +1,7 @@
+Code-Review+2: Inki Dae <inki.dae@samsung.com>
+Verified+1: Inki Dae <inki.dae@samsung.com>
+Submitted-by: Inki Dae <inki.dae@samsung.com>
+Submitted-at: Mon, 17 Nov 2014 07:20:48 -0800
+Reviewed-on: https://review.tizen.org/gerrit/30385
+Project: platform/kernel/linux-3.10
+Branch: refs/heads/dmafence
