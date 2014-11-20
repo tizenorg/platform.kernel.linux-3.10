@@ -1,6 +1,14 @@
 Code-Review+2: Chanho Park <chanho61.park@samsung.com>
 Verified+1: Chanho Park <chanho61.park@samsung.com>
 Submitted-by: Chanho Park <chanho61.park@samsung.com>
+Submitted-at: Wed, 15 Oct 2014 02:45:10 -0800
+Reviewed-on: https://review.tizen.org/gerrit/28749
+Project: platform/kernel/linux-3.10
+Branch: refs/heads/tizen
+
+Code-Review+2: Chanho Park <chanho61.park@samsung.com>
+Verified+1: Chanho Park <chanho61.park@samsung.com>
+Submitted-by: Chanho Park <chanho61.park@samsung.com>
 Submitted-at: Wed, 15 Oct 2014 03:45:10 -0700
 Reviewed-on: https://review.tizen.org/gerrit/28749
 Project: platform/kernel/linux-3.10
