@@ -94,6 +94,20 @@ config SOC_EXYNOS5250
 	help
 	  Enable EXYNOS5250 SoC support
 
+config SOC_EXYNOS5800
+	bool "SAMSUNG EXYNOS5800"
+	default n
+	depends on ARCH_EXYNOS5
+	select PINCTRL
+	select PINCTRL_EXYNOS
+	select PM_GENERIC_DOMAINS if PM
+	select S5P_PM if PM
+	select S5P_SLEEP if SUSPEND
+	select SAMSUNG_DMADEV
+	select L2_AUTO_CLOCK_DISABLE
+	help
+	  Enable EXYNOS5800 SoC support
+
 config SOC_EXYNOS5440
 	bool "SAMSUNG EXYNOS5440"
 	default y
