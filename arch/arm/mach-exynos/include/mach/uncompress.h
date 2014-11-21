@@ -34,7 +34,7 @@ static void arch_detect_cpu(void)
 	 *    bits 23:20 describe the exynosX family
 	 *
 	 */
-	chip_id >>= 20;
+	chip_id >>= 24;
 	chip_id &= 0xf;
 
 	if (chip_id == 0x5)
