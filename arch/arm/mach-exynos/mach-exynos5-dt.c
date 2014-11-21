@@ -55,6 +55,7 @@ static void __init exynos5_dt_machine_init(void)
 static char const *exynos5_dt_compat[] __initdata = {
 	"samsung,exynos5250",
 	"samsung,exynos5440",
+	"samsung,exynos5800",
 	NULL
 };
 
@@ -63,6 +64,7 @@ DT_MACHINE_START(EXYNOS5_DT, "SAMSUNG EXYNOS5 (Flattened Device Tree)")
 	.init_irq	= exynos5_init_irq,
 	.smp		= smp_ops(exynos_smp_ops),
 	.map_io		= exynos5_dt_map_io,
+	.init_early	= exynos_firmware_init,
 	.init_machine	= exynos5_dt_machine_init,
 	.init_late	= exynos_init_late,
 	.init_time	= exynos_init_time,
