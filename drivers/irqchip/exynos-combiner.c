@@ -267,7 +267,11 @@ static int __init combiner_of_init(struct device_node *np,
 	 * get their IRQ from DT, remove this in order to get dynamic
 	 * allocation.
 	 */
-	irq_base = 160;
+	if (of_property_read_u32(np, "samsung,combiner-irqbase", &irq_base)) {
+		irq_base = 160;
+		pr_info("%s: irq base not specified, setting default as %d.\n",
+				__func__, irq_base);
+	}
 
 	combiner_init(combiner_base, np, max_nr, irq_base);
 
