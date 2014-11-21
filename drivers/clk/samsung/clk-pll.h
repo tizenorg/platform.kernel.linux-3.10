@@ -12,6 +12,13 @@
 #ifndef __SAMSUNG_CLK_PLL_H
 #define __SAMSUNG_CLK_PLL_H
 
+struct samsung_pll_rate_table {
+	unsigned int rate;
+	unsigned int pdiv;
+	unsigned int mdiv;
+	unsigned int sdiv;
+	unsigned int kdiv;
+};
 enum pll45xx_type {
 	pll_4500,
 	pll_4502,
@@ -53,5 +60,11 @@ extern struct clk * __init samsung_clk_register_pll46xx(const char *name,
 extern struct clk * __init samsung_clk_register_pll2550x(const char *name,
 			const char *pname, const void __iomem *reg_base,
 			const unsigned long offset);
+extern struct clk * __init samsung_clk_register_pll2550(const char *name,
+			const char *pname, void __iomem *reg_base,
+			struct pll_pms *pms, const unsigned long offset);
+extern struct clk * __init samsung_clk_register_pll2650x(const char *name,
+			const char *pname, void __iomem *reg_base,
+			struct pll_pms *pms);
 
 #endif /* __SAMSUNG_CLK_PLL_H */
