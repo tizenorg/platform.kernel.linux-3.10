@@ -55,6 +55,7 @@ static void __init exynos5_dt_machine_init(void)
 static char const *exynos5_dt_compat[] __initdata = {
 	"samsung,exynos5250",
 	"samsung,exynos5440",
+	"samsung,exynos5800",
 	NULL
 };
 
