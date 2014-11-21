@@ -31,11 +31,15 @@ static void arch_detect_cpu(void)
 
 	/*
 	 * product_id is bits 31:12
-	 *    bits 23:20 describe the exynosX family
+	 *    bits 27:24 describe the exynosX family
 	 *
 	 */
-	chip_id >>= 20;
-	chip_id &= 0xf;
+	if (chip_id == 0x43520000) {
+		chip_id = 0x5;
+	} else {
+		chip_id >>= 24;
+		chip_id &= 0xf;
+	}
 
 	if (chip_id == 0x5)
 		uart_base = (volatile u8 *)EXYNOS5_PA_UART + (S3C_UART_OFFSET * CONFIG_S3C_LOWLEVEL_UART_PORT);
