@@ -41,6 +41,8 @@ enum dw_mci_exynos_type {
 	DW_MCI_TYPE_EXYNOS4210,
 	DW_MCI_TYPE_EXYNOS4412,
 	DW_MCI_TYPE_EXYNOS5250,
+	DW_MCI_TYPE_EXYNOS5420,
+	DW_MCI_TYPE_EXYNOS5420_SMU,
 };
 
 /* Exynos implementation specific driver private data */
@@ -64,6 +66,12 @@ static struct dw_mci_exynos_compatible {
 	}, {
 		.compatible	= "samsung,exynos5250-dw-mshc",
 		.ctrl_type	= DW_MCI_TYPE_EXYNOS5250,
+	}, {
+		.compatible	= "samsung,exynos5420-dw-mshc",
+		.ctrl_type	= DW_MCI_TYPE_EXYNOS5420,
+	}, {
+		.compatible	= "samsung,exynos5420-dw-mshc-smu",
+		.ctrl_type	= DW_MCI_TYPE_EXYNOS5420_SMU,
 	},
 };
 
@@ -85,12 +93,14 @@ static int dw_mci_exynos_priv_init(struct dw_mci *host)
 	}
 
 	host->priv = priv;
+
 	return 0;
 }
 
 static int dw_mci_exynos_setup_clock(struct dw_mci *host)
 {
 	struct dw_mci_exynos_priv_data *priv = host->priv;
+	unsigned long rate;
 
 	if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS5250)
 		host->bus_hz /= (priv->ciu_div + 1);
@@ -98,6 +108,10 @@ static int dw_mci_exynos_setup_clock(struct dw_mci *host)
 		host->bus_hz /= EXYNOS4412_FIXED_CIU_CLK_DIV;
 	else if (priv->ctrl_type == DW_MCI_TYPE_EXYNOS4210)
 		host->bus_hz /= EXYNOS4210_FIXED_CIU_CLK_DIV;
+	else {
+		rate = clk_get_rate(host->ciu_clk);
+		host->bus_hz = rate / (priv->ciu_div + 1);
+	}
 
 	return 0;
 }
@@ -179,6 +193,10 @@ static const struct of_device_id dw_mci_exynos_match[] = {
 	{ .compatible = "samsung,exynos4412-dw-mshc",
 			.data = &exynos_drv_data, },
 	{ .compatible = "samsung,exynos5250-dw-mshc",
+			.data = &exynos_drv_data, },
+	{ .compatible = "samsung,exynos5420-dw-mshc",
+			.data = &exynos_drv_data, },
+	{ .compatible = "samsung,exynos5420-dw-mshc-smu",
 			.data = &exynos_drv_data, },
 	{},
 };
