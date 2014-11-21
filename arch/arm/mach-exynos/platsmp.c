@@ -156,6 +156,9 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 {
 	unsigned long timeout;
 	unsigned long phys_cpu = cpu_logical_map(cpu);
+	u32 core_id = MPIDR_AFFINITY_LEVEL(phys_cpu, 0);
+	u32 cluster_id = MPIDR_AFFINITY_LEVEL(phys_cpu, 1);
+	u32 cpu_idx = (cluster_id * 4) + core_id;
 
 	/*
 	 * Set synchronisation state between this boot processor
@@ -173,19 +176,19 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 	 */
 	write_pen_release(phys_cpu);
 
-	if (!(__raw_readl(S5P_ARM_CORE_STATUS(phys_cpu))
+	if (!(__raw_readl(S5P_ARM_CORE_STATUS(cpu_idx))
 		& S5P_CORE_LOCAL_PWR_EN)) {
 		u32 core_conf = 0;
 
 		core_conf |= S5P_CORE_LOCAL_PWR_EN;
 		if (soc_is_exynos3250())
 			core_conf |= S5P_CORE_AUTOWAKEUP_EN;
-		__raw_writel(core_conf, S5P_ARM_CORE_CONFIGURATION(phys_cpu));
+		__raw_writel(core_conf, S5P_ARM_CORE_CONFIGURATION(cpu_idx));
 
 		timeout = 10;
 
 		/* wait max 10 ms until cpu1 is on */
-		while ((__raw_readl(S5P_ARM_CORE_STATUS(phys_cpu))
+		while ((__raw_readl(S5P_ARM_CORE_STATUS(cpu_idx))
 			& S5P_CORE_LOCAL_PWR_EN) != S5P_CORE_LOCAL_PWR_EN) {
 			if (timeout-- == 0)
 				break;
@@ -209,13 +212,13 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 			udelay(10);
 		udelay(10);
 
-		tmp = __raw_readl(S5P_ARM_CORE_STATUS(phys_cpu));
+		tmp = __raw_readl(S5P_ARM_CORE_STATUS(cpu_idx));
 		tmp |= (S5P_CORE_LOCAL_PWR_EN << 8);
-		__raw_writel(tmp, S5P_ARM_CORE_STATUS(phys_cpu));
+		__raw_writel(tmp, S5P_ARM_CORE_STATUS(cpu_idx));
 	}
 
 	if (soc_is_exynos3250())
-		__raw_writel(EXYNOS3_COREPORESET(phys_cpu), EXYNOS_SWRESET);
+		__raw_writel(EXYNOS3_COREPORESET(cpu_idx), EXYNOS_SWRESET);
 
 	/*
 	 * Send the secondary CPU a soft interrupt, thereby causing
@@ -235,10 +238,10 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 		 * Try to set boot address using firmware first
 		 * and fall back to boot register if it fails.
 		 */
-		if (call_firmware_op(set_cpu_boot_addr, phys_cpu, boot_addr))
-			__raw_writel(boot_addr, cpu_boot_reg(phys_cpu));
+		if (call_firmware_op(set_cpu_boot_addr, cpu_idx, boot_addr))
+			__raw_writel(boot_addr, cpu_boot_reg(cpu_idx));
 
-		call_firmware_op(cpu_boot, phys_cpu);
+		call_firmware_op(cpu_boot, cpu_idx);
 
 		if (soc_is_exynos3250())
 			dsb_sev();
@@ -290,7 +293,7 @@ static void __init exynos_smp_prepare_cpus(unsigned int max_cpus)
 {
 	int i;
 
-	if (!(soc_is_exynos3250() || soc_is_exynos5250() || soc_is_exynos5440()))
+	if (!(soc_is_exynos3250() || soc_is_exynos5250() || soc_is_exynos5440())
 		scu_enable(scu_base_addr());
 
 	/*
