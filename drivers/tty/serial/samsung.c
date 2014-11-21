@@ -611,7 +611,6 @@ static unsigned int s3c24xx_serial_getclk(struct s3c24xx_uart_port *ourport,
 	struct clk *clk;
 	unsigned long rate;
 	unsigned int cnt, baud, quot, clk_sel, best_quot = 0;
-	char clkname[MAX_CLK_NAME_LENGTH];
 	int calc_deviation, deviation = (1 << 30) - 1;
 
 	clk_sel = (ourport->cfg->clk_sel) ? ourport->cfg->clk_sel :
@@ -620,8 +619,7 @@ static unsigned int s3c24xx_serial_getclk(struct s3c24xx_uart_port *ourport,
 		if (!(clk_sel & (1 << cnt)))
 			continue;
 
-		sprintf(clkname, "clk_uart_baud%d", cnt);
-		clk = clk_get(ourport->port.dev, clkname);
+		clk = clk_get(ourport->port.dev, "clk_uart_baud0");
 		if (IS_ERR(clk))
 			continue;
 
@@ -1165,7 +1163,7 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 	if (ret > 0)
 		ourport->tx_irq = ret;
 
-	ourport->clk	= clk_get(&platdev->dev, "uart");
+	ourport->clk = clk_get(&platdev->dev, "uart");
 	if (IS_ERR(ourport->clk)) {
 		pr_err("%s: Controller clock not found\n",
 				dev_name(&platdev->dev));
@@ -1453,8 +1451,6 @@ s3c24xx_serial_get_options(struct uart_port *port, int *baud,
 	unsigned int ucon;
 	unsigned int ubrdiv;
 	unsigned long rate;
-	unsigned int clk_sel;
-	char clk_name[MAX_CLK_NAME_LENGTH];
 
 	ulcon  = rd_regl(port, S3C2410_ULCON);
 	ucon   = rd_regl(port, S3C2410_UCON);
@@ -1496,11 +1492,7 @@ s3c24xx_serial_get_options(struct uart_port *port, int *baud,
 		}
 
 		/* now calculate the baud rate */
-
-		clk_sel = s3c24xx_serial_getsource(port);
-		sprintf(clk_name, "clk_uart_baud%d", clk_sel);
-
-		clk = clk_get(port->dev, clk_name);
+		clk = clk_get(port->dev, "clk_uart_baud0");
 		if (!IS_ERR(clk))
 			rate = clk_get_rate(clk);
 		else
