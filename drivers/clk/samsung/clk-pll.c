@@ -837,3 +837,350 @@ struct clk * __init samsung_clk_register_pll2550x(const char *name,
 
 	return clk;
 }
+
+/*
+ * PLL2550 Clock Type
+ */
+
+#define PLL2550_PDIV_MASK       (0x3F)
+#define PLL2550_MDIV_MASK       (0x3FF)
+#define PLL2550_SDIV_MASK       (0x7)
+
+#define PLL2550_PDIV_SHIFT      (8)
+#define PLL2550_MDIV_SHIFT      (16)
+#define PLL2550_SDIV_SHIFT      (0)
+
+#define PLL2550_PLL_LOCK	0x0
+#define PLL2550_PLL_CON0	0xF0
+
+#define PLL2550_PLL_LOCK_CONST	200
+#define PLL2550_PLL_CON0_LOCKED	(1 << 29)
+
+struct samsung_clk_pll2550 {
+	struct clk_hw		hw;
+	void __iomem	*reg_base;
+	struct pll_pms          *pms;
+	int			offset;
+};
+
+#define to_clk_pll2550(_hw) container_of(_hw, struct samsung_clk_pll2550, hw)
+
+static inline unsigned long samsung_pll2550_calc_f_out(u64 f_in,
+			u32 p, u32 m, u32 s)
+{
+	f_in *= m;
+	do_div(f_in, (p << s));
+
+	return (unsigned long)f_in;
+}
+
+static unsigned long samsung_pll2550_recalc_rate(struct clk_hw *hw,
+				unsigned long parent_rate)
+{
+	struct samsung_clk_pll2550 *pll = to_clk_pll2550(hw);
+	u32 p, m, s, pll_stat;
+	u64 f_in = parent_rate;
+
+	pll_stat = __raw_readl(pll->reg_base + PLL2550_PLL_CON0);
+
+	p = (pll_stat >> PLL2550_PDIV_SHIFT) & PLL2550_PDIV_MASK;
+	m = (pll_stat >> PLL2550_MDIV_SHIFT) & PLL2550_MDIV_MASK;
+	s = (pll_stat >> PLL2550_SDIV_SHIFT) & PLL2550_SDIV_MASK;
+
+	if (p == 0 && s == 0) {
+		p = 4;
+		m = 0x160;
+		s = 5;
+	}
+
+	return samsung_pll2550_calc_f_out(f_in, p, m, s);
+}
+
+static long samsung_pll2550_round_rate(struct clk_hw *hw,
+				unsigned long drate, unsigned long *prate)
+{
+	struct samsung_clk_pll2550 *pll = to_clk_pll2550(hw);
+	struct pll_pms *pms = pll->pms;
+	int i;
+
+	if (!pms) {
+		pr_err("%s: no pms table passed", __func__);
+		return samsung_pll2550_recalc_rate(hw, *prate);
+	}
+
+	i = get_index(drate, pms);
+	if (i >= 0)
+		return pms[i].f_out;
+
+	return samsung_pll2550_recalc_rate(hw, *prate);
+}
+
+static int samsung_pll2550_set_rate(struct clk_hw *hw, unsigned long drate,
+				unsigned long prate)
+{
+	struct samsung_clk_pll2550 *pll = to_clk_pll2550(hw);
+	struct pll_pms *pms = pll->pms;
+	u32 tmp;
+	int index;
+
+	if (!pms) {
+		pr_err("%s: no pms table passed", __func__);
+		return -ENOTSUPP;
+	}
+
+	index = get_index(drate, pms);
+	if (index < 0)
+		return index;
+
+	/* Define PLL lock time */
+	__raw_writel(pms[index].p * PLL2550_PLL_LOCK_CONST,
+					pll->reg_base + PLL2550_PLL_LOCK);
+
+	/* Change PLL divisors */
+	tmp = __raw_readl(pll->reg_base + PLL2550_PLL_CON0 + pll->offset);
+	tmp &= ~((PLL2550_PDIV_MASK << PLL2550_PDIV_SHIFT) |
+		(PLL2550_MDIV_MASK << PLL2550_MDIV_SHIFT) |
+		(PLL2550_SDIV_MASK << PLL2550_SDIV_SHIFT));
+	tmp |= (pms[index].p << PLL2550_PDIV_SHIFT) |
+		(pms[index].m << PLL2550_MDIV_SHIFT) |
+		(pms[index].s << PLL2550_SDIV_SHIFT);
+	__raw_writel(tmp, pll->reg_base + PLL2550_PLL_CON0 + pll->offset);
+
+	/* Wait for locking */
+	do {
+		cpu_relax();
+		tmp = __raw_readl(pll->reg_base + PLL2550_PLL_CON0 + pll->offset);
+	} while (!(tmp & PLL2550_PLL_CON0_LOCKED));
+
+	return 0;
+}
+
+static const struct clk_ops samsung_pll2550_clk_ops = {
+	.round_rate = samsung_pll2550_round_rate,
+	.set_rate = samsung_pll2550_set_rate,
+	.recalc_rate = samsung_pll2550_recalc_rate,
+};
+
+struct clk * __init samsung_clk_register_pll2550(const char *name,
+			const char *pname, void __iomem *reg_base,
+			struct pll_pms *pms, const unsigned long offset)
+{
+	struct samsung_clk_pll2550 *pll;
+	struct clk *clk;
+	struct clk_init_data init;
+	unsigned long parent_rate;
+	int i;
+
+	pll = kzalloc(sizeof(*pll), GFP_KERNEL);
+	if (!pll) {
+		pr_err("%s: could not allocate pll clk %s\n", __func__, name);
+		return NULL;
+	}
+
+	init.name = name;
+	init.ops = &samsung_pll2550_clk_ops;
+	init.flags = CLK_GET_RATE_NOCACHE;
+	init.parent_names = &pname;
+	init.num_parents = 1;
+
+	pll->hw.init = &init;
+	pll->reg_base = reg_base;
+	pll->offset = offset;
+	pll->pms = pms;
+
+	clk = clk_register(NULL, &pll->hw);
+	if (IS_ERR(clk)) {
+		pr_err("%s: failed to register pll clock %s\n", __func__,
+				name);
+		kfree(pll);
+	}
+
+	if (clk_register_clkdev(clk, name, NULL))
+		pr_err("%s: failed to register lookup for %s", __func__, name);
+
+	/* Fill in received frequency table */
+	parent_rate = clk_get_rate(clk_get_parent(clk));
+	for (i = 0; pms[i].f_out != F_OUT_INVAL; i++)
+		pms[i].f_out = samsung_pll2550_calc_f_out(parent_rate,
+				pms[i].p, pms[i].m, pms[i].s);
+
+
+	return clk;
+}
+
+/*
+ * PLL2650x Clock Type
+ */
+
+#define PLL2650X_MDIV_MASK	(0x1FF)
+#define PLL2650X_PDIV_MASK	(0x3F)
+#define PLL2650X_SDIV_MASK	(0x7)
+#define PLL2650X_MDIV_SHIFT	(16)
+#define PLL2650X_PDIV_SHIFT	(8)
+#define PLL2650X_SDIV_SHIFT	(0)
+
+#define PLL2650X_KDIV_MASK	(0xFFFF)
+
+#define PLL2650X_PLL_LOCK	0x0
+#define PLL2650X_PLL_CON0	0xF0
+#define PLL2650X_PLL_CON1	0xF4
+
+#define PLL2650X_PLL_LOCK_CONST	3000
+#define PLL2650X_PLL_CON0_LOCKED	(1 << 29)
+
+struct samsung_clk_pll2650x {
+	struct clk_hw		hw;
+	void __iomem	*reg_base;
+	struct pll_pms          *pms;
+};
+
+#define to_clk_pll2650x(_hw) container_of(_hw, struct samsung_clk_pll2650x, hw)
+
+static inline unsigned long samsung_pll2650x_calc_f_out(u64 f_in,
+			u32 p, u32 m, u32 s, u32 k)
+{
+	f_in *= (m << 16) + k;
+	do_div(f_in, (p << s));
+
+	return (unsigned long)(f_in >> 16);
+}
+
+static unsigned long samsung_pll2650x_recalc_rate(struct clk_hw *hw,
+				unsigned long parent_rate)
+{
+	struct samsung_clk_pll2650x *pll = to_clk_pll2650x(hw);
+	u32 mdiv, pdiv, sdiv, kdiv, pll_con0, pll_con1;
+
+	pll_con0 = __raw_readl(pll->reg_base + PLL2650X_PLL_CON0);
+	pll_con1 = __raw_readl(pll->reg_base + PLL2650X_PLL_CON1);
+	mdiv = (pll_con0 >> PLL2650X_MDIV_SHIFT) & PLL2650X_MDIV_MASK;
+	pdiv = (pll_con0 >> PLL2650X_PDIV_SHIFT) & PLL2650X_PDIV_MASK;
+	sdiv = (pll_con0 >> PLL2650X_SDIV_SHIFT) & PLL2650X_SDIV_MASK;
+	kdiv = pll_con1 & PLL2650X_KDIV_MASK;
+
+	if (pdiv == 0 && sdiv == 0) {
+		pdiv = 2;
+		mdiv = 0xB0;
+		sdiv = 5;
+		kdiv = 0;
+	}
+
+	return samsung_pll2650x_calc_f_out(parent_rate,
+					pdiv, mdiv, sdiv, kdiv);
+}
+
+static long samsung_pll2650x_round_rate(struct clk_hw *hw,
+				unsigned long drate, unsigned long *prate)
+{
+	struct samsung_clk_pll2650x *pll = to_clk_pll2650x(hw);
+	struct pll_pms *pms = pll->pms;
+	int i;
+
+	if (!pms) {
+		pr_err("%s: no pms table passed", __func__);
+		return samsung_pll2650x_recalc_rate(hw, *prate);
+	}
+
+	i = get_index(drate, pms);
+	if (i >= 0)
+		return pms[i].f_out;
+
+	return samsung_pll2650x_recalc_rate(hw, *prate);
+}
+
+static int samsung_pll2650x_set_rate(struct clk_hw *hw, unsigned long drate,
+				unsigned long prate)
+{
+	struct samsung_clk_pll2650x *pll = to_clk_pll2650x(hw);
+	struct pll_pms *pms = pll->pms;
+	u32 tmp;
+	int index;
+
+	if (!pms) {
+		pr_err("%s: no pms table passed", __func__);
+		return -ENOTSUPP;
+	}
+
+	index = get_index(drate, pms);
+	if (index < 0)
+		return index;
+
+	/* Define PLL lock time */
+	__raw_writel(pms[index].p * PLL2650X_PLL_LOCK_CONST,
+					pll->reg_base + PLL2650X_PLL_LOCK);
+
+	/* Change PLL divisors */
+	tmp = __raw_readl(pll->reg_base + PLL2650X_PLL_CON0);
+	tmp &= ~((PLL2650X_PDIV_MASK << PLL2650X_PDIV_SHIFT) |
+		(PLL2650X_MDIV_MASK << PLL2650X_MDIV_SHIFT) |
+		(PLL2650X_SDIV_MASK << PLL2650X_SDIV_SHIFT));
+	tmp |= (pms[index].p << PLL2650X_PDIV_SHIFT) |
+		(pms[index].m << PLL2650X_MDIV_SHIFT) |
+		(pms[index].s << PLL2650X_SDIV_SHIFT);
+	__raw_writel(tmp, pll->reg_base + PLL2650X_PLL_CON0);
+
+	tmp = __raw_readl(pll->reg_base + PLL2650X_PLL_CON1);
+	tmp &= ~PLL2650X_KDIV_MASK;
+	tmp |= pms[index].k;
+	__raw_writel(tmp, pll->reg_base + PLL2650X_PLL_CON1);
+
+	/* Wait for locking */
+	do {
+		cpu_relax();
+		tmp = __raw_readl(pll->reg_base + PLL2650X_PLL_CON0);
+	} while (!(tmp & PLL2650X_PLL_CON0_LOCKED));
+
+	return 0;
+}
+
+static const struct clk_ops samsung_pll2650x_clk_ops = {
+	.round_rate = samsung_pll2650x_round_rate,
+	.set_rate = samsung_pll2650x_set_rate,
+	.recalc_rate = samsung_pll2650x_recalc_rate,
+};
+
+struct clk * __init samsung_clk_register_pll2650x(const char *name,
+			const char *pname, void __iomem *reg_base,
+			struct pll_pms *pms)
+{
+	struct samsung_clk_pll2650x *pll;
+	struct clk *clk;
+	struct clk_init_data init;
+	unsigned long parent_rate;
+	int i;
+
+	pll = kzalloc(sizeof(*pll), GFP_KERNEL);
+	if (!pll) {
+		pr_err("%s: could not allocate pll clk %s\n", __func__, name);
+		return NULL;
+	}
+
+	init.name = name;
+	init.ops = &samsung_pll2650x_clk_ops;
+	init.flags = CLK_GET_RATE_NOCACHE;
+	init.parent_names = &pname;
+	init.num_parents = 1;
+
+	pll->hw.init = &init;
+	pll->reg_base = reg_base;
+	pll->pms = pms;
+
+	clk = clk_register(NULL, &pll->hw);
+	if (IS_ERR(clk)) {
+		pr_err("%s: failed to register pll clock %s\n", __func__,
+				name);
+		kfree(pll);
+	}
+
+	if (clk_register_clkdev(clk, name, NULL))
+		pr_err("%s: failed to register lookup for %s", __func__, name);
+
+	/* Fill in received frequency table */
+	parent_rate = clk_get_rate(clk_get_parent(clk));
+	for (i = 0; pms[i].f_out != F_OUT_INVAL; i++)
+		pms[i].f_out = samsung_pll2650x_calc_f_out(parent_rate,
+				pms[i].p, pms[i].m, pms[i].s, pms[i].k);
+
+
+	return clk;
+}
