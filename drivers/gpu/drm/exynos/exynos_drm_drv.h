@@ -380,9 +380,6 @@ int exynos_platform_device_ipp_register(void);
  */
 void exynos_platform_device_ipp_unregister(void);
 
-extern int exynos_drm_ippnb_register(struct notifier_block *nb);
-extern int exynos_drm_ippnb_unregister(struct notifier_block *nb);
-
 #ifdef CONFIG_DRM_EXYNOS_DPI
 int exynos_dpi_probe(struct device *dev);
 int exynos_dpi_remove(struct device *dev);

@@ -174,6 +174,8 @@ extern int exynos_drm_ipp_queue_buf(struct drm_device *drm_dev, void *data,
 					 struct drm_file *file);
 extern int exynos_drm_ipp_cmd_ctrl(struct drm_device *drm_dev, void *data,
 					 struct drm_file *file);
+extern int exynos_drm_ippnb_register(struct notifier_block *nb);
+extern int exynos_drm_ippnb_unregister(struct notifier_block *nb);
 extern int exynos_drm_ippnb_send_event(unsigned long val, void *v);
 extern void ipp_sched_cmd(struct work_struct *work);
 extern void ipp_sched_event(struct work_struct *work);
@@ -219,12 +221,12 @@ static inline int exynos_drm_ipp_cmd_ctrl(struct drm_device *drm_dev,
 
 static inline int exynos_drm_ippnb_register(struct notifier_block *nb)
 {
-	return -ENODEV;
+	return 0;
 }
 
 static inline int exynos_drm_ippnb_unregister(struct notifier_block *nb)
 {
-	return -ENODEV;
+	return 0;
 }
 
 static inline int exynos_drm_ippnb_send_event(unsigned long val, void *v)
