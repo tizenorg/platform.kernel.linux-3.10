@@ -219,12 +219,12 @@ static inline int exynos_drm_ipp_cmd_ctrl(struct drm_device *drm_dev,
 
 static inline int exynos_drm_ippnb_register(struct notifier_block *nb)
 {
-	return -ENODEV;
+	return 0;
 }
 
 static inline int exynos_drm_ippnb_unregister(struct notifier_block *nb)
 {
-	return -ENODEV;
+	return 0;
 }
 
 static inline int exynos_drm_ippnb_send_event(unsigned long val, void *v)
