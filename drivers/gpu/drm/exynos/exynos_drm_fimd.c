@@ -28,6 +28,7 @@
 #include <drm/exynos_drm.h>
 
 #include "exynos_drm_drv.h"
+#include "exynos_drm_ipp.h"
 #include "exynos_drm_fbdev.h"
 #include "exynos_drm_crtc.h"
 #include "exynos_drm_iommu.h"
