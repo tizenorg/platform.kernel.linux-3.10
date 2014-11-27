@@ -29,6 +29,8 @@
 		pinctrl2 = &pinctrl_2;
 		pinctrl3 = &pinctrl_3;
 		pinctrl4 = &pinctrl_4;
+		i2c2 = &i2c_2;
+		i2c4 = &hsi2c_4;
 	};
 
 	cpus {
@@ -220,6 +222,74 @@
 	uart_3: serial@12C30000 {
 		clocks = <&clock CLK_UART3>, <&clock CLK_SCLK_UART3>;
 		clock-names = "uart", "clk_uart_baud0";
+	};
+
+	i2c_2: i2c@12C80000 {
+		compatible = "samsung,s3c2440-i2c";
+		reg = <0x12C80000 0x100>;
+		interrupts = <0 58 0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clocks = <&clock CLK_I2C2>;
+		clock-names = "i2c";
+		pinctrl-names = "default";
+		pinctrl-0 = <&i2c2_bus>;
+		status = "disabled";
+	};
+
+	hsi2c_4: i2c@12CA0000 {
+		compatible = "samsung,exynos5-hsi2c";
+		reg = <0x12CA0000 0x1000>;
+		interrupts = <0 60 0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&i2c4_hs_bus>;
+		clocks = <&clock CLK_USI0>;
+		clock-names = "hsi2c";
+		status = "disabled";
+	};
+
+	hdmi: hdmi@14530000 {
+		compatible = "samsung,exynos5420-hdmi";
+		reg = <0x14530000 0x70000>;
+		interrupts = <0 95 0>;
+		clocks = <&clock CLK_HDMI>, <&clock CLK_SCLK_HDMI>,
+			 <&clock CLK_DOUT_PIXEL>, <&clock CLK_SCLK_HDMIPHY>;
+		clock-names = "hdmi", "sclk_hdmi", "sclk_pixel",
+			"sclk_hdmiphy";
+		/*
+		 * FIXME: Below two node must be merged after modified exynos
+		 * drm hdmi driver
+		 */
+		phy = <&hdmiphy>;
+		phys = <&hdmiphy 0>;
+		phy-names = "hdmiphy";
+		status = "disabled";
+	};
+
+	hdmiphy: hdmiphy@145D0000 {
+		compatible = "exynos4412-phy";
+		reg = <0x145D0000 0x20>;
+		#phy-cells = <1>;
+	};
+
+	mixer: mixer@14450000 {
+		compatible = "samsung,exynos5420-mixer";
+		reg = <0x14450000 0x10000>;
+		interrupts = <0 94 0>;
+		clocks = <&clock CLK_MIXER>, <&clock CLK_SCLK_HDMI>;
+		clock-names = "mixer", "sclk_hdmi";
+		iommu = <&sysmmu_mixer>;
+	};
+
+	sysmmu_mixer: sysmmu@0x1465000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x14650000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupts = <7 4>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock CLK_SMMU_MIXER>, <&clock CLK_MIXER>;
 	};
 
 	sysreg_system_controller: syscon@10050000 {
