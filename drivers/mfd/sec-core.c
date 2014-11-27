@@ -333,20 +333,25 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 		return ret;
 	}
 
-	sec_pmic->rtc = i2c_new_dummy(i2c->adapter, RTC_I2C_ADDR);
-	if (IS_ERR_OR_NULL(sec_pmic->rtc)) {
-		ret = PTR_ERR(sec_pmic->rtc);
-		dev_err(&i2c->dev, "Failed to allocate i2c : %d\n", ret);
-		return ret;
-	}
-	i2c_set_clientdata(sec_pmic->rtc, sec_pmic);
+	if (regmap_rtc) {
+		sec_pmic->rtc = i2c_new_dummy(i2c->adapter, RTC_I2C_ADDR);
+		if (IS_ERR_OR_NULL(sec_pmic->rtc)) {
+			ret = PTR_ERR(sec_pmic->rtc);
+			dev_err(&i2c->dev, "Failed to allocate i2c : %d\n",
+									ret);
+			return ret;
+		}
+		i2c_set_clientdata(sec_pmic->rtc, sec_pmic);
 
-	sec_pmic->regmap_rtc = devm_regmap_init_i2c(sec_pmic->rtc, regmap_rtc);
-	if (IS_ERR_OR_NULL(sec_pmic->regmap_rtc)) {
-		ret = PTR_ERR(sec_pmic->regmap_rtc);
-		dev_err(&i2c->dev, "Failed to allocate RTC register map: %d\n",
-			ret);
-		return ret;
+		sec_pmic->regmap_rtc = devm_regmap_init_i2c(sec_pmic->rtc,
+								regmap_rtc);
+		if (IS_ERR_OR_NULL(sec_pmic->regmap_rtc)) {
+			ret = PTR_ERR(sec_pmic->regmap_rtc);
+			dev_err(&i2c->dev,
+				"Failed to allocate RTC register map: %d\n",
+				ret);
+			return ret;
+		}
 	}
 
 	if (pdata && pdata->cfg_pmic_irq)
@@ -391,7 +396,8 @@ static int sec_pmic_probe(struct i2c_client *i2c,
 
 err:
 	sec_irq_exit(sec_pmic);
-	i2c_unregister_device(sec_pmic->rtc);
+	if (sec_pmic->rtc)
+		i2c_unregister_device(sec_pmic->rtc);
 	return ret;
 }
 
@@ -401,7 +407,8 @@ static int sec_pmic_remove(struct i2c_client *i2c)
 
 	mfd_remove_devices(sec_pmic->dev);
 	sec_irq_exit(sec_pmic);
-	i2c_unregister_device(sec_pmic->rtc);
+	if (sec_pmic->rtc)
+		i2c_unregister_device(sec_pmic->rtc);
 	return 0;
 }
 
