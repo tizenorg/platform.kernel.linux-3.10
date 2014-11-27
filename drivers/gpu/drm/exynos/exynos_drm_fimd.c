@@ -1241,7 +1241,9 @@ static int fimd_probe(struct platform_device *pdev)
 	atomic_set(&ctx->wait_vsync_event, 0);
 
 	ctx->nb_ctrl.notifier_call = fimd_notifier_ctrl;
+#ifdef CONFIG_DRM_EXYNOS_IPP
 	ret = exynos_drm_ippnb_register(&ctx->nb_ctrl);
+#endif
 	if (ret) {
 		dev_err(dev, "could not register fimd notify callback\n");
 		return ret;
@@ -1270,11 +1272,13 @@ static int fimd_remove(struct platform_device *pdev)
 
 	exynos_dpi_remove(&pdev->dev);
 
+#ifdef CONFIG_DRM_EXYNOS_IPP
 	ret = exynos_drm_ippnb_unregister(&ctx->nb_ctrl);
 	if (ret) {
 		dev_err(&pdev->dev, "could not unregister fimd notify callback\n");
 		return ret;
 	}
+#endif
 
 	exynos_drm_manager_unregister(&fimd_manager);
 
