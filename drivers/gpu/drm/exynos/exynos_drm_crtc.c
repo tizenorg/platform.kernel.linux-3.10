@@ -594,3 +594,37 @@ int exynos_drm_crtc_te_handler(struct drm_crtc *crtc)
 
 	return ret;
 }
+
+void exynos_drm_crtc_adjust_partial_region(struct drm_crtc *crtc,
+					struct exynos_drm_partial_pos *pos)
+{
+	struct exynos_drm_crtc *exynos_crtc = to_exynos_crtc(crtc);
+	struct exynos_drm_manager *mgr = exynos_crtc->manager;
+
+	if (mgr && mgr->ops->adjust_partial_region)
+		mgr->ops->adjust_partial_region(mgr, &pos->x, &pos->y,
+						&pos->w, &pos->h);
+}
+
+void exynos_drm_crtc_change_resolution(struct drm_device *drm_dev,
+					unsigned int pipe, unsigned int x,
+					unsigned int y, unsigned int w,
+					unsigned int h)
+{
+	struct exynos_drm_private *private = drm_dev->dev_private;
+	struct exynos_drm_crtc *exynos_crtc =
+		to_exynos_crtc(private->crtc[pipe]);
+	struct exynos_drm_manager *manager = exynos_crtc->manager;
+	struct drm_encoder *encoder;
+
+	/* TODO. mutex_lock */
+
+	list_for_each_entry(encoder, &drm_dev->mode_config.encoder_list, head) {
+		if (encoder->crtc == &exynos_crtc->drm_crtc) {
+			exynos_drm_encoder_change_resolution(encoder, x, y,
+								w, h);
+			break;
+		}
+	}
+}
+

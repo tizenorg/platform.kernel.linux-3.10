@@ -77,6 +77,7 @@ int exynos_plane_mode_set(struct drm_plane *plane, struct drm_crtc *crtc,
 {
 	struct exynos_plane *exynos_plane = to_exynos_plane(plane);
 	struct exynos_drm_overlay *overlay = &exynos_plane->overlay;
+	struct exynos_drm_fb *exynos_fb = to_exynos_fb(fb);
 	unsigned int actual_w;
 	unsigned int actual_h;
 	int nr;
@@ -110,6 +111,28 @@ int exynos_plane_mode_set(struct drm_plane *plane, struct drm_crtc *crtc,
 		if (actual_h)
 			src_y -= crtc_y;
 		crtc_y = 0;
+	}
+
+	/* Change overlay values to partial region. */
+	if (atomic_read(&exynos_fb->partial_mode)) {
+		struct exynos_drm_partial_pos *pos;
+
+		exynos_drm_crtc_adjust_partial_region(crtc,
+						&exynos_fb->part_pos);
+
+		pos = &exynos_fb->part_pos;
+		crtc_x = 0;
+		crtc_y = 0;
+		crtc_w = pos->w;
+		crtc_h = pos->h;
+		src_x = pos->x;
+		src_y = pos->y;
+		src_w = pos->w;
+		src_h = pos->h;
+		actual_w = pos->w;
+		actual_h = pos->h;
+
+		atomic_set(&exynos_fb->partial_mode, 0);
 	}
 
 	/* set drm framebuffer data. */

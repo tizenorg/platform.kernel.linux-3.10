@@ -38,6 +38,7 @@ struct drm_panel;
  * @enable: enable panel (turn on back light, etc.)
  * @get_modes: add modes to the connector that the panel is attached to and
  * return the number of modes added
+ * @change_resolution: change panel resolution to a given position.
  *
  * The .prepare() function is typically called before the display controller
  * starts to transmit video data. Panel drivers can use this to turn the panel
@@ -68,6 +69,9 @@ struct drm_panel_funcs {
 	int (*prepare)(struct drm_panel *panel);
 	int (*enable)(struct drm_panel *panel);
 	int (*get_modes)(struct drm_panel *panel);
+	int (*change_resolution)(struct drm_panel *panel, unsigned int x,
+					unsigned int y, unsigned int w,
+					unsigned int h);
 };
 
 struct drm_panel {
@@ -110,6 +114,16 @@ static inline int drm_panel_enable(struct drm_panel *panel)
 		return panel->funcs->enable(panel);
 
 	return panel ? -ENOSYS : -EINVAL;
+}
+
+
+static inline void drm_panel_change_resolution(struct drm_panel *panel,
+					unsigned int x, unsigned int y,
+					unsigned int w, unsigned int h)
+{
+
+	if (panel && panel->funcs && panel->funcs->change_resolution)
+		panel->funcs->change_resolution(panel, x, y, w, h);
 }
 
 void drm_panel_init(struct drm_panel *panel);

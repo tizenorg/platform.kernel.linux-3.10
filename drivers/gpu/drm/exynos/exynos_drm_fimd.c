@@ -41,6 +41,8 @@
 
 #define FIMD_DEFAULT_FRAMERATE 60
 
+#define WIDTH_LIMIT		16
+
 /* position control register for hardware window 0, 2 ~ 4.*/
 #define VIDOSD_A(win)		(VIDOSD_BASE + 0x00 + (win) * 16)
 #define VIDOSD_B(win)		(VIDOSD_BASE + 0x04 + (win) * 16)
@@ -173,6 +175,10 @@ struct fimd_context {
 	struct exynos_drm_panel_info panel;
 	struct fimd_driver_data *driver_data;
 	struct notifier_block	nb_ctrl;
+	unsigned int			current_x;
+	unsigned int			current_y;
+	unsigned int			current_w;
+	unsigned int			current_h;
 };
 
 static const struct of_device_id fimd_driver_dt_match[] = {
@@ -980,6 +986,76 @@ static void fimd_trigger(struct device *dev)
 	writel(reg, timing_base + TRIGCON);
 }
 
+static void fimd_adjust_partial_region(struct exynos_drm_manager *mgr,
+		unsigned int *x, unsigned int *y, unsigned int *w,
+		unsigned int *h)
+{
+	struct fimd_context *ctx = mgr->ctx;
+	unsigned int old_x;
+	unsigned int old_w;
+
+	old_x = *x;
+	old_w = *w;
+
+	/*
+	 * if pos->x is bigger than 0, adjusts pos->x and pos->w roughly.
+	 *
+	 * ######################################### <- image
+	 *	|	|		|
+	 *	|	before(x)	before(w)
+	 *	after(x)		after(w)
+	 */
+	if (*x > 0) {
+		*x = ALIGN(*x, WIDTH_LIMIT) - WIDTH_LIMIT;
+		*w += WIDTH_LIMIT;
+	}
+
+	/*
+	 * pos->w should be WIDTH_LIMIT if pos->w is 0, and also pos->x should
+	 * be adjusted properly if pos->x is bigger than WIDTH_LIMIT.
+	 */
+	if (*w == 0) {
+		if (*x > WIDTH_LIMIT)
+			*x -= WIDTH_LIMIT;
+		*w = WIDTH_LIMIT;
+	} else
+		*w = ALIGN(*w, WIDTH_LIMIT);
+
+	/*
+	 * pos->x + pos->w should be smaller than horizontal size of display.
+	 * If not so, page fault exception will be occurred.
+	 */
+	if (*x + *w > ctx->mode.hdisplay)
+		*w = ctx->mode.hdisplay - *x;
+
+	ctx->current_x = *x;
+	ctx->current_y = *y;
+	ctx->current_w = *w;
+	ctx->current_h = *h;
+
+	DRM_DEBUG_KMS("Adjusted x = %d -> %d, and w = %d -> %d\n",
+			old_x, *x, old_w, *w);
+}
+
+static void fimd_change_resolution(struct exynos_drm_manager *mgr)
+{
+	struct fimd_context *ctx = mgr->ctx;
+	struct fimd_driver_data *driver_data = ctx->driver_data;
+	unsigned long val;
+
+	/* setup horizontal and vertical display size. */
+	val = VIDTCON2_LINEVAL(ctx->current_h - 1) |
+	       VIDTCON2_HOZVAL(ctx->current_w - 1) |
+	       VIDTCON2_LINEVAL_E(ctx->current_h - 1) |
+	       VIDTCON2_HOZVAL_E(ctx->current_w - 1);
+	writel(val, ctx->regs + driver_data->timing_base + VIDTCON2);
+
+	ctx->current_x = 0;
+	ctx->current_y = 0;
+	ctx->current_h = 0;
+	ctx->current_w = 0;
+}
+
 static int fimd_te_handler(struct exynos_drm_manager *mgr)
 {
 	struct fimd_context *ctx = mgr->ctx;
@@ -998,6 +1074,14 @@ static int fimd_te_handler(struct exynos_drm_manager *mgr)
 	if (atomic_read(&ctx->win_updated)) {
 		atomic_set(&ctx->win_updated, 0);
 		spin_unlock_irqrestore(&ctx->win_updated_lock, flags);
+
+		if (ctx->current_w && ctx->current_h) {
+			exynos_drm_crtc_change_resolution(ctx->drm_dev,
+						mgr->pipe, ctx->current_x,
+						ctx->current_y, ctx->current_w,
+						ctx->current_h);
+			fimd_change_resolution(mgr);
+		}
 
 		fimd_trigger(ctx->dev);
 
@@ -1026,6 +1110,7 @@ static struct exynos_drm_manager_ops fimd_manager_ops = {
 	.win_commit = fimd_win_commit,
 	.win_disable = fimd_win_disable,
 	.te_handler = fimd_te_handler,
+	.adjust_partial_region = fimd_adjust_partial_region,
 };
 
 static struct exynos_drm_manager fimd_manager = {

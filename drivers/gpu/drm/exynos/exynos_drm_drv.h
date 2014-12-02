@@ -146,6 +146,7 @@ struct exynos_drm_overlay {
  * @check_mode: check if mode is valid or not.
  * @dpms: display device on or off.
  * @commit: apply changes to hw
+ * @set_partial_region: change region region to a given position.
  */
 struct exynos_drm_display;
 struct exynos_drm_display_ops {
@@ -164,6 +165,9 @@ struct exynos_drm_display_ops {
 				struct drm_display_mode *mode);
 	void (*dpms)(struct exynos_drm_display *display, int mode);
 	void (*commit)(struct exynos_drm_display *display);
+	void (*change_resolution)(struct exynos_drm_display *display,
+				unsigned int x, unsigned int y,
+				unsigned int w, unsigned int h);
 };
 
 /*
@@ -226,6 +230,9 @@ struct exynos_drm_manager_ops {
 	void (*win_enable)(struct exynos_drm_manager *mgr, int zpos);
 	void (*win_disable)(struct exynos_drm_manager *mgr, int zpos);
 	int (*te_handler)(struct exynos_drm_manager *mgr);
+	void (*adjust_partial_region)(struct exynos_drm_manager *mgr,
+				unsigned int *x, unsigned int *y,
+				unsigned int *w, unsigned int *h);
 };
 
 /*

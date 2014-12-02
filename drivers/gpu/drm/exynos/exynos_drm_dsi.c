@@ -1302,6 +1302,16 @@ static void exynos_dsi_dpms(struct exynos_drm_display *display, int mode)
 	}
 }
 
+
+static void exynos_dsi_change_resolution(struct exynos_drm_display *display,
+				unsigned int x, unsigned int y,
+				unsigned int w, unsigned int h)
+{
+	struct exynos_dsi *dsi = display->ctx;
+
+	drm_panel_change_resolution(dsi->panel, x, y, w, h);
+}
+
 static enum drm_connector_status
 exynos_dsi_detect(struct drm_connector *connector, bool force)
 {
@@ -1412,7 +1422,8 @@ static void exynos_dsi_mode_set(struct exynos_drm_display *display,
 static struct exynos_drm_display_ops exynos_dsi_display_ops = {
 	.create_connector = exynos_dsi_create_connector,
 	.mode_set = exynos_dsi_mode_set,
-	.dpms = exynos_dsi_dpms
+	.dpms = exynos_dsi_dpms,
+	.change_resolution = exynos_dsi_change_resolution,
 };
 
 static struct exynos_drm_display exynos_dsi_display = {

@@ -16,17 +16,27 @@
 
 #define to_exynos_fb(x)	container_of(x, struct exynos_drm_fb, fb)
 
+struct exynos_drm_partial_pos {
+	unsigned int x;
+	unsigned int y;
+	unsigned int w;
+	unsigned int h;
+};
+
 /*
  * exynos specific framebuffer structure.
  *
  * @fb: drm framebuffer obejct.
  * @buf_cnt: a buffer count to drm framebuffer.
  * @exynos_gem_obj: array of exynos specific gem object containing a gem object.
+ * @part_pos: a position to partial update region.
  */
 struct exynos_drm_fb {
 	struct drm_framebuffer		fb;
 	unsigned int			buf_cnt;
 	struct exynos_drm_gem_obj	*exynos_gem_obj[MAX_FB_BUFFER];
+	struct exynos_drm_partial_pos	part_pos;
+	atomic_t			partial_mode;
 };
 
 struct drm_framebuffer *

@@ -195,3 +195,14 @@ struct exynos_drm_display *exynos_drm_get_display(struct drm_encoder *encoder)
 {
 	return to_exynos_encoder(encoder)->display;
 }
+
+void exynos_drm_encoder_change_resolution(struct drm_encoder *encoder,
+					unsigned int x, unsigned int y,
+					unsigned int w, unsigned int h)
+{
+	struct exynos_drm_display *display =
+				to_exynos_encoder(encoder)->display;
+
+	if (display && display->ops->change_resolution)
+		display->ops->change_resolution(display, x, y, w, h);
+}

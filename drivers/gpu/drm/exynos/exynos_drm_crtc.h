@@ -39,4 +39,14 @@ void exynos_drm_crtc_plane_disable(struct drm_crtc *crtc, int zpos);
  */
 int exynos_drm_crtc_te_handler(struct drm_crtc *crtc);
 
+struct exynos_drm_partial_pos;
+
+void exynos_drm_crtc_adjust_partial_region(struct drm_crtc *crtc,
+					struct exynos_drm_partial_pos *pos);
+
+void exynos_drm_crtc_change_resolution(struct drm_device *drm_dev,
+					unsigned int pipe, unsigned int x,
+					unsigned int y, unsigned int w,
+					unsigned int h);
+
 #endif

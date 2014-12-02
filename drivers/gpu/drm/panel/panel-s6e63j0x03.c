@@ -31,6 +31,9 @@
 #define MCS_MTP_SET3		0xd4
 #define MCS_MTP_KEY		0xf1
 
+#define LDI_CASET_REG		0x2A
+#define LDI_PASET_REG		0x2B
+
 #define MIN_BRIGHTNESS		0
 #define MAX_BRIGHTNESS		100
 #define DEFAULT_BRIGHTNESS	80
@@ -548,10 +551,45 @@ static int s6e63j0x03_get_modes(struct drm_panel *panel)
 	return 1;
 }
 
+static int s6e63j0x03_change_resolution(struct drm_panel *panel,
+					unsigned int x, unsigned int y,
+					unsigned int w, unsigned int h)
+{
+	struct s6e63j0x03 *ctx = panel_to_s6e63j0x03(panel);
+	char buf[5];
+
+	if (ctx->power > FB_BLANK_UNBLANK)
+		return -EPERM;
+
+	if (y >= ctx->vm.vactive || h > ctx->vm.vactive)
+		return -EINVAL;
+
+	x += 20;
+
+	buf[0] = LDI_CASET_REG;
+	buf[1] = (x & 0xff00) >> 8;
+	buf[2] = x & 0x00ff;
+	buf[3] = ((x + w - 1) & 0xff00) >> 8;
+	buf[4] = (x + w - 1) & 0x00ff;
+
+	s6e63j0x03_dcs_write(ctx, buf, ARRAY_SIZE(buf));
+
+	buf[0] = LDI_PASET_REG;
+	buf[1] = (y & 0xff00) >> 8;
+	buf[2] = y & 0x00ff;
+	buf[3] = ((y + h - 1) & 0xff00) >> 8;
+	buf[4] = (y + h - 1) & 0x00ff;
+
+	s6e63j0x03_dcs_write(ctx, buf, ARRAY_SIZE(buf));
+
+	return 0;
+}
+
 static const struct drm_panel_funcs s6e63j0x03_drm_funcs = {
 	.disable = s6e63j0x03_disable,
 	.enable = s6e63j0x03_enable,
 	.get_modes = s6e63j0x03_get_modes,
+	.change_resolution = s6e63j0x03_change_resolution,
 };
 
 static int s6e63j0x03_parse_dt(struct s6e63j0x03 *ctx)

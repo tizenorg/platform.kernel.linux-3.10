@@ -22,4 +22,8 @@ struct drm_encoder *exynos_drm_encoder_create(struct drm_device *dev,
 			unsigned long possible_crtcs);
 struct exynos_drm_display *exynos_drm_get_display(struct drm_encoder *encoder);
 
+void exynos_drm_encoder_change_resolution(struct drm_encoder *encoder,
+					unsigned int x, unsigned int y,
+					unsigned int w, unsigned int h);
+
 #endif

@@ -89,12 +89,74 @@ static int exynos_drm_fb_create_handle(struct drm_framebuffer *fb,
 			&exynos_fb->exynos_gem_obj[0]->base, handle);
 }
 
+static void exynos_drm_fb_adjust_clips(struct exynos_drm_partial_pos *pos,
+		struct drm_clip_rect *clips, unsigned int num_clips)
+{
+	unsigned int index;
+	unsigned int min_sx = 0;
+	unsigned int min_sy = 0;
+	unsigned int max_bx = 0;
+	unsigned int max_by = 0;
+
+	for (index = 0; index < num_clips; index++) {
+		min_sx = min_t(unsigned int, clips[index].x1, min_sx);
+		if (min_sx == 0 && index == 0)
+			min_sx = clips[index].x1;
+
+		min_sy = min_t(unsigned int, clips[index].y1, min_sy);
+		if (min_sy == 0 && index == 0)
+			min_sy = clips[index].y1;
+
+		max_bx = max_t(unsigned int, clips[index].x2, max_bx);
+		max_by = max_t(unsigned int, clips[index].y2, max_by);
+
+		DRM_DEBUG_KMS("[%d] x1(%d) y1(%d) x2(%d) y2(%d)\n",
+				index, clips[index].x1, clips[index].y1,
+				clips[index].x2, clips[index].y2);
+	}
+
+	pos->x = min_sx;
+	pos->y = min_sy;
+	pos->w = max_bx - min_sx;
+	pos->h = max_by - min_sy;
+
+	DRM_DEBUG_KMS("partial region: x1(%d) y1(%d) x2(%d) y2(%d)\n",
+			pos->x, pos->y, pos->w, pos->h);
+}
+
 static int exynos_drm_fb_dirty(struct drm_framebuffer *fb,
 				struct drm_file *file_priv, unsigned flags,
 				unsigned color, struct drm_clip_rect *clips,
 				unsigned num_clips)
 {
-	/* TODO */
+	struct exynos_drm_fb *exynos_fb = to_exynos_fb(fb);
+
+	if (!num_clips || !clips)
+		return -EINVAL;
+
+	/*
+	 * Get maximum region to all clip regions
+	 * if one more clip regions exsit.
+	 */
+	if (num_clips > 1) {
+		DRM_DEBUG_KMS("use only one clip region.\n");
+
+		exynos_drm_fb_adjust_clips(&exynos_fb->part_pos, clips,
+						num_clips);
+		goto out;
+	}
+
+	atomic_set(&exynos_fb->partial_mode, 1);
+
+	exynos_fb->part_pos.x = clips[0].x1;
+	exynos_fb->part_pos.y = clips[0].y1;
+	exynos_fb->part_pos.w = clips[0].x2 - clips[0].x1;
+	exynos_fb->part_pos.h = clips[0].y2 - clips[0].y1;
+
+out:
+	DRM_INFO("%s: x1 = %d, y1 = %d, w = %d, h = %d\n",
+			__func__, exynos_fb->part_pos.x, exynos_fb->part_pos.y,
+			exynos_fb->part_pos.w, exynos_fb->part_pos.h);
 
 	return 0;
 }
