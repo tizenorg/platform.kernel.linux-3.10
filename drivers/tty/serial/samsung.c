@@ -635,7 +635,7 @@ static unsigned int s3c24xx_serial_getclk(struct s3c24xx_uart_port *ourport,
 			/* The UDIVSLOT register on the newer UARTs allows us to
 			 * get a divisor adjustment of 1/16th on the baud clock.
 			 *
-			 * We don't keep the UDIVSLOT value (the 16ths we
+			 * We don't keep the UDIVSLOT value (the 16th we
 			 * calculated by not multiplying the baud by 16) as it
 			 * is easy enough to recalculate.
 			 */
