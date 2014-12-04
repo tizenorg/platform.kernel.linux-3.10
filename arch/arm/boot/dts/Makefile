@@ -59,6 +59,7 @@ dtb-$(CONFIG_ARCH_EXYNOS) += exynos3250-rinato.dtb \
 	exynos4412-slp_pq.dtb \
 	exynos4412-origen.dtb \
 	exynos5250-arndale.dtb \
+	exynos5422-odroidxu3.dtb \
 	exynos5440-sd5v1.dtb \
 	exynos5250-smdk5250.dtb \
 	exynos5250-snow.dtb \
