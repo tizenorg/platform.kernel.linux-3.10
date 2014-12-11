@@ -159,6 +159,14 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 	if (soc_is_exynos3250())
 		__raw_writel(EXYNOS3_COREPORESET(cpu_idx), EXYNOS_SWRESET);
 
+	/* HACK: Turn on secondary CPUs */
+	if (soc_is_exynos5800()) {
+		if (cluster_id == 1) {
+			u32 val = ((1 << 20) | (1 << 8)) << core_id;
+			__raw_writel(val, EXYNOS_SWRESET);
+		}
+	}
+
 	/*
 	 * Send the secondary CPU a soft interrupt, thereby causing
 	 * the boot monitor to read the system wide flags register,
@@ -181,6 +189,9 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 			__raw_writel(boot_addr, cpu_boot_reg(cpu_idx));
 
 		call_firmware_op(cpu_boot, cpu_idx);
+
+		if (soc_is_exynos5800())
+			udelay(10);
 
 		if (soc_is_exynos3250())
 			dsb_sev();
