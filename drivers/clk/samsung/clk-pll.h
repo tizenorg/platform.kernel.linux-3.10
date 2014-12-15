@@ -40,7 +40,7 @@ struct pll_pms {
 
 extern struct clk * __init samsung_clk_register_pll35xx(const char *name,
 			const char *pname, const void __iomem *base_reg,
-			struct pll_pms *pms);
+			struct pll_pms *pms, const unsigned int con_offset);
 extern struct clk * __init samsung_clk_register_pll36xx(const char *name,
 			const char *pname, void __iomem *base,
 			struct pll_pms *pms);
