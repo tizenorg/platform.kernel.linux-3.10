@@ -34,6 +34,7 @@ struct samsung_clk_pll35xx {
 	struct clk_hw		hw;
 	const void __iomem	*base_reg;
 	struct pll_pms          *pms;
+	unsigned int		con_offset;
 };
 
 static int get_index(unsigned long rate, struct pll_pms *pms)
@@ -61,7 +62,8 @@ static inline unsigned long samsung_pll35xx_calc_f_out(u64 f_in,
 static inline void samsung_pll35xx_get_mps(struct samsung_clk_pll35xx *pll,
 					   u32 *m, u32 *p, u32 *s)
 {
-	u32 pll_con = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0);
+	u32 pll_con = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0
+							+ pll->con_offset);
 
 	*m = (pll_con >> PLL35XX_MDIV_SHIFT) & PLL35XX_MDIV_MASK;
 	*p = (pll_con >> PLL35XX_PDIV_SHIFT) & PLL35XX_PDIV_MASK;
@@ -119,10 +121,12 @@ static int samsung_pll35xx_set_rate(struct clk_hw *hw, unsigned long drate,
 	samsung_pll35xx_get_mps(pll, &m_cur, &p_cur, &s_cur);
 
 	if (p == p_cur && m == m_cur) {
-		tmp = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0);
+		tmp = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0
+							+ pll->con_offset);
 		tmp &= ~(PLL35XX_SDIV_MASK << PLL35XX_SDIV_SHIFT);
 		tmp |= s << PLL35XX_SDIV_SHIFT;
-		__raw_writel(tmp, (u32 *)(pll->base_reg  + PLL35XX_PLL_CON0));
+		__raw_writel(tmp, (u32 *)(pll->base_reg  + PLL35XX_PLL_CON0
+							+ pll->con_offset));
 
 		return 0;
 	}
@@ -132,18 +136,20 @@ static int samsung_pll35xx_set_rate(struct clk_hw *hw, unsigned long drate,
 		     (u32*) (pll->base_reg + PLL35XX_PLL_LOCK));
 
 	/* Change PLL PMS */
-	tmp = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0);
+	tmp = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0 + pll->con_offset);
 	tmp &= ~((PLL35XX_PDIV_MASK << PLL35XX_PDIV_SHIFT) |
 		(PLL35XX_MDIV_MASK << PLL35XX_MDIV_SHIFT) |
 		(PLL35XX_SDIV_MASK << PLL35XX_SDIV_SHIFT));
 	tmp |= (p << PLL35XX_PDIV_SHIFT) | (m << PLL35XX_MDIV_SHIFT) |
 		(s << PLL35XX_SDIV_SHIFT);
-	__raw_writel(tmp, (u32*) (pll->base_reg  + PLL35XX_PLL_CON0));
+	__raw_writel(tmp, (u32 *) (pll->base_reg  + PLL35XX_PLL_CON0
+							+ pll->con_offset));
 
 	/* Wait for locking */
 	do {
 		cpu_relax();
-		tmp = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0);
+		tmp = __raw_readl(pll->base_reg + PLL35XX_PLL_CON0
+							+ pll->con_offset);
 	} while (!(tmp & PLL35XX_LOCKED));
 
 	return 0;
@@ -158,7 +164,7 @@ static const struct clk_ops samsung_pll35xx_clk_ops = {
 struct clk * __init
 samsung_clk_register_pll35xx(const char *name,
 			     const char *pname, const void __iomem *base_reg,
-			     struct pll_pms *pms)
+			     struct pll_pms *pms, const unsigned int con_offset)
 {
 	struct samsung_clk_pll35xx *pll;
 	struct clk *clk;
@@ -185,6 +191,7 @@ samsung_clk_register_pll35xx(const char *name,
 	pll->hw.init = &init;
 	pll->base_reg = base_reg;
 	pll->pms = pms;
+	pll->con_offset = con_offset;
 
 	clk = clk_register(NULL, &pll->hw);
 	if (IS_ERR(clk)) {
