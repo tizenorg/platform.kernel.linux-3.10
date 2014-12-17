@@ -68,6 +68,7 @@ static const char name_exynos4412[] = "EXYNOS4412";
 static const char name_exynos5250[] = "EXYNOS5250";
 static const char name_exynos5420[] = "EXYNOS5420";
 static const char name_exynos5440[] = "EXYNOS5440";
+static const char name_exynos5800[] = "EXYNOS5800";
 
 static void exynos3_map_io(void);
 static void exynos4_map_io(void);
@@ -124,6 +125,12 @@ static struct cpu_table cpu_ids[] __initdata = {
 		.map_io		= exynos5440_map_io,
 		.init		= exynos_init,
 		.name		= name_exynos5440,
+	}, {
+		.idcode		= EXYNOS5800_SOC_ID,
+		.idmask		= EXYNOS5_SOC_MASK,
+		.map_io		= exynos5_map_io,
+		.init		= exynos_init,
+		.name		= name_exynos5800,
 	},
 };
 
@@ -356,6 +363,16 @@ static struct map_desc exynos5250_iodesc[] __initdata = {
 	},
 };
 
+static struct map_desc exynos5420_iodesc[] __initdata = {
+	{
+		.virtual	= (unsigned long)S5P_VA_SYSRAM_NS,
+		.pfn		= __phys_to_pfn(EXYNOS5420_PA_SYSRAM_NS),
+		.length		= SZ_4K,
+		.type		= MT_DEVICE,
+	},
+
+};
+
 static struct map_desc exynos5_iodesc[] __initdata = {
 	{
 		.virtual	= (unsigned long)S3C_VA_SYS,
@@ -563,6 +580,9 @@ static void __init exynos5_map_io(void)
 
 	if (soc_is_exynos5250())
 		iotable_init(exynos5250_iodesc, ARRAY_SIZE(exynos5250_iodesc));
+
+	if (soc_is_exynos5800())
+		iotable_init(exynos5420_iodesc, ARRAY_SIZE(exynos5420_iodesc));
 }
 
 static void __init exynos5440_map_io(void)
