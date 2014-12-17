@@ -191,7 +191,7 @@ static int __cpuinit exynos_boot_secondary(unsigned int cpu, struct task_struct 
 
 		call_firmware_op(cpu_boot, cpu_idx);
 
-		if (soc_is_exynos3250())
+		if (soc_is_exynos3250() || soc_is_exynos5800())
 			dsb_sev();
 		else
 			arch_send_wakeup_ipi_mask(cpumask_of(cpu));
@@ -223,6 +223,8 @@ static void __init exynos_smp_init_cpus(void)
 
 	if (soc_is_exynos3250() || soc_is_exynos5250())
 		ncores = 2;
+	else if (soc_is_exynos5800())
+		ncores = 8;
 	else
 		ncores = scu_base ? scu_get_core_count(scu_base) : 1;
 
@@ -241,7 +243,8 @@ static void __init exynos_smp_prepare_cpus(unsigned int max_cpus)
 {
 	int i;
 
-	if (!(soc_is_exynos3250() || soc_is_exynos5250() || soc_is_exynos5440()))
+	if (!(soc_is_exynos3250() || soc_is_exynos5250() ||
+				soc_is_exynos5440() || soc_is_exynos5800()))
 		scu_enable(scu_base_addr());
 
 	/*
