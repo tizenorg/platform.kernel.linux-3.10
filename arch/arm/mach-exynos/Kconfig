@@ -481,6 +481,7 @@ config MACH_EXYNOS5_DT
 	bool "SAMSUNG EXYNOS5 Machine using device tree"
 	default y
 	depends on ARCH_EXYNOS5
+	select PINCTRL
 	select ARM_AMBA
 	select CLKSRC_OF
 	select USE_OF
