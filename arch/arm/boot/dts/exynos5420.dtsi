@@ -665,11 +665,15 @@
 			"sclk_hdmiphy", "mout_hdmi";
 		phy = <&hdmiphy>;
 		samsung,syscon-phandle = <&pmu_system_controller>;
+		phys = <&hdmiphy 0>;
+		phy-names = "hdmiphy";
 		status = "disabled";
 	};
 
 	hdmiphy: hdmiphy@145D0000 {
+		compatible = "exynos4412-phy";
 		reg = <0x145D0000 0x20>;
+		#phy-cells = <1>;
 	};
 
 	mixer: mixer@14450000 {
