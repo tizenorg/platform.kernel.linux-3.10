@@ -678,6 +678,7 @@
 		interrupts = <0 94 0>;
 		clocks = <&clock CLK_MIXER>, <&clock CLK_SCLK_HDMI>;
 		clock-names = "mixer", "sclk_hdmi";
+		iommu = <&sysmmu_mixer>;
 	};
 
 	gsc_0: video-scaler@13e00000 {
@@ -704,6 +705,15 @@
 		clock-names = "clkout16";
 		clocks = <&clock CLK_FIN_PLL>;
 		#clock-cells = <1>;
+	};
+
+	sysmmu_mixer: sysmmu@0x1465000 {
+		compatible = "samsung,exynos4210-sysmmu";
+		reg = <0x14650000 0x1000>;
+		interrupt-parent = <&combiner>;
+		interrupts = <7 4>;
+		clock-names = "sysmmu", "master";
+		clocks = <&clock CLK_SMMU_MIXER>, <&clock CLK_MIXER>;
 	};
 
 	sysreg_system_controller: syscon@10050000 {
