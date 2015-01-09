@@ -1,0 +1,28 @@
+* Skyworks Solutions, Inc. AAT1290 Current Regulator for Flash LEDs
+
+Required properties:
+
+- compatible : Must be "skyworks,aat1290".
+- gpios : Two gpio pins in order FLEN, EN/SET, and optional third
+	  HW_FLASH_EN gpio for controlling the HW_FLASH_SW mux.
+
+The LED connected to the device must be represented by a child node -
+see Documentation/devicetree/bindings/leds/common.txt.
+
+Required properties of the LED child node:
+- label : see Documentation/devicetree/bindings/leds/common.txt
+- flash-timeout-us : Maximum flash timeout in microseconds -
+		     it can be calculated using following formula:
+		     T = 8.82 * 10^9 * Ct.
+
+Example:
+
+aat1290 {
+	compatible = "skyworks,aat1290";
+	gpios = <&gpj1 1 0>, <&gpj1 2 0>, <&gpj1 0 0>;
+
+	camera_flash: flash-led {
+		label = "aat1290-flash";
+		flash-timeout-us = <1940000>;
+	};
+};
