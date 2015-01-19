@@ -322,6 +322,20 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg)
 		tx_data.msg.msg[2] = msg->msg[1];
 		tx_data.msg.msg[3] = 4;	/* Refused */
 		return cec_transmit_msg(adap, &tx_data, false);
+
+	case CEC_OP_USER_CONTROL_PRESSED:
+		if (adap->key_passthrough != CEC_KEY_PASSTHROUGH_ENABLE) {
+			rc_keydown(adap->rc, msg->msg[2], 0);
+			return 0;
+		}
+		break;
+
+	case CEC_OP_USER_CONTROL_RELEASED:
+		if (adap->key_passthrough != CEC_KEY_PASSTHROUGH_ENABLE) {
+			rc_keyup(adap->rc);
+			return 0;
+		}
+		break;
 	}
 
 	if ((adap->capabilities & CEC_CAP_RECEIVE) == 0)
@@ -827,15 +841,10 @@ static long cec_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		break;
 	}
-
-		break;
-	}
-
 	case CEC_G_VENDOR_ID:
 		if (copy_to_user(parg, &adap->vendor_id, sizeof(adap->vendor_id)))
 			return -EFAULT;
 		break;
-
 	case CEC_S_VENDOR_ID: {
 		u32 vendor_id;
 
@@ -844,6 +853,29 @@ static long cec_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&vendor_id, parg, sizeof(vendor_id)))
 			return -EFAULT;
 		adap->vendor_id = vendor_id;
+		break;
+	}
+	case CEC_G_KEY_PASSTHROUGH: {
+		printk(KERN_ERR "%s:%s:%d\n", __FILE__, __func__, __LINE__);
+		if (put_user(adap->key_passthrough, (int __user *)parg))
+			return -EFAULT;
+		printk(KERN_ERR "%s:%s:%d\n", __FILE__, __func__, __LINE__);
+		break;
+	}
+	case CEC_S_KEY_PASSTHROUGH: {
+		int state;
+		printk(KERN_ERR "%s:%s:%d\n", __FILE__, __func__, __LINE__);
+		if (get_user(state, (int __user *)parg))
+			return -EFAULT;
+		printk(KERN_ERR "%s:%s:%d - %d\n", __FILE__, __func__, __LINE__, state);
+		if (state != CEC_KEY_PASSTHROUGH_DISABLE &&
+		    state != CEC_KEY_PASSTHROUGH_ENABLE)
+			return -EINVAL;
+		printk(KERN_ERR "%s:%s:%d\n", __FILE__, __func__, __LINE__);
+		adap->key_passthrough = state;
+		break;
+	}
+
 	default:
 		return -ENOTTY;
 	}
@@ -1015,6 +1047,40 @@ int cec_create_adapter(struct cec_adapter *adap, const char *name, u32 caps)
 			kthread_stop(adap->kthread);
 	}
 	adap->recv_notifier = cec_receive_notify;
+
+	/* Prepare the RC input device */
+	adap->rc = rc_allocate_device();
+	if (!adap->rc) {
+		pr_err("cec-%s: failed to allocate memory for rc_dev\n", name);
+		cec_devnode_unregister(&adap->devnode);
+		kthread_stop(adap->kthread);
+		return -ENOMEM;
+	}
+
+	snprintf(adap->input_name, sizeof(adap->input_name), "RC for %s", name);
+	snprintf(adap->input_phys, sizeof(adap->input_phys), "%s/input0", name);
+	strncpy(adap->input_drv, name, sizeof(adap->input_drv));
+
+	adap->rc->input_name = adap->input_name;
+	adap->rc->input_phys = adap->input_phys;
+	adap->rc->dev.parent = &adap->devnode.dev;
+	adap->rc->driver_name = adap->input_drv;
+	adap->rc->driver_type = RC_DRIVER_CEC;
+	rc_set_allowed_protocols(adap->rc, RC_BIT_CEC);
+	adap->rc->priv = adap;
+	adap->rc->map_name = RC_MAP_CEC;
+	adap->rc->timeout = MS_TO_NS(100);
+
+	res = rc_register_device(adap->rc);
+	printk("KAMIL: rc_register_device = %d\n", res);
+
+	if (res) {
+		pr_err("cec-%s: failed to prepare input device\n", name);
+		cec_devnode_unregister(&adap->devnode);
+		rc_free_device(adap->rc);
+		kthread_stop(adap->kthread);
+	}
+
 	return res;
 }
 EXPORT_SYMBOL_GPL(cec_create_adapter);
