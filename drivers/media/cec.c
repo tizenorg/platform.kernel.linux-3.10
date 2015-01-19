@@ -300,14 +300,14 @@ static int cec_receive_notify(struct cec_adapter *adap, struct cec_msg *msg)
 		tx_data.msg.msg[2] = adap->version;
 		return cec_transmit_msg(adap, &tx_data, false);
 
-	case CEC_OP_GIVE_PHYS_ADDR:
+	case CEC_OP_GIVE_PHYSICAL_ADDR:
 		if (!is_directed)
 			return 0;
 		/* Do nothing for CEC switches using addr 15 */
 		if (devtype == CEC_PRIM_DEVTYPE_SWITCH && dest_laddr == 15)
 			return 0;
 		tx_data.msg.len = 5;
-		tx_data.msg.msg[1] = CEC_OP_REPORT_PHYS_ADDR;
+		tx_data.msg.msg[1] = CEC_OP_REPORT_PHYSICAL_ADDR;
 		tx_data.msg.msg[2] = adap->phys_addr >> 8;
 		tx_data.msg.msg[3] = adap->phys_addr & 0xff;
 		tx_data.msg.msg[4] = devtype;
@@ -427,7 +427,7 @@ static int cec_report_phys_addr(struct cec_adapter *adap, unsigned logical_addr)
 	/* Report Physical Address */
 	data.msg.len = 5;
 	data.msg.msg[0] = (logical_addr << 4) | 0x0f;
-	data.msg.msg[1] = CEC_OP_REPORT_PHYS_ADDR;
+	data.msg.msg[1] = CEC_OP_REPORT_PHYSICAL_ADDR;
 	data.msg.msg[2] = adap->phys_addr >> 8;
 	data.msg.msg[3] = adap->phys_addr & 0xff;
 	data.msg.msg[4] = cec_log_addr2dev(adap, logical_addr);
@@ -637,6 +637,7 @@ int cec_claim_log_addrs(struct cec_adapter *adap, struct cec_log_addrs *log_addr
 	adap->kthread_config = kthread_run(cec_config_thread_func, cla_int, "cec_log_addrs");
 	if (block) {
 		wait_for_completion(&cla_int->c);
+		*log_addrs = cla_int->log_addrs;
 		kfree(cla_int);
 	}
 	return 0;
@@ -698,6 +699,8 @@ static long cec_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		caps.available_log_addrs = 3;
 		caps.capabilities = adap->capabilities;
+		caps.version = adap->version;
+		caps.vendor_id = adap->vendor_id;
 		if (copy_to_user(parg, &caps, sizeof(caps)))
 			return -EFAULT;
 		break;
@@ -821,6 +824,22 @@ static long cec_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	}
 
+		break;
+	}
+
+	case CEC_G_VENDOR_ID:
+		if (copy_to_user(parg, &adap->vendor_id, sizeof(adap->vendor_id)))
+			return -EFAULT;
+		break;
+
+	case CEC_S_VENDOR_ID: {
+		u32 vendor_id;
+
+		if (!(adap->capabilities & CEC_CAP_VENDOR_ID))
+			return -ENOTTY;
+		if (copy_from_user(&vendor_id, parg, sizeof(vendor_id)))
+			return -EFAULT;
+		adap->vendor_id = vendor_id;
 	default:
 		return -ENOTTY;
 	}

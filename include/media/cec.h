@@ -97,6 +97,7 @@ struct cec_adapter {
 	u8 state;
 	u32 capabilities;
 	u16 phys_addr;
+	u32 vendor_id;
 	u8 version;
 	u8 num_log_addrs;
 	u8 prim_device[CEC_MAX_LOG_ADDRS];
