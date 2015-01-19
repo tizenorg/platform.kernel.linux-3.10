@@ -7,6 +7,7 @@
 #include <linux/cdev.h>
 #include <linux/kthread.h>
 #include <linux/cec.h>
+#include <media/rc-core.h>
 
 #define cec_phys_addr_exp(pa) \
 	((pa) >> 12), ((pa) >> 8) & 0xf, ((pa) >> 4) & 0xf, (pa) & 0xf
@@ -77,6 +78,7 @@ struct cec_adapter {
 	const char *name;
 	struct cec_devnode devnode;
 	struct mutex lock;
+	struct rc_dev *rc;
 
 	struct cec_data tx_queue[CEC_TX_QUEUE_SZ];
 	u8 tx_qstart, tx_qcount;
@@ -100,9 +102,14 @@ struct cec_adapter {
 	u32 vendor_id;
 	u8 version;
 	u8 num_log_addrs;
+	int key_passthrough;
 	u8 prim_device[CEC_MAX_LOG_ADDRS];
 	u8 log_addr_type[CEC_MAX_LOG_ADDRS];
 	u8 log_addr[CEC_MAX_LOG_ADDRS];
+
+	char input_name[32];
+	char input_phys[32];
+	char input_drv[32];
 
 	int (*adap_enable)(struct cec_adapter *adap, bool enable);
 	int (*adap_log_addr)(struct cec_adapter *adap, u8 logical_addr);

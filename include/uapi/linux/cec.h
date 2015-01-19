@@ -272,7 +272,12 @@ struct cec_log_addrs {
 
 #define CEC_G_EVENT		_IOWR('a', 9, struct cec_event)
 
+#define CEC_G_KEY_PASSTHROUGH	_IOWR('a', 10, int)
+#define CEC_S_KEY_PASSTHROUGH	_IOWR('a', 11, int)
+#define CEC_KEY_PASSTHROUGH_DISABLE	0
+#define CEC_KEY_PASSTHROUGH_ENABLE	1
 
 #define CEC_G_VENDOR_ID		_IOR('a', 12, __u32)
 #define CEC_S_VENDOR_ID		_IOW('a', 13, __u32)
+
 #endif
