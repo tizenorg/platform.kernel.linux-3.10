@@ -1,64 +1,41 @@
-RFC CEC Kernel Support
-======================
+CEC Kernel Support
+==================
 
-Almost three years ago an initial RFC for HDMI CEC support was posted:
+The CEC framework provides a unified kernel interface for use with HDMI CEC
+hardware. It is designed to handle a multiple variants of hardware. Adding to
+the flexibility of the framework it enables to set which parts of the CEC
+protocol processing is handled by the hardware, by the driver and by the
+userspace application.
 
-http://comments.gmane.org/gmane.linux.drivers.video-input-infrastructure/29747
 
-Since that time this work has stalled: partially due to lack of time, but
-also because the approach had to be changed due to HDMI 1.4b requirements
-and new insights in how this should be implemented.
+The CEC Protocol
+----------------
 
-The original RFC exposed just the low-level CEC layer (sending and receiving
-messages) and relied on userspace to actually implement the higher protocol
-levels.
+The CEC protocol enables cosumer electronic devices to communicate with each
+other through the HDMI connection. The protocol uses logical addresses in the
+communication. The logical address is strictly connected with the functionality
+provided by the device. The TV acting as the communication hub is always
+assigned address 0. The physicall addressis determined by physical connection
+between devices.
 
-However, some of the CEC features such as the Standby feature but also
-messages relating to audio (both HDMI audio and the Audio Return Channel),
-ethernet and CDC (Capability Discovery and Control) all have aspects that
-require direct kernel control. I.e., if a standby message is received, then
-you might want to handle that in the driver and not have to rely on userspace.
-And if ARC and/or ethernet is supported then even the hotplug signal is
-going to be sent as a CEC CDC message instead of actually toggling the
-hotplug pin.
+The protocol enables control of compatible devices with a single remote.
+Synchronous power on/standby, instant playback with changing the content source
+on the TV.
 
-What part of the CEC features exactly needs to be implemented in the kernel
-will depend entirely on the particular product. You might want to implement
-almost everything in userspace for a CEC USB dongle that allows you to
-control the CEC pin, you might want to implement everything in the kernel if
-you are dealing with a driver for a GPU, or it can be some mix where a set
-of standard commands are handled in the kernel, but with the option for
-some of the commands to be handled from userspace.
-
-This does not make it easy to design the CEC support. Other problems are that
-the CEC transmission speed is prehistoric: we are talking around 300 bits per
-second. So everything has to be done asynchronously. And the protocol is one
-big mess of ad-hoc decisions. Also, the CEC API can be used within different
-kernel subsystems: GPUs might need it, video capture/output devices might need
-it and stand-alone CEC USB dongles need it.
-
-The proposal has been developed for CEC version 1.4b, but the final version
-of this proposal will have support for, or at the very least be prepared for
-version 2.0.
-
-There are still a few todo's, the main one being the remote control support
-feature of CEC. I need to research if that should be implemented via the
-standard kernel remote control support.
+The Kernel Interface
+====================
 
 CEC Adaptor
 -----------
 
 #define CEC_LOG_ADDR_INVALID 0xff
 
-// The maximum number of logical addresses one device can be assigned to.
-// The CEC 2.0 spec allows for only 2 logical addresses at the moment. The
-// Analog Devices CEC hardware supports 3. So let's go wild and go for 4.
+/* The maximum number of logical addresses one device can be assigned to.
+ * The CEC 2.0 spec allows for only 2 logical addresses at the moment. The
+ * Analog Devices CEC hardware supports 3. So let's go wild and go for 4. */
 #define CEC_MAX_LOG_ADDRS 4
 
-// "You are in a maze of twisty little defines, all alike"
-// What were they thinking of when they came up with this mess...
-
-// The "Primary Device Type"
+/* The "Primary Device Type" */
 #define CEC_PRIM_DEVTYPE_TV		0
 #define CEC_PRIM_DEVTYPE_RECORD		1
 #define CEC_PRIM_DEVTYPE_TUNER		3
@@ -67,17 +44,17 @@ CEC Adaptor
 #define CEC_PRIM_DEVTYPE_SWITCH		6
 #define CEC_PRIM_DEVTYPE_VIDEOPROC	7
 
-// The "All Device Types" flags (CEC 2.0)
+/* The "All Device Types" flags (CEC 2.0) */
 #define CEC_FL_ALL_DEVTYPE_TV		(1 << 7)
 #define CEC_FL_ALL_DEVTYPE_RECORD	(1 << 6)
 #define CEC_FL_ALL_DEVTYPE_TUNER	(1 << 5)
 #define CEC_FL_ALL_DEVTYPE_PLAYBACK	(1 << 4)
 #define CEC_FL_ALL_DEVTYPE_AUDIOSYSTEM	(1 << 3)
 #define CEC_FL_ALL_DEVTYPE_SWITCH	(1 << 2)
-// And if you wondering what happened to VIDEOPROC devices: those should
-// be mapped to a SWITCH.
+/* And if you wondering what happened to VIDEOPROC devices: those should
+ * be mapped to a SWITCH. */
 
-// The logical address types that the CEC device wants to claim
+/* The logical address types that the CEC device wants to claim */
 #define CEC_LOG_ADDR_TYPE_TV		0
 #define CEC_LOG_ADDR_TYPE_RECORD	1
 #define CEC_LOG_ADDR_TYPE_TUNER		2
@@ -85,10 +62,10 @@ CEC Adaptor
 #define CEC_LOG_ADDR_TYPE_AUDIOSYSTEM	4
 #define CEC_LOG_ADDR_TYPE_SPECIFIC	5
 #define CEC_LOG_ADDR_TYPE_UNREGISTERED	6
-// Switches should use UNREGISTERED.
-// Video processors should use SPECIFIC.
+/* Switches should use UNREGISTERED.
+ * Video processors should use SPECIFIC. */
 
-// The CEC version
+/* The CEC version */
 #define CEC_VERSION_1_4B		5
 #define CEC_VERSION_2_0			6
 
@@ -181,7 +158,10 @@ transmit queue), or a blocking wait until there is either an error or a
 reply to the message.
 
 
-CEC Userspace API
+The Userspace API
+=================
+
+CEC communication
 -----------------
 
 This is the main message struct:
@@ -285,7 +265,7 @@ struct cec_log_addrs {
 
 /*
    Configure the CEC adapter.
-   
+
    The cec_version determines which CEC version should be followed.
 
    It will try to claim num_log_addrs devices. The log_addr_type array has
@@ -315,5 +295,24 @@ struct cec_log_addrs {
 #define CEC_G_ADAP_LOG_ADDRS	_IOR('a', 3, struct cec_log_addrs)
 #define CEC_S_ADAP_LOG_ADDRS	_IOWR('a', 4, struct cec_log_addrs)
 
+The event ioctl is used to get a single struct cec_event if it was
+previously posted by the driver by the cec_post_event function.
 
 #define CEC_G_EVENT		_IOWR('a', 9, struct cec_event)
+
+Remote control handling
+-----------------------
+
+The CEC framework provides two ways of handling the key messages of remote
+control. In the first case, the CEC framework will handle these messages and
+provide the keypressed via the RC framework. In the second case the messages
+related to the key down/up events are not parsed by the framework and are
+passed to the userspace as raw messages.
+
+Switching between these modes is done with a special ioctl.
+
+#define CEC_G_KEY_PASSTHROUGH	_IOR('a', 10, int)
+#define CEC_S_KEY_PASSTHROUGH	_IOW('a', 11, int)
+#define CEC_KEY_PASSTHROUGH_DISABLE	0
+#define CEC_KEY_PASSTHROUGH_ENABLE	1
+
