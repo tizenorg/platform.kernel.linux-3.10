@@ -1273,6 +1273,16 @@
 		};
 	};
 
+	aat1290: aat1290 {
+		compatible = "skyworks,aat1290";
+		gpios = <&gpj1 1 0>, <&gpj1 2 0>;
+
+		camera_flash: flash-led {
+			label = "aat1290-flash";
+			flash-timeout-us = <1940000>;
+		};
+	};
+
 	codec@13400000 {
 		status = "okay";
 
