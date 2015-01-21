@@ -30,6 +30,13 @@ should be inactive. For the "active-a" state the camera port A must be activated
 and the port B deactivated and for the state "active-b" it should be the other
 way around.
 
+Optional properties:
+
+- flashes - Array of phandles to the flash LEDs that can be controlled by the
+	    sub-devices contained in this media device. Flash LED is
+	    represented by a child node of a flash LED device
+	    (see Documentation/devicetree/bindings/leds/common.txt).
+
 The 'camera' node must include at least one 'fimc' child node.
 
 Optional properties:
@@ -164,6 +171,7 @@ Example:
 		status = "okay";
 		pinctrl-names = "default";
 		pinctrl-0 = <&cam_port_a_clk_active>;
+		flashes = <&camera_flash>, <&system_torch>;
 
 		/* parallel camera ports */
 		parallel-ports {
