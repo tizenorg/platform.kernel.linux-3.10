@@ -1174,6 +1174,7 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&cam_port_a_clk_active>;
+		flashes = <&aat1290>;
 
 		fimc_0: fimc@11800000 {
 			clock-frequency = <176000000>;
