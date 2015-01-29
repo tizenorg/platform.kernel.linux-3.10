@@ -18,12 +18,21 @@ struct odroid_reboot_platform_data {
 
 static struct odroid_reboot_platform_data *g_pdata;
 
+#define REBOOT_MODE_PREFIX	0x12345670
+#define REBOOT_MODE_NONE	0
+#define REBOOT_MODE_DOWNLOAD	1
+
 static void odroid_reboot(char str, const char *cmd)
 {
 	local_irq_disable();
 
 	writel(0x12345678, S5P_INFORM2);	/* Don't enter lpm mode */
 	writel(0x0, S5P_INFORM4);		/* Reset reboot count */
+
+	if (cmd && !strcmp(cmd, "download"))
+		writel(REBOOT_MODE_PREFIX | REBOOT_MODE_DOWNLOAD, S5P_INFORM5);
+	else
+		writel(REBOOT_MODE_PREFIX | REBOOT_MODE_NONE, S5P_INFORM5);
 
         gpio_set_value(g_pdata->power_gpio, 0);
         mdelay(150);
