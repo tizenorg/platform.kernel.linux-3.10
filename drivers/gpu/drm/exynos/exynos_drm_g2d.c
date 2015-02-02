@@ -698,7 +698,7 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 	struct g2d_buf_info *buf_info = &node->buf_info;
 	struct drm_exynos_file_private *file_priv = file->driver_priv;
 	int offset;
-	int ret;
+	int ret = 0;
 	int i;
 
 	if (dmabuf_sync_is_supported()) {
@@ -737,8 +737,10 @@ static int g2d_map_cmdlist_gem(struct g2d_data *g2d,
 
 			dma_buf = exynos_drm_gem_get_dmabuf(drm_dev, handle,
 								file);
-			if (!dma_buf)
+			if (!dma_buf) {
+				err = -EINVAL;
 				goto out_dmabuf_sync;
+			}
 
 			if (reg_type == REG_TYPE_DST_PLANE2 ||
 					reg_type == REG_TYPE_DST)
