@@ -443,6 +443,7 @@ int s5c73m3_spi_read(struct s5c73m3 *state, void *addr,
 int s5c73m3_read(struct s5c73m3 *state, u32 addr, u16 *data);
 int s5c73m3_write(struct s5c73m3 *state, u32 addr, u16 data);
 int s5c73m3_isp_command(struct s5c73m3 *state, u16 command, u16 data);
+int s5c73m3_isp_comm_result(struct s5c73m3 *state, u16 command, u16 *data);
 int s5c73m3_init_controls(struct s5c73m3 *state);
 
 static inline struct v4l2_subdev *ctrl_to_sensor_sd(struct v4l2_ctrl *ctrl)
