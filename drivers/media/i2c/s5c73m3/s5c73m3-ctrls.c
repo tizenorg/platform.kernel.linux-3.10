@@ -342,6 +342,61 @@ static int s5c73m3_set_power_line_freq(struct s5c73m3 *state, int val)
 	return s5c73m3_isp_command(state, COMM_FLICKER_MODE, pwr_line_freq);
 }
 
+static int s5c73m3_snapshot(struct s5c73m3 *state)
+{
+	struct s5c73m3_ctrls *ctrls = &state->ctrls;
+	u16 torch_mode = COMM_FLASH_TORCH_OFF, flash_mode = COMM_FLASH_MODE_OFF,
+	    needs_flash;
+	int ret = 0;
+
+	switch (ctrls->hw_flash_mode->val) {
+	case V4L2_HW_FLASH_MODE_OFF:
+		break;
+	case V4L2_HW_FLASH_MODE_ON:
+		flash_mode = COMM_FLASH_MODE_ON;
+		break;
+	case V4L2_HW_FLASH_MODE_AUTO:
+		flash_mode = COMM_FLASH_MODE_AUTO;
+		break;
+	case V4L2_HW_FLASH_MODE_TORCH:
+		torch_mode = COMM_FLASH_TORCH_ON;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = s5c73m3_isp_command(state, COMM_FLASH_TORCH, torch_mode);
+	if (ret < 0)
+		return -EINVAL;
+
+	ret = s5c73m3_isp_command(state, COMM_FLASH_MODE, flash_mode);
+	if (ret < 0)
+		return -EINVAL;
+
+	if (torch_mode == COMM_FLASH_TORCH_ON ||
+	    flash_mode == COMM_FLASH_MODE_OFF)
+		return 0;
+
+	if (flash_mode == COMM_FLASH_MODE_AUTO) {
+		ret = s5c73m3_isp_comm_result(state, COMM_AE_NEEDS_FLASH,
+						&needs_flash);
+		if (ret < 0)
+			return 0;
+	}
+
+	if (needs_flash || flash_mode == COMM_FLASH_MODE_ON) {
+		ret = s5c73m3_isp_command(state, COMM_STILL_PRE_FLASH,
+					COMM_STILL_PRE_FLASH_FIRE);
+		if (ret < 0)
+			return -EINVAL;
+
+		ret = s5c73m3_isp_command(state, COMM_STILL_MAIN_FLASH,
+					COMM_STILL_MAIN_FLASH_FIRE);
+	}
+
+	return ret;
+}
+
 static int s5c73m3_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct v4l2_subdev *sd = ctrl_to_sensor_sd(ctrl);
@@ -425,6 +480,9 @@ static int s5c73m3_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_ZOOM_ABSOLUTE:
 		ret = s5c73m3_isp_command(state, COMM_ZOOM_STEP, ctrl->val);
 		break;
+	case V4L2_CID_SNAPSHOT:
+		ret = s5c73m3_snapshot(state);
+		break;
 	}
 unlock:
 	mutex_unlock(&state->lock);
@@ -454,7 +512,7 @@ int s5c73m3_init_controls(struct s5c73m3 *state)
 	struct s5c73m3_ctrls *ctrls = &state->ctrls;
 	struct v4l2_ctrl_handler *hdl = &ctrls->handler;
 
-	int ret = v4l2_ctrl_handler_init(hdl, 22);
+	int ret = v4l2_ctrl_handler_init(hdl, 24);
 	if (ret)
 		return ret;
 
@@ -543,6 +601,13 @@ int s5c73m3_init_controls(struct s5c73m3 *state)
 
 	ctrls->aaa_lock = v4l2_ctrl_new_std(hdl, ops,
 			V4L2_CID_3A_LOCK, 0, 0x7, 0, 0);
+
+	ctrls->snapshot = v4l2_ctrl_new_std(hdl, ops,
+			V4L2_CID_SNAPSHOT, 0, 1, 1, 0);
+
+	ctrls->hw_flash_mode = v4l2_ctrl_new_std_menu(hdl, ops,
+			V4L2_CID_HW_FLASH_MODE, V4L2_HW_FLASH_MODE_TORCH,
+			~0xf, V4L2_HW_FLASH_MODE_OFF);
 
 	if (hdl->error) {
 		ret = hdl->error;
