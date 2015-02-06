@@ -1276,7 +1276,7 @@
 
 	aat1290: aat1290 {
 		compatible = "skyworks,aat1290";
-		gpios = <&gpj1 1 0>, <&gpj1 2 0>;
+		gpios = <&gpj1 1 0>, <&gpj1 2 0>, <&gpj1 0 0>;
 
 		camera_flash: flash-led {
 			label = "aat1290-flash";
