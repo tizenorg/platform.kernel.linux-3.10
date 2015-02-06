@@ -301,7 +301,7 @@ int s5c73m3_isp_command(struct s5c73m3 *state, u16 command, u16 data)
 	return s5c73m3_write(state, REG_STATUS, 0x0001);
 }
 
-static int s5c73m3_isp_comm_result(struct s5c73m3 *state, u16 command,
+int s5c73m3_isp_comm_result(struct s5c73m3 *state, u16 command,
 				   u16 *data)
 {
 	return s5c73m3_read(state, COMM_RESULT_OFFSET + command, data);
