@@ -748,6 +748,8 @@ enum v4l2_hw_flash_mode {
 	V4L2_HW_FLASH_MODE_TORCH		= 3,
 };
 
+#define V4L2_CID_SNAPSHOT			(V4L2_CID_CAMERA_CLASS_BASE+33)
+
 
 /* FM Modulator class control IDs */
 
