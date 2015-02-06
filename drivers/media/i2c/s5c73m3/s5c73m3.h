@@ -357,6 +357,8 @@ struct s5c73m3_ctrls {
 	struct v4l2_ctrl *stabilization;
 	struct v4l2_ctrl *jpeg_quality;
 	struct v4l2_ctrl *scene_mode;
+	struct v4l2_ctrl *snapshot;
+	struct v4l2_ctrl *hw_flash_mode;
 };
 
 enum s5c73m3_gpio_id {
