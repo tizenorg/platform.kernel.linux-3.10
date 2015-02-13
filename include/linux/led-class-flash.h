@@ -14,7 +14,6 @@
 
 #include <linux/errno.h>
 #include <linux/leds.h>
-#include <uapi/linux/v4l2-controls.h>
 
 struct device_node;
 struct led_classdev_flash;
