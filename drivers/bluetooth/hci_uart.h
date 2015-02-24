@@ -68,9 +68,11 @@ struct hci_uart {
 	unsigned long		hdev_flags;
 
 	struct work_struct	init_ready;
-	struct work_struct	write_work;
 
 	struct hci_uart_proto	*proto;
+/* BEGIN TIZEN_Bluetooth :: Fix BT File transfer hang issue */
+	struct tasklet_struct	tty_wakeup_task;
+/* END TIZEN_Bluetooth */
 	void			*priv;
 
 	struct sk_buff		*tx_skb;

@@ -25,12 +25,17 @@
 /* Bluetooth address family and sockets. */
 
 #include <linux/module.h>
+#include <linux/debugfs.h>
 #include <asm/ioctls.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <linux/proc_fs.h>
 
-#define VERSION "2.16"
+#ifndef CONFIG_TIZEN_WIP
+#include "selftest.h"
+#endif /* Fix Build error */
+
+#define VERSION "2.20"
 
 /* Bluetooth sockets */
 #define BT_MAX_PROTO	8
@@ -186,12 +191,18 @@ struct sock *bt_accept_dequeue(struct sock *parent, struct socket *newsock)
 		/* FIXME: Is this check still needed */
 		if (sk->sk_state == BT_CLOSED) {
 			release_sock(sk);
+#ifdef CONFIG_TIZEN_WIP /* Fix kernel panic */
+			if (bt_sk(sk)->parent)
+#endif
 			bt_accept_unlink(sk);
 			continue;
 		}
 
 		if (sk->sk_state == BT_CONNECTED || !newsock ||
 		    test_bit(BT_SK_DEFER_SETUP, &bt_sk(parent)->flags)) {
+#ifdef CONFIG_TIZEN_WIP /* Fix kernel panic */
+			if (bt_sk(sk)->parent)
+#endif
 			bt_accept_unlink(sk);
 			if (newsock)
 				sock_graft(sk, newsock);
@@ -225,6 +236,7 @@ int bt_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 	if (!skb) {
 		if (sk->sk_shutdown & RCV_SHUTDOWN)
 			return 0;
+
 		return err;
 	}
 
@@ -235,9 +247,18 @@ int bt_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
 	}
 
 	skb_reset_transport_header(skb);
+#ifdef CONFIG_TIZEN_WIP
 	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
-	if (err == 0)
+#else
+	err = skb_copy_datagram_msg(skb, 0, msg, copied);
+#endif
+	if (err == 0) {
 		sock_recv_ts_and_drops(msg, sk, skb);
+
+		if (bt_sk(sk)->skb_msg_name)
+			bt_sk(sk)->skb_msg_name(skb, msg->msg_name,
+						&msg->msg_namelen);
+	}
 
 	skb_free_datagram(sk, skb);
 
@@ -321,7 +342,11 @@ int bt_sock_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
 		}
 
 		chunk = min_t(unsigned int, skb->len, size);
+#ifdef CONFIG_TIZEN_WIP
 		if (skb_copy_datagram_iovec(skb, 0, msg->msg_iov, chunk)) {
+#else
+		if (skb_copy_datagram_msg(skb, 0, msg, chunk)) {
+#endif
 			skb_queue_head(&sk->sk_receive_queue, skb);
 			if (!copied)
 				copied = -EFAULT;
@@ -409,8 +434,11 @@ unsigned int bt_sock_poll(struct file *file, struct socket *sock,
 		return bt_accept_poll(sk);
 
 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
-		mask |= POLLERR |
+		mask |= POLLERR;
+#ifndef CONFIG_TIZEN_WIP /* Compilation Error */
 			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
+#endif
+
 
 	if (sk->sk_shutdown & RCV_SHUTDOWN)
 		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
@@ -486,6 +514,7 @@ int bt_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 }
 EXPORT_SYMBOL(bt_sock_ioctl);
 
+/* This function expects the sk lock to be held when called */
 int bt_sock_wait_state(struct sock *sk, int state, unsigned long timeo)
 {
 	DECLARE_WAITQUEUE(wait, current);
@@ -521,6 +550,49 @@ int bt_sock_wait_state(struct sock *sk, int state, unsigned long timeo)
 }
 EXPORT_SYMBOL(bt_sock_wait_state);
 
+/* This function expects the sk lock to be held when called */
+int bt_sock_wait_ready(struct sock *sk, unsigned long flags)
+{
+	DECLARE_WAITQUEUE(wait, current);
+	unsigned long timeo;
+	int err = 0;
+
+	BT_DBG("sk %p", sk);
+
+	timeo = sock_sndtimeo(sk, flags & O_NONBLOCK);
+
+	add_wait_queue(sk_sleep(sk), &wait);
+	set_current_state(TASK_INTERRUPTIBLE);
+	while (test_bit(BT_SK_SUSPEND, &bt_sk(sk)->flags)) {
+		if (!timeo) {
+			err = -EAGAIN;
+			break;
+		}
+
+		if (signal_pending(current)) {
+			err = sock_intr_errno(timeo);
+			break;
+		}
+
+		release_sock(sk);
+		timeo = schedule_timeout(timeo);
+		lock_sock(sk);
+		set_current_state(TASK_INTERRUPTIBLE);
+
+		err = sock_error(sk);
+		if (err)
+			break;
+	}
+	__set_current_state(TASK_RUNNING);
+	remove_wait_queue(sk_sleep(sk), &wait);
+
+	return err;
+}
+EXPORT_SYMBOL(bt_sock_wait_ready);
+
+#ifdef CONFIG_TIZEN_WIP
+#undef CONFIG_PROC_FS
+#endif
 #ifdef CONFIG_PROC_FS
 struct bt_seq_state {
 	struct bt_sock_list *l;
@@ -559,7 +631,7 @@ static int bt_seq_show(struct seq_file *seq, void *v)
 	struct bt_sock_list *l = s->l;
 
 	if (v == SEQ_START_TOKEN) {
-		seq_puts(seq ,"sk               RefCnt Rmem   Wmem   User   Inode  Src Dst Parent");
+		seq_puts(seq ,"sk               RefCnt Rmem   Wmem   User   Inode  Parent");
 
 		if (l->custom_seq_show) {
 			seq_putc(seq, ' ');
@@ -572,15 +644,13 @@ static int bt_seq_show(struct seq_file *seq, void *v)
 		struct bt_sock *bt = bt_sk(sk);
 
 		seq_printf(seq,
-			   "%pK %-6d %-6u %-6u %-6u %-6lu %pMR %pMR %-6lu",
+			   "%pK %-6d %-6u %-6u %-6u %-6lu %-6lu",
 			   sk,
 			   atomic_read(&sk->sk_refcnt),
 			   sk_rmem_alloc_get(sk),
 			   sk_wmem_alloc_get(sk),
 			   from_kuid(seq_user_ns(seq), sock_i_uid(sk)),
 			   sock_i_ino(sk),
-			   &bt->src,
-			   &bt->dst,
 			   bt->parent? sock_i_ino(bt->parent): 0LU);
 
 		if (l->custom_seq_show) {
@@ -593,7 +663,7 @@ static int bt_seq_show(struct seq_file *seq, void *v)
 	return 0;
 }
 
-static struct seq_operations bt_seq_ops = {
+static const struct seq_operations bt_seq_ops = {
 	.start = bt_seq_start,
 	.next  = bt_seq_next,
 	.stop  = bt_seq_stop,
@@ -658,11 +728,25 @@ static struct net_proto_family bt_sock_family_ops = {
 	.create	= bt_sock_create,
 };
 
+struct dentry *bt_debugfs;
+EXPORT_SYMBOL_GPL(bt_debugfs);
+
 static int __init bt_init(void)
 {
+	struct sk_buff *skb;
 	int err;
 
+	BUILD_BUG_ON(sizeof(struct bt_skb_cb) > sizeof(skb->cb));
+
 	BT_INFO("Core ver %s", VERSION);
+
+#ifndef CONFIG_TIZEN_WIP
+	err = bt_selftest();
+	if (err < 0)
+		return err;
+#endif /* Fix Build Error */
+
+	bt_debugfs = debugfs_create_dir("bluetooth", NULL);
 
 	err = bt_sysfs_init();
 	if (err < 0)
@@ -704,7 +788,6 @@ error:
 
 static void __exit bt_exit(void)
 {
-
 	sco_exit();
 
 	l2cap_exit();
@@ -714,6 +797,8 @@ static void __exit bt_exit(void)
 	sock_unregister(PF_BLUETOOTH);
 
 	bt_sysfs_cleanup();
+
+	debugfs_remove_recursive(bt_debugfs);
 }
 
 subsys_initcall(bt_init);

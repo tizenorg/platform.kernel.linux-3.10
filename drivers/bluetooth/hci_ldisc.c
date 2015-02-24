@@ -49,6 +49,9 @@
 #define VERSION "2.2"
 
 static struct hci_uart_proto *hup[HCI_UART_MAX_PROTO];
+/* BEGIN TIZEN_Bluetooth :: Fix BT File transfer hang issue */
+static void hci_uart_tty_wakeup_action(unsigned long data);
+/* END TIZEN_Bluetooth*/
 
 int hci_uart_register_proto(struct hci_uart_proto *p)
 {
@@ -118,28 +121,16 @@ static inline struct sk_buff *hci_uart_dequeue(struct hci_uart *hu)
 
 int hci_uart_tx_wakeup(struct hci_uart *hu)
 {
+	struct tty_struct *tty = hu->tty;
+	struct hci_dev *hdev = hu->hdev;
+	struct sk_buff *skb;
+
 	if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state)) {
 		set_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
 		return 0;
 	}
 
 	BT_DBG("");
-
-	schedule_work(&hu->write_work);
-
-	return 0;
-}
-
-static void hci_uart_write_work(struct work_struct *work)
-{
-	struct hci_uart *hu = container_of(work, struct hci_uart, write_work);
-	struct tty_struct *tty = hu->tty;
-	struct hci_dev *hdev = hu->hdev;
-	struct sk_buff *skb;
-
-	/* REVISIT: should we cope with bad skbs or ->write() returning
-	 * and error value ?
-	 */
 
 restart:
 	clear_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
@@ -165,6 +156,7 @@ restart:
 		goto restart;
 
 	clear_bit(HCI_UART_SENDING, &hu->tx_state);
+	return 0;
 }
 
 static void hci_uart_init_work(struct work_struct *work)
@@ -203,6 +195,13 @@ static int hci_uart_open(struct hci_dev *hdev)
 	BT_DBG("%s %p", hdev->name, hdev);
 
 	/* Nothing to do for UART driver */
+
+	/* BEGIN TIZEN_Bluetooth */
+	/* FIXME: in order to wait enough until uart init complete,
+	   the below routine is added.
+	*/
+	msleep(100);
+	/* END TIZEN_Bluetooth */
 
 	set_bit(HCI_RUNNING, &hdev->flags);
 
@@ -245,20 +244,12 @@ static int hci_uart_close(struct hci_dev *hdev)
 }
 
 /* Send frames from HCI layer */
-static int hci_uart_send_frame(struct sk_buff *skb)
+static int hci_uart_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 {
-	struct hci_dev* hdev = (struct hci_dev *) skb->dev;
-	struct hci_uart *hu;
-
-	if (!hdev) {
-		BT_ERR("Frame for unknown device (hdev=NULL)");
-		return -ENODEV;
-	}
+	struct hci_uart *hu = hci_get_drvdata(hdev);
 
 	if (!test_bit(HCI_RUNNING, &hdev->flags))
 		return -EBUSY;
-
-	hu = hci_get_drvdata(hdev);
 
 	BT_DBG("%s: type %d len %d", hdev->name, bt_cb(skb)->pkt_type, skb->len);
 
@@ -290,7 +281,8 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 	if (tty->ops->write == NULL)
 		return -EOPNOTSUPP;
 
-	if (!(hu = kzalloc(sizeof(struct hci_uart), GFP_KERNEL))) {
+	hu = kzalloc(sizeof(struct hci_uart), GFP_KERNEL);
+	if (!hu) {
 		BT_ERR("Can't allocate control structure");
 		return -ENFILE;
 	}
@@ -300,9 +292,13 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 	tty->receive_room = 65536;
 
 	INIT_WORK(&hu->init_ready, hci_uart_init_work);
-	INIT_WORK(&hu->write_work, hci_uart_write_work);
 
 	spin_lock_init(&hu->rx_lock);
+
+/* BEGIN TIZEN_Bluetooth :: Fix BT File transfer hang issue */
+	tasklet_init(&hu->tty_wakeup_task, hci_uart_tty_wakeup_action,
+			 (unsigned long)hu);
+/* END TIZEN_Bluetooth */
 
 	/* Flush any pending characters in the driver and line discipline. */
 
@@ -338,7 +334,9 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 	if (hdev)
 		hci_uart_close(hdev);
 
-	cancel_work_sync(&hu->write_work);
+/* BEGIN TIZEN_Bluetooth :: Fix BT File transfer hang issue */
+	tasklet_kill(&hu->tty_wakeup_task);
+/* END TIZEN_Bluetooth */
 
 	if (test_and_clear_bit(HCI_UART_PROTO_SET, &hu->flags)) {
 		if (hdev) {
@@ -352,10 +350,13 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 	kfree(hu);
 }
 
+/* BEGIN TIZEN_Bluetooth :: Fix BT File transfer hang issue */
 /* hci_uart_tty_wakeup()
  *
  *    Callback for transmit wakeup. Called when low level
  *    device driver can accept more send data.
+ *    This callback gets called from the isr context so
+ *    schedule the send data operation to tasklet.
  *
  * Arguments:        tty    pointer to associated tty instance data
  * Return Value:    None
@@ -363,11 +364,25 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 static void hci_uart_tty_wakeup(struct tty_struct *tty)
 {
 	struct hci_uart *hu = (void *)tty->disc_data;
+	tasklet_schedule(&hu->tty_wakeup_task);
+}
+
+/* hci_uart_tty_wakeup_action()
+ *
+ * Scheduled action to transmit data when low level device
+ * driver can accept more data.
+ */
+static void hci_uart_tty_wakeup_action(unsigned long data)
+{
+	struct hci_uart *hu = (struct hci_uart *)data;
+	struct tty_struct *tty;
 
 	BT_DBG("");
 
 	if (!hu)
 		return;
+
+	tty = hu->tty;
 
 	clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
 
@@ -377,6 +392,7 @@ static void hci_uart_tty_wakeup(struct tty_struct *tty)
 	if (test_bit(HCI_UART_PROTO_SET, &hu->flags))
 		hci_uart_tx_wakeup(hu);
 }
+/* END TIZEN_Bluetooth */
 
 /* hci_uart_tty_receive()
  *
@@ -548,6 +564,145 @@ static int hci_uart_tty_ioctl(struct tty_struct *tty, struct file * file,
 	return err;
 }
 
+#if 0
+/* BEGIN TIZEN_Bluetooth :: UART read write support */
+struct hci_uart_hook {
+	unsigned int len;
+	unsigned char *head;
+	unsigned char data[HCI_MAX_EVENT_SIZE];
+};
+
+static struct hci_uart_hook *hook;
+static DECLARE_WAIT_QUEUE_HEAD(read_wait);
+
+void hci_uart_tty_read_hook(struct sk_buff *skb)
+{
+	if (!hook) {
+		BT_DBG("%s: hooking wasn't requested, skip it", __func__);
+		goto hci_uart_tty_read_hook_exit;
+	}
+
+	if (bt_cb(skb)->pkt_type != HCI_EVENT_PKT) {
+		BT_DBG("%s: Packet type is %d, skip it",
+				__func__, bt_cb(skb)->pkt_type);
+		goto hci_uart_tty_read_hook_exit;
+	}
+
+	BT_DBG("%s: Received len = %d", __func__, skb->len);
+	if (skb->len > sizeof(hook->data)) {
+		BT_DBG("Packet size exceeds max len, skip it");
+		goto hci_uart_tty_read_hook_exit;
+	}
+
+	memcpy(hook->data, &bt_cb(skb)->pkt_type, 1);
+	skb_copy_from_linear_data(skb, &hook->data[1], skb->len);
+	hook->len = skb->len + 1;
+
+hci_uart_tty_read_hook_exit:
+	wake_up_interruptible(&read_wait);
+}
+EXPORT_SYMBOL(hci_uart_tty_read_hook);
+
+static int hci_uart_tty_access_allowed(void)
+{
+	char name[TASK_COMM_LEN];
+	get_task_comm(name, current_thread_info()->task);
+	BT_DBG("%s: %s", __func__, name);
+	if (strcmp(name, "brcm_poke_helpe")) {
+		BT_ERR("%s isn't allowed", name);
+		return -EACCES;
+	}
+
+	return 0;
+}
+
+static ssize_t hci_uart_tty_read(struct tty_struct *tty, struct file *file,
+		unsigned char __user *buf, size_t nr)
+{
+	struct hci_uart *hu = (void *) tty->disc_data;
+	struct hci_dev *hdev = hu->hdev;
+	int ret = 0, count;
+
+	BT_DBG("%s: hu = 0x%p hci_dev = 0x%p, nr = %d", __func__, hu, hdev, nr);
+
+	ret = hci_uart_tty_access_allowed();
+	if (ret < 0)
+		return ret;
+
+	if (!hook)
+		return -ENOMEM;
+
+	if (!hook->len)
+		interruptible_sleep_on_timeout(&read_wait, 3 * HZ);
+
+	if (!hook->len) {
+		BT_INFO("No data to read");
+	} else {
+		count = nr > hook->len ? hook->len : nr;
+
+		ret = copy_to_user(buf, hook->head, count);
+
+		hook->len -= (count - ret);
+		hook->head += (count - ret);
+
+		ret = count - ret;
+	}
+
+	if (!hook->len) {
+		BT_DBG("%s: free hook", __func__);
+		kfree(hook);
+		hook = NULL;
+	}
+
+	BT_DBG("%s: ret = %d", __func__, ret);
+
+	return ret;
+}
+
+static ssize_t hci_uart_tty_write(struct tty_struct *tty, struct file *file,
+					const unsigned char *data, size_t count)
+{
+	struct hci_uart *hu = (void *) tty->disc_data;
+	struct hci_dev *hdev = hu->hdev;
+	int ret;
+
+	BT_DBG("%s: hu = 0x%p, hci_dev = 0x%p", __func__, hu, hdev);
+
+	ret = hci_uart_tty_access_allowed();
+	if (ret < 0)
+		return ret;
+
+	if (!hdev)
+		return -ENODEV;
+
+	if (!hook)
+		hook = kzalloc(sizeof(*hook), GFP_KERNEL);
+	else {
+		/* Cuase brcm_poke_helper's read/write is serialized,
+		 * it's almost safe to init hook data here
+		 */
+		BT_INFO("hook data still remains");
+		memset(hook, 0, sizeof(*hook));
+	}
+
+	if (!hook)
+		return -ENOMEM;
+
+	hook->head = hook->data;
+
+	hci_uart_flush(hdev);
+
+	if (hdev->wake_peer)
+		hdev->wake_peer(hdev);
+
+	ret = tty->ops->write(tty, data, count);
+
+	BT_DBG("%s: ret = %d", __func__, ret);
+
+	return ret;
+}
+/* END TIZEN_Bluetooth */
+#else
 /*
  * We don't provide read/write/poll interface for user space.
  */
@@ -562,6 +717,7 @@ static ssize_t hci_uart_tty_write(struct tty_struct *tty, struct file *file,
 {
 	return 0;
 }
+#endif
 
 static unsigned int hci_uart_tty_poll(struct tty_struct *tty,
 					struct file *filp, poll_table *wait)
@@ -591,7 +747,8 @@ static int __init hci_uart_init(void)
 	hci_uart_ldisc.write_wakeup	= hci_uart_tty_wakeup;
 	hci_uart_ldisc.owner		= THIS_MODULE;
 
-	if ((err = tty_register_ldisc(N_HCI, &hci_uart_ldisc))) {
+	err = tty_register_ldisc(N_HCI, &hci_uart_ldisc);
+	if (err) {
 		BT_ERR("HCI line discipline registration failed. (%d)", err);
 		return err;
 	}
@@ -636,7 +793,8 @@ static void __exit hci_uart_exit(void)
 #endif
 
 	/* Release tty registration of line discipline */
-	if ((err = tty_unregister_ldisc(N_HCI)))
+	err = tty_unregister_ldisc(N_HCI);
+	if (err)
 		BT_ERR("Can't unregister HCI line discipline (%d)", err);
 }
 

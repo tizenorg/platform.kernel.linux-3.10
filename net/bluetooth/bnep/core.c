@@ -32,6 +32,7 @@
 #include <asm/unaligned.h>
 
 #include <net/bluetooth/bluetooth.h>
+#include <net/bluetooth/l2cap.h>
 #include <net/bluetooth/hci_core.h>
 
 #include "bnep.h"
@@ -51,7 +52,11 @@ static struct bnep_session *__bnep_get_session(u8 *dst)
 	BT_DBG("");
 
 	list_for_each_entry(s, &bnep_session_list, list)
+#ifdef CONFIG_TIZEN_WIP /* Compilation error */
+		if (!compare_ether_addr(dst, s->eh.h_source))
+#else
 		if (ether_addr_equal(dst, s->eh.h_source))
+#endif /* Compilation Error */
 			return s;
 
 	return NULL;
@@ -403,10 +408,18 @@ static int bnep_tx_frame(struct bnep_session *s, struct sk_buff *skb)
 	iv[il++] = (struct kvec) { &type, 1 };
 	len++;
 
+#ifdef CONFIG_TIZEN_WIP /* Compilation error */
+	if (compress_src  && !compare_ether_addr(eh->h_dest, s->eh.h_source))
+#else
 	if (compress_src && ether_addr_equal(eh->h_dest, s->eh.h_source))
+#endif
 		type |= 0x01;
 
-	if (compress_dst && ether_addr_equal(eh->h_source, s->eh.h_dest))
+#ifdef CONFIG_TIZEN_WIP /* Compilation error */
+	if (compress_dst  && !compare_ether_addr(eh->h_dest, s->eh.h_source))
+#else
+	if (compress_dst && ether_addr_equal(eh->h_dest, s->eh.h_source))
+#endif
 		type |= 0x02;
 
 	if (type)
@@ -510,20 +523,13 @@ static int bnep_session(void *arg)
 
 static struct device *bnep_get_device(struct bnep_session *session)
 {
-	bdaddr_t *src = &bt_sk(session->sock->sk)->src;
-	bdaddr_t *dst = &bt_sk(session->sock->sk)->dst;
-	struct hci_dev *hdev;
 	struct hci_conn *conn;
 
-	hdev = hci_get_route(dst, src);
-	if (!hdev)
+	conn = l2cap_pi(session->sock->sk)->chan->conn->hcon;
+	if (!conn)
 		return NULL;
 
-	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, dst);
-
-	hci_dev_put(hdev);
-
-	return conn ? &conn->dev : NULL;
+	return &conn->dev;
 }
 
 static struct device_type bnep_type = {
@@ -539,13 +545,23 @@ int bnep_add_connection(struct bnep_connadd_req *req, struct socket *sock)
 
 	BT_DBG("");
 
-	baswap((void *) dst, &bt_sk(sock->sk)->dst);
-	baswap((void *) src, &bt_sk(sock->sk)->src);
+	if (!l2cap_is_socket(sock))
+		return -EBADFD;
+
+	baswap((void *) dst, &l2cap_pi(sock->sk)->chan->dst);
+	baswap((void *) src, &l2cap_pi(sock->sk)->chan->src);
 
 	/* session struct allocated as private part of net_device */
+#ifdef CONFIG_TIZEN_WIP
 	dev = alloc_netdev(sizeof(struct bnep_session),
 				(*req->device) ? req->device : "bnep%d",
 				bnep_net_setup);
+#else
+	dev = alloc_netdev(sizeof(struct bnep_session),
+			   (*req->device) ? req->device : "bnep%d",
+			   NET_NAME_UNKNOWN,
+			   bnep_net_setup);
+#endif
 	if (!dev)
 		return -ENOMEM;
 
