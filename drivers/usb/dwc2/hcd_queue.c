@@ -116,7 +116,7 @@ static void dwc2_qh_init(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 			qh->interval = 8;
 #endif
 		hprt = readl(hsotg->regs + HPRT0);
-		prtspd = hprt & HPRT0_SPD_MASK;
+		prtspd = (hprt & HPRT0_SPD_MASK) >> HPRT0_SPD_SHIFT;
 		if (prtspd == HPRT0_SPD_HIGH_SPEED &&
 		    (dev_speed == USB_SPEED_LOW ||
 		     dev_speed == USB_SPEED_FULL)) {
@@ -197,6 +197,9 @@ static struct dwc2_qh *dwc2_hcd_qh_create(struct dwc2_hsotg *hsotg,
 {
 	struct dwc2_qh *qh;
 
+	if (!urb->priv)
+		return NULL;
+
 	/* Allocate memory */
 	qh = kzalloc(sizeof(*qh), mem_flags);
 	if (!qh)
@@ -226,19 +229,11 @@ static struct dwc2_qh *dwc2_hcd_qh_create(struct dwc2_hsotg *hsotg,
  */
 void dwc2_hcd_qh_free(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 {
-	u32 buf_size;
-
-	if (hsotg->core_params->dma_desc_enable > 0) {
+	if (hsotg->core_params->dma_desc_enable > 0)
 		dwc2_hcd_qh_free_ddma(hsotg, qh);
-	} else if (qh->dw_align_buf) {
-		if (qh->ep_type == USB_ENDPOINT_XFER_ISOC)
-			buf_size = 4096;
-		else
-			buf_size = hsotg->core_params->max_transfer_size;
-		dma_free_coherent(hsotg->dev, buf_size, qh->dw_align_buf,
-				  qh->dw_align_buf_dma);
-	}
-
+	else if (qh->dw_align_buf)
+		dma_free_coherent(hsotg->dev, qh->dw_align_buf_size,
+				  qh->dw_align_buf, qh->dw_align_buf_dma);
 	kfree(qh);
 }
 
@@ -248,12 +243,12 @@ void dwc2_hcd_qh_free(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
  *
  * @hsotg: The HCD state structure for the DWC OTG controller
  *
- * Return: 0 if successful, negative error code otherise
+ * Return: 0 if successful, negative error code otherwise
  */
 static int dwc2_periodic_channel_available(struct dwc2_hsotg *hsotg)
 {
 	/*
-	 * Currently assuming that there is a dedicated host channnel for
+	 * Currently assuming that there is a dedicated host channel for
 	 * each periodic transaction plus at least one host channel for
 	 * non-periodic transactions
 	 */
@@ -321,6 +316,116 @@ static int dwc2_check_periodic_bandwidth(struct dwc2_hsotg *hsotg,
 }
 
 /**
+ * Microframe scheduler
+ * track the total use in hsotg->frame_usecs
+ * keep each qh use in qh->frame_usecs
+ * when surrendering the qh then donate the time back
+ */
+static const unsigned short max_uframe_usecs[] = {
+	100, 100, 100, 100, 100, 100, 30, 0
+};
+
+void dwc2_hcd_init_usecs(struct dwc2_hsotg *hsotg)
+{
+	int i;
+
+	for (i = 0; i < 8; i++)
+		hsotg->frame_usecs[i] = max_uframe_usecs[i];
+}
+
+static int dwc2_find_single_uframe(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
+{
+	unsigned short utime = qh->usecs;
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		/* At the start hsotg->frame_usecs[i] = max_uframe_usecs[i] */
+		if (utime <= hsotg->frame_usecs[i]) {
+			hsotg->frame_usecs[i] -= utime;
+			qh->frame_usecs[i] += utime;
+			return i;
+		}
+	}
+	return -ENOSPC;
+}
+
+/*
+ * use this for FS apps that can span multiple uframes
+ */
+static int dwc2_find_multi_uframe(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
+{
+	unsigned short utime = qh->usecs;
+	unsigned short xtime;
+	int t_left;
+	int i;
+	int j;
+	int k;
+
+	for (i = 0; i < 8; i++) {
+		if (hsotg->frame_usecs[i] <= 0)
+			continue;
+
+		/*
+		 * we need n consecutive slots so use j as a start slot
+		 * j plus j+1 must be enough time (for now)
+		 */
+		xtime = hsotg->frame_usecs[i];
+		for (j = i + 1; j < 8; j++) {
+			/*
+			 * if we add this frame remaining time to xtime we may
+			 * be OK, if not we need to test j for a complete frame
+			 */
+			if (xtime + hsotg->frame_usecs[j] < utime) {
+				if (hsotg->frame_usecs[j] <
+							max_uframe_usecs[j])
+					continue;
+			}
+			if (xtime >= utime) {
+				t_left = utime;
+				for (k = i; k < 8; k++) {
+					t_left -= hsotg->frame_usecs[k];
+					if (t_left <= 0) {
+						qh->frame_usecs[k] +=
+							hsotg->frame_usecs[k]
+								+ t_left;
+						hsotg->frame_usecs[k] = -t_left;
+						return i;
+					} else {
+						qh->frame_usecs[k] +=
+							hsotg->frame_usecs[k];
+						hsotg->frame_usecs[k] = 0;
+					}
+				}
+			}
+			/* add the frame time to x time */
+			xtime += hsotg->frame_usecs[j];
+			/* we must have a fully available next frame or break */
+			if (xtime < utime &&
+			   hsotg->frame_usecs[j] == max_uframe_usecs[j])
+				continue;
+		}
+	}
+	return -ENOSPC;
+}
+
+static int dwc2_find_uframe(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
+{
+	int ret;
+
+	if (qh->dev_speed == USB_SPEED_HIGH) {
+		/* if this is a hs transaction we need a full frame */
+		ret = dwc2_find_single_uframe(hsotg, qh);
+	} else {
+		/*
+		 * if this is a fs transaction we may need a sequence
+		 * of frames
+		 */
+		ret = dwc2_find_multi_uframe(hsotg, qh);
+	}
+	return ret;
+}
+
+/**
  * dwc2_check_max_xfer_size() - Checks that the max transfer size allowed in a
  * host channel is large enough to handle the maximum data transfer in a single
  * (micro)frame for a periodic transfer
@@ -364,15 +469,35 @@ static int dwc2_schedule_periodic(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 {
 	int status;
 
-	status = dwc2_periodic_channel_available(hsotg);
-	if (status) {
-		dev_dbg(hsotg->dev,
-			"%s: No host channel available for periodic transfer\n",
-			__func__);
-		return status;
+	if (hsotg->core_params->uframe_sched > 0) {
+		int frame = -1;
+
+		status = dwc2_find_uframe(hsotg, qh);
+		if (status == 0)
+			frame = 7;
+		else if (status > 0)
+			frame = status - 1;
+
+		/* Set the new frame up */
+		if (frame >= 0) {
+			qh->sched_frame &= ~0x7;
+			qh->sched_frame |= (frame & 7);
+		}
+
+		if (status > 0)
+			status = 0;
+	} else {
+		status = dwc2_periodic_channel_available(hsotg);
+		if (status) {
+			dev_info(hsotg->dev,
+				 "%s: No host channel available for periodic transfer\n",
+				 __func__);
+			return status;
+		}
+
+		status = dwc2_check_periodic_bandwidth(hsotg, qh);
 	}
 
-	status = dwc2_check_periodic_bandwidth(hsotg, qh);
 	if (status) {
 		dev_dbg(hsotg->dev,
 			"%s: Insufficient periodic bandwidth for periodic transfer\n",
@@ -396,8 +521,9 @@ static int dwc2_schedule_periodic(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 		list_add_tail(&qh->qh_list_entry,
 			      &hsotg->periodic_sched_inactive);
 
-	/* Reserve periodic channel */
-	hsotg->periodic_channels++;
+	if (hsotg->core_params->uframe_sched <= 0)
+		/* Reserve periodic channel */
+		hsotg->periodic_channels++;
 
 	/* Update claimed usecs per (micro)frame */
 	hsotg->periodic_usecs += qh->usecs;
@@ -415,13 +541,22 @@ static int dwc2_schedule_periodic(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 static void dwc2_deschedule_periodic(struct dwc2_hsotg *hsotg,
 				     struct dwc2_qh *qh)
 {
-	list_del_init(&qh->qh_list_entry);
+	int i;
 
-	/* Release periodic channel reservation */
-	hsotg->periodic_channels--;
+	list_del_init(&qh->qh_list_entry);
 
 	/* Update claimed usecs per (micro)frame */
 	hsotg->periodic_usecs -= qh->usecs;
+
+	if (hsotg->core_params->uframe_sched > 0) {
+		for (i = 0; i < 8; i++) {
+			hsotg->frame_usecs[i] += qh->frame_usecs[i];
+			qh->frame_usecs[i] = 0;
+		}
+	} else {
+		/* Release periodic channel reservation */
+		hsotg->periodic_channels--;
+	}
 }
 
 /**
@@ -436,7 +571,7 @@ static void dwc2_deschedule_periodic(struct dwc2_hsotg *hsotg,
  */
 int dwc2_hcd_qh_add(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 {
-	int status = 0;
+	int status;
 	u32 intr_mask;
 
 	if (dbg_qh(qh))
@@ -444,26 +579,27 @@ int dwc2_hcd_qh_add(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 
 	if (!list_empty(&qh->qh_list_entry))
 		/* QH already in a schedule */
-		return status;
+		return 0;
 
 	/* Add the new QH to the appropriate schedule */
 	if (dwc2_qh_is_non_per(qh)) {
 		/* Always start in inactive schedule */
 		list_add_tail(&qh->qh_list_entry,
 			      &hsotg->non_periodic_sched_inactive);
-	} else {
-		status = dwc2_schedule_periodic(hsotg, qh);
-		if (status == 0) {
-			if (!hsotg->periodic_qh_count) {
-				intr_mask = readl(hsotg->regs + GINTMSK);
-				intr_mask |= GINTSTS_SOF;
-				writel(intr_mask, hsotg->regs + GINTMSK);
-			}
-			hsotg->periodic_qh_count++;
-		}
+		return 0;
 	}
 
-	return status;
+	status = dwc2_schedule_periodic(hsotg, qh);
+	if (status)
+		return status;
+	if (!hsotg->periodic_qh_count) {
+		intr_mask = readl(hsotg->regs + GINTMSK);
+		intr_mask |= GINTSTS_SOF;
+		writel(intr_mask, hsotg->regs + GINTMSK);
+	}
+	hsotg->periodic_qh_count++;
+
+	return 0;
 }
 
 /**
@@ -488,14 +624,15 @@ void dwc2_hcd_qh_unlink(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 			hsotg->non_periodic_qh_ptr =
 					hsotg->non_periodic_qh_ptr->next;
 		list_del_init(&qh->qh_list_entry);
-	} else {
-		dwc2_deschedule_periodic(hsotg, qh);
-		hsotg->periodic_qh_count--;
-		if (!hsotg->periodic_qh_count) {
-			intr_mask = readl(hsotg->regs + GINTMSK);
-			intr_mask &= ~GINTSTS_SOF;
-			writel(intr_mask, hsotg->regs + GINTMSK);
-		}
+		return;
+	}
+
+	dwc2_deschedule_periodic(hsotg, qh);
+	hsotg->periodic_qh_count--;
+	if (!hsotg->periodic_qh_count) {
+		intr_mask = readl(hsotg->regs + GINTMSK);
+		intr_mask &= ~GINTSTS_SOF;
+		writel(intr_mask, hsotg->regs + GINTMSK);
 	}
 }
 
@@ -550,6 +687,8 @@ static void dwc2_sched_periodic_split(struct dwc2_hsotg *hsotg,
 void dwc2_hcd_qh_deactivate(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 			    int sched_next_periodic_split)
 {
+	u16 frame_number;
+
 	if (dbg_qh(qh))
 		dev_vdbg(hsotg->dev, "%s()\n", __func__);
 
@@ -558,34 +697,36 @@ void dwc2_hcd_qh_deactivate(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 		if (!list_empty(&qh->qtd_list))
 			/* Add back to inactive non-periodic schedule */
 			dwc2_hcd_qh_add(hsotg, qh);
-	} else {
-		u16 frame_number = dwc2_hcd_get_frame_number(hsotg);
-
-		if (qh->do_split) {
-			dwc2_sched_periodic_split(hsotg, qh, frame_number,
-						  sched_next_periodic_split);
-		} else {
-			qh->sched_frame = dwc2_frame_num_inc(qh->sched_frame,
-							     qh->interval);
-			if (dwc2_frame_num_le(qh->sched_frame, frame_number))
-				qh->sched_frame = frame_number;
-		}
-
-		if (list_empty(&qh->qtd_list)) {
-			dwc2_hcd_qh_unlink(hsotg, qh);
-		} else {
-			/*
-			 * Remove from periodic_sched_queued and move to
-			 * appropriate queue
-			 */
-			if (qh->sched_frame == frame_number)
-				list_move(&qh->qh_list_entry,
-					  &hsotg->periodic_sched_ready);
-			else
-				list_move(&qh->qh_list_entry,
-					  &hsotg->periodic_sched_inactive);
-		}
+		return;
 	}
+
+	frame_number = dwc2_hcd_get_frame_number(hsotg);
+
+	if (qh->do_split) {
+		dwc2_sched_periodic_split(hsotg, qh, frame_number,
+					  sched_next_periodic_split);
+	} else {
+		qh->sched_frame = dwc2_frame_num_inc(qh->sched_frame,
+						     qh->interval);
+		if (dwc2_frame_num_le(qh->sched_frame, frame_number))
+			qh->sched_frame = frame_number;
+	}
+
+	if (list_empty(&qh->qtd_list)) {
+		dwc2_hcd_qh_unlink(hsotg, qh);
+		return;
+	}
+	/*
+	 * Remove from periodic_sched_queued and move to
+	 * appropriate queue
+	 */
+	if ((hsotg->core_params->uframe_sched > 0 &&
+	     dwc2_frame_num_le(qh->sched_frame, frame_number)) ||
+	    (hsotg->core_params->uframe_sched <= 0 &&
+	     qh->sched_frame == frame_number))
+		list_move(&qh->qh_list_entry, &hsotg->periodic_sched_ready);
+	else
+		list_move(&qh->qh_list_entry, &hsotg->periodic_sched_inactive);
 }
 
 /**
@@ -638,7 +779,7 @@ int dwc2_hcd_qtd_add(struct dwc2_hsotg *hsotg, struct dwc2_qtd *qtd,
 	struct dwc2_hcd_urb *urb = qtd->urb;
 	unsigned long flags;
 	int allocated = 0;
-	int retval = 0;
+	int retval;
 
 	/*
 	 * Get the QH which holds the QTD-list to insert to. Create QH if it
@@ -652,8 +793,19 @@ int dwc2_hcd_qtd_add(struct dwc2_hsotg *hsotg, struct dwc2_qtd *qtd,
 	}
 
 	spin_lock_irqsave(&hsotg->lock, flags);
+
 	retval = dwc2_hcd_qh_add(hsotg, *qh);
-	if (retval && allocated) {
+	if (retval)
+		goto fail;
+
+	qtd->qh = *qh;
+	list_add_tail(&qtd->qtd_list_entry, &(*qh)->qtd_list);
+	spin_unlock_irqrestore(&hsotg->lock, flags);
+
+	return 0;
+
+fail:
+	if (allocated) {
 		struct dwc2_qtd *qtd2, *qtd2_tmp;
 		struct dwc2_qh *qh_tmp = *qh;
 
@@ -668,8 +820,6 @@ int dwc2_hcd_qtd_add(struct dwc2_hsotg *hsotg, struct dwc2_qtd *qtd,
 		spin_unlock_irqrestore(&hsotg->lock, flags);
 		dwc2_hcd_qh_free(hsotg, qh_tmp);
 	} else {
-		qtd->qh = *qh;
-		list_add_tail(&qtd->qtd_list_entry, &(*qh)->qtd_list);
 		spin_unlock_irqrestore(&hsotg->lock, flags);
 	}
 

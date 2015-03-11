@@ -1,7 +1,7 @@
 /*
- * platform.c - DesignWare HS OTG Controller platform driver
+ * pci.c - DesignWare HS OTG Controller PCI driver
  *
- * Copyright (C) Matthijs Kooijman <matthijs@stdin.nl>
+ * Copyright (C) 2004-2013 Synopsys, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,43 +34,83 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Provides the initialization and cleanup entry points for the DWC_otg PCI
+ * driver
+ */
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/spinlock.h>
+#include <linux/interrupt.h>
+#include <linux/io.h>
 #include <linux/slab.h>
-#include <linux/device.h>
-#include <linux/dma-mapping.h>
-#include <linux/platform_device.h>
+#include <linux/pci.h>
+#include <linux/usb.h>
+
+#include <linux/usb/hcd.h>
+#include <linux/usb/ch11.h>
 
 #include "core.h"
 #include "hcd.h"
 
+#define PCI_VENDOR_ID_SYNOPSYS		0x16c3
+#define PCI_PRODUCT_ID_HAPS_HSOTG	0xabc0
+
 static const char dwc2_driver_name[] = "dwc2";
+
+static const struct dwc2_core_params dwc2_module_params = {
+	.otg_cap			= -1,
+	.otg_ver			= -1,
+	.dma_enable			= -1,
+	.dma_desc_enable		= 0,
+	.speed				= -1,
+	.enable_dynamic_fifo		= -1,
+	.en_multiple_tx_fifo		= -1,
+	.host_rx_fifo_size		= 1024,
+	.host_nperio_tx_fifo_size	= 256,
+	.host_perio_tx_fifo_size	= 1024,
+	.max_transfer_size		= 65535,
+	.max_packet_count		= 511,
+	.host_channels			= -1,
+	.phy_type			= -1,
+	.phy_utmi_width			= -1,
+	.phy_ulpi_ddr			= -1,
+	.phy_ulpi_ext_vbus		= -1,
+	.i2c_enable			= -1,
+	.ulpi_fs_ls			= -1,
+	.host_support_fs_ls_low_power	= -1,
+	.host_ls_low_power_phy_clk	= -1,
+	.ts_dline			= -1,
+	.reload_ctl			= -1,
+	.ahbcfg				= -1,
+	.uframe_sched			= -1,
+};
 
 /**
  * dwc2_driver_remove() - Called when the DWC_otg core is unregistered with the
  * DWC_otg driver
  *
- * @dev: Platform device
+ * @dev: Bus device
  *
  * This routine is called, for example, when the rmmod command is executed. The
  * device may or may not be electrically present. If it is present, the driver
  * stops device processing. Any resources used on behalf of this device are
  * freed.
  */
-static int dwc2_driver_remove(struct platform_device *dev)
+static void dwc2_driver_remove(struct pci_dev *dev)
 {
-	struct dwc2_hsotg *hsotg = platform_get_drvdata(dev);
+	struct dwc2_hsotg *hsotg = pci_get_drvdata(dev);
 
 	dwc2_hcd_remove(hsotg);
-
-	return 0;
+	pci_disable_device(dev);
 }
 
 /**
  * dwc2_driver_probe() - Called when the DWC_otg core is bound to the DWC_otg
  * driver
  *
- * @dev: Platform device
+ * @dev: Bus device
  *
  * This routine creates the driver components required to control the device
  * (core, HCD, and PCD) and initializes the device. The driver components are
@@ -78,71 +118,68 @@ static int dwc2_driver_remove(struct platform_device *dev)
  * in the device private data. This allows the driver to access the dwc2_hsotg
  * structure on subsequent calls to driver methods for this device.
  */
-static int dwc2_driver_probe(struct platform_device *dev)
+static int dwc2_driver_probe(struct pci_dev *dev,
+			     const struct pci_device_id *id)
 {
 	struct dwc2_hsotg *hsotg;
-	struct resource *res;
 	int retval;
-	int irq;
-	struct dwc2_core_params params;
-
-	/* Default all params to autodetect */
-	dwc2_set_all_params(&params, -1);
 
 	hsotg = devm_kzalloc(&dev->dev, sizeof(*hsotg), GFP_KERNEL);
 	if (!hsotg)
 		return -ENOMEM;
 
 	hsotg->dev = &dev->dev;
-
-	/*
-	 * Use reasonable defaults so platforms don't have to provide these.
-	 */
-	if (!dev->dev.dma_mask)
-		dev->dev.dma_mask = &dev->dev.coherent_dma_mask;
-	if (!dev->dev.coherent_dma_mask)
-		dev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-
-	irq = platform_get_irq(dev, 0);
-	if (irq < 0) {
-		dev_err(&dev->dev, "missing IRQ resource\n");
-		return -EINVAL;
-	}
-
-	res = platform_get_resource(dev, IORESOURCE_MEM, 0);
-	hsotg->regs = devm_ioremap_resource(&dev->dev, res);
+	hsotg->regs = devm_ioremap_resource(&dev->dev, &dev->resource[0]);
 	if (IS_ERR(hsotg->regs))
 		return PTR_ERR(hsotg->regs);
 
 	dev_dbg(&dev->dev, "mapped PA %08lx to VA %p\n",
-		(unsigned long)res->start, hsotg->regs);
+		(unsigned long)pci_resource_start(dev, 0), hsotg->regs);
 
-	retval = dwc2_hcd_init(hsotg, irq, &params);
+	if (pci_enable_device(dev) < 0)
+		return -ENODEV;
+
+	pci_set_master(dev);
+
+	retval = devm_request_irq(hsotg->dev, dev->irq,
+				  dwc2_handle_common_intr, IRQF_SHARED,
+				  dev_name(hsotg->dev), hsotg);
 	if (retval)
 		return retval;
 
-	platform_set_drvdata(dev, hsotg);
+	spin_lock_init(&hsotg->lock);
+	retval = dwc2_hcd_init(hsotg, dev->irq, &dwc2_module_params);
+	if (retval) {
+		pci_disable_device(dev);
+		return retval;
+	}
+
+	pci_set_drvdata(dev, hsotg);
 
 	return retval;
 }
 
-static const struct of_device_id dwc2_of_match_table[] = {
-	{ .compatible = "snps,dwc2" },
-	{},
-};
-MODULE_DEVICE_TABLE(of, dwc2_of_match_table);
-
-static struct platform_driver dwc2_platform_driver = {
-	.driver = {
-		.name = (char *)dwc2_driver_name,
-		.of_match_table = dwc2_of_match_table,
+static const struct pci_device_id dwc2_pci_ids[] = {
+	{
+		PCI_DEVICE(PCI_VENDOR_ID_SYNOPSYS, PCI_PRODUCT_ID_HAPS_HSOTG),
 	},
+	{
+		PCI_DEVICE(PCI_VENDOR_ID_STMICRO,
+			   PCI_DEVICE_ID_STMICRO_USB_OTG),
+	},
+	{ /* end: all zeroes */ }
+};
+MODULE_DEVICE_TABLE(pci, dwc2_pci_ids);
+
+static struct pci_driver dwc2_pci_driver = {
+	.name = dwc2_driver_name,
+	.id_table = dwc2_pci_ids,
 	.probe = dwc2_driver_probe,
 	.remove = dwc2_driver_remove,
 };
 
-module_platform_driver(dwc2_platform_driver);
+module_pci_driver(dwc2_pci_driver);
 
-MODULE_DESCRIPTION("DESIGNWARE HS OTG Platform Glue");
-MODULE_AUTHOR("Matthijs Kooijman <matthijs@stdin.nl>");
+MODULE_DESCRIPTION("DESIGNWARE HS OTG PCI Bus Glue");
+MODULE_AUTHOR("Synopsys, Inc.");
 MODULE_LICENSE("Dual BSD/GPL");

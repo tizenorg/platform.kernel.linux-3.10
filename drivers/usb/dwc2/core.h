@@ -37,6 +37,10 @@
 #ifndef __DWC2_CORE_H__
 #define __DWC2_CORE_H__
 
+#include <linux/phy/phy.h>
+#include <linux/regulator/consumer.h>
+#include <linux/usb/gadget.h>
+#include <linux/usb/otg.h>
 #include <linux/usb/phy.h>
 #include "hw.h"
 
@@ -54,6 +58,128 @@ static inline void do_write(u32 value, void *addr)
 /* Maximum number of Endpoints/HostChannels */
 #define MAX_EPS_CHANNELS	16
 
+/* s3c-hsotg declarations */
+static const char * const s3c_hsotg_supply_names[] = {
+	"vusb_d",               /* digital USB supply, 1.2V */
+	"vusb_a",               /* analog USB supply, 1.1V */
+};
+
+/*
+ * EP0_MPS_LIMIT
+ *
+ * Unfortunately there seems to be a limit of the amount of data that can
+ * be transferred by IN transactions on EP0. This is either 127 bytes or 3
+ * packets (which practically means 1 packet and 63 bytes of data) when the
+ * MPS is set to 64.
+ *
+ * This means if we are wanting to move >127 bytes of data, we need to
+ * split the transactions up, but just doing one packet at a time does
+ * not work (this may be an implicit DATA0 PID on first packet of the
+ * transaction) and doing 2 packets is outside the controller's limits.
+ *
+ * If we try to lower the MPS size for EP0, then no transfers work properly
+ * for EP0, and the system will fail basic enumeration. As no cause for this
+ * has currently been found, we cannot support any large IN transfers for
+ * EP0.
+ */
+#define EP0_MPS_LIMIT   64
+
+struct dwc2_hsotg;
+struct s3c_hsotg_req;
+
+/**
+ * struct s3c_hsotg_ep - driver endpoint definition.
+ * @ep: The gadget layer representation of the endpoint.
+ * @name: The driver generated name for the endpoint.
+ * @queue: Queue of requests for this endpoint.
+ * @parent: Reference back to the parent device structure.
+ * @req: The current request that the endpoint is processing. This is
+ *       used to indicate an request has been loaded onto the endpoint
+ *       and has yet to be completed (maybe due to data move, or simply
+ *       awaiting an ack from the core all the data has been completed).
+ * @debugfs: File entry for debugfs file for this endpoint.
+ * @lock: State lock to protect contents of endpoint.
+ * @dir_in: Set to true if this endpoint is of the IN direction, which
+ *          means that it is sending data to the Host.
+ * @index: The index for the endpoint registers.
+ * @mc: Multi Count - number of transactions per microframe
+ * @interval - Interval for periodic endpoints
+ * @name: The name array passed to the USB core.
+ * @halted: Set if the endpoint has been halted.
+ * @periodic: Set if this is a periodic ep, such as Interrupt
+ * @isochronous: Set if this is a isochronous ep
+ * @send_zlp: Set if we need to send a zero-length packet.
+ * @total_data: The total number of data bytes done.
+ * @fifo_size: The size of the FIFO (for periodic IN endpoints)
+ * @fifo_load: The amount of data loaded into the FIFO (periodic IN)
+ * @last_load: The offset of data for the last start of request.
+ * @size_loaded: The last loaded size for DxEPTSIZE for periodic IN
+ *
+ * This is the driver's state for each registered enpoint, allowing it
+ * to keep track of transactions that need doing. Each endpoint has a
+ * lock to protect the state, to try and avoid using an overall lock
+ * for the host controller as much as possible.
+ *
+ * For periodic IN endpoints, we have fifo_size and fifo_load to try
+ * and keep track of the amount of data in the periodic FIFO for each
+ * of these as we don't have a status register that tells us how much
+ * is in each of them. (note, this may actually be useless information
+ * as in shared-fifo mode periodic in acts like a single-frame packet
+ * buffer than a fifo)
+ */
+struct s3c_hsotg_ep {
+	struct usb_ep           ep;
+	struct list_head        queue;
+	struct dwc2_hsotg       *parent;
+	struct s3c_hsotg_req    *req;
+	struct dentry           *debugfs;
+
+	unsigned long           total_data;
+	unsigned int            size_loaded;
+	unsigned int            last_load;
+	unsigned int            fifo_load;
+	unsigned short          fifo_size;
+	unsigned short		fifo_index;
+
+	unsigned char           dir_in;
+	unsigned char           index;
+	unsigned char           mc;
+	unsigned char           interval;
+
+	unsigned int            halted:1;
+	unsigned int            periodic:1;
+	unsigned int            isochronous:1;
+	unsigned int            send_zlp:1;
+
+	char                    name[10];
+};
+
+/**
+ * struct s3c_hsotg_req - data transfer request
+ * @req: The USB gadget request
+ * @queue: The list of requests for the endpoint this is queued for.
+ * @saved_req_buf: variable to save req.buf when bounce buffers are used.
+ */
+struct s3c_hsotg_req {
+	struct usb_request      req;
+	struct list_head        queue;
+	void *saved_req_buf;
+};
+
+#if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
+#define call_gadget(_hs, _entry) \
+do { \
+	if ((_hs)->gadget.speed != USB_SPEED_UNKNOWN && \
+		(_hs)->driver && (_hs)->driver->_entry) { \
+		spin_unlock(&_hs->lock); \
+		(_hs)->driver->_entry(&(_hs)->gadget); \
+		spin_lock(&_hs->lock); \
+	} \
+} while (0)
+#else
+#define call_gadget(_hs, _entry)	do {} while (0)
+#endif
+
 struct dwc2_hsotg;
 struct dwc2_host_chan;
 
@@ -65,19 +191,37 @@ enum dwc2_lx_state {
 	DWC2_L3,	/* Off state */
 };
 
+/*
+ * Gadget periodic tx fifo sizes as used by legacy driver
+ * EP0 is not included
+ */
+#define DWC2_G_P_LEGACY_TX_FIFO_SIZE {256, 256, 256, 256, 768, 768, 768, \
+					   768, 0, 0, 0, 0, 0, 0, 0}
+
+/* Gadget ep0 states */
+enum dwc2_ep0_state {
+	DWC2_EP0_SETUP,
+	DWC2_EP0_DATA_IN,
+	DWC2_EP0_DATA_OUT,
+	DWC2_EP0_STATUS_IN,
+	DWC2_EP0_STATUS_OUT,
+};
+
 /**
  * struct dwc2_core_params - Parameters for configuring the core
  *
- * @otg_cap:            Specifies the OTG capabilities. The driver will
- *                      automatically detect the value for this parameter if
- *                      none is specified.
- *                       0 - HNP and SRP capable (default)
+ * @otg_cap:            Specifies the OTG capabilities.
+ *                       0 - HNP and SRP capable
  *                       1 - SRP Only capable
- *                       2 - No HNP/SRP capable
+ *                       2 - No HNP/SRP capable (always available)
+ *                      Defaults to best available option (0, 1, then 2)
+ * @otg_ver:            OTG version supported
+ *                       0 - 1.3 (default)
+ *                       1 - 2.0
  * @dma_enable:         Specifies whether to use slave or DMA mode for accessing
  *                      the data FIFOs. The driver will automatically detect the
  *                      value for this parameter if none is specified.
- *                       0 - Slave
+ *                       0 - Slave (always available)
  *                       1 - DMA (default, if available)
  * @dma_desc_enable:    When DMA mode is enabled, specifies whether to use
  *                      address DMA mode or descriptor DMA mode for accessing
@@ -88,39 +232,47 @@ enum dwc2_lx_state {
  * @speed:              Specifies the maximum speed of operation in host and
  *                      device mode. The actual speed depends on the speed of
  *                      the attached device and the value of phy_type.
- *                       0 - High Speed (default)
+ *                       0 - High Speed
+ *                           (default when phy_type is UTMI+ or ULPI)
  *                       1 - Full Speed
- * @host_support_fs_ls_low_power: Specifies whether low power mode is supported
- *                      when attached to a Full Speed or Low Speed device in
- *                      host mode.
- *                       0 - Don't support low power mode (default)
- *                       1 - Support low power mode
- * @host_ls_low_power_phy_clk: Specifies the PHY clock rate in low power mode
- *                      when connected to a Low Speed device in host mode. This
- *                      parameter is applicable only if
- *                      host_support_fs_ls_low_power is enabled. If phy_type is
- *                      set to FS then defaults to 6 MHZ otherwise 48 MHZ.
- *                       0 - 48 MHz
- *                       1 - 6 MHz
+ *                           (default when phy_type is Full Speed)
  * @enable_dynamic_fifo: 0 - Use coreConsultant-specified FIFO size parameters
- *                       1 - Allow dynamic FIFO sizing (default)
+ *                       1 - Allow dynamic FIFO sizing (default, if available)
+ * @en_multiple_tx_fifo: Specifies whether dedicated per-endpoint transmit FIFOs
+ *                      are enabled
  * @host_rx_fifo_size:  Number of 4-byte words in the Rx FIFO in host mode when
  *                      dynamic FIFO sizing is enabled
- *                       16 to 32768 (default 1024)
+ *                       16 to 32768
+ *                      Actual maximum value is autodetected and also
+ *                      the default.
  * @host_nperio_tx_fifo_size: Number of 4-byte words in the non-periodic Tx FIFO
  *                      in host mode when dynamic FIFO sizing is enabled
- *                       16 to 32768 (default 1024)
+ *                       16 to 32768
+ *                      Actual maximum value is autodetected and also
+ *                      the default.
  * @host_perio_tx_fifo_size: Number of 4-byte words in the periodic Tx FIFO in
  *                      host mode when dynamic FIFO sizing is enabled
- *                       16 to 32768 (default 1024)
+ *                       16 to 32768
+ *                      Actual maximum value is autodetected and also
+ *                      the default.
  * @max_transfer_size:  The maximum transfer size supported, in bytes
- *                       2047 to 65,535 (default 65,535)
+ *                       2047 to 65,535
+ *                      Actual maximum value is autodetected and also
+ *                      the default.
  * @max_packet_count:   The maximum number of packets in a transfer
- *                       15 to 511 (default 511)
+ *                       15 to 511
+ *                      Actual maximum value is autodetected and also
+ *                      the default.
  * @host_channels:      The number of host channel registers to use
- *                       1 to 16 (default 12)
+ *                       1 to 16
+ *                      Actual maximum value is autodetected and also
+ *                      the default.
  * @phy_type:           Specifies the type of PHY interface to use. By default,
  *                      the driver will automatically detect the phy_type.
+ *                       0 - Full Speed Phy
+ *                       1 - UTMI+ Phy
+ *                       2 - ULPI Phy
+ *                      Defaults to best available option (2, 1, then 0)
  * @phy_utmi_width:     Specifies the UTMI+ Data Width (in bits). This parameter
  *                      is applicable for a phy_type of UTMI+ or ULPI. (For a
  *                      ULPI phy_type, this parameter indicates the data width
@@ -129,7 +281,7 @@ enum dwc2_lx_state {
  *                      parameter was set to "8 and 16 bits", meaning that the
  *                      core has been configured to work at either data path
  *                      width.
- *                       8 or 16 (default 16)
+ *                       8 or 16 (default 16 if available)
  * @phy_ulpi_ddr:       Specifies whether the ULPI operates at double or single
  *                      data rate. This parameter is only applicable if phy_type
  *                      is ULPI.
@@ -139,27 +291,52 @@ enum dwc2_lx_state {
  *                           data bus
  * @phy_ulpi_ext_vbus:  For a ULPI phy, specifies whether to use the internal or
  *                      external supply to drive the VBus
+ *                       0 - Internal supply (default)
+ *                       1 - External supply
  * @i2c_enable:         Specifies whether to use the I2Cinterface for a full
  *                      speed PHY. This parameter is only applicable if phy_type
  *                      is FS.
  *                       0 - No (default)
  *                       1 - Yes
- * @ulpi_fs_ls:         True to make ULPI phy operate in FS/LS mode only
- * @ts_dline:           True to enable Term Select Dline pulsing
- * @en_multiple_tx_fifo: Specifies whether dedicated per-endpoint transmit FIFOs
- *                      are enabled
- * @reload_ctl:         True to allow dynamic reloading of HFIR register during
- *                      runtime
- * @ahb_single:         This bit enables SINGLE transfers for remainder data in
- *                      a transfer for DMA mode of operation.
- *                       0 - remainder data will be sent using INCR burst size
- *                       1 - remainder data will be sent using SINGLE burst size
- * @otg_ver:            OTG version supported
- *                       0 - 1.3
- *                       1 - 2.0
+ * @ulpi_fs_ls:         Make ULPI phy operate in FS/LS mode only
+ *                       0 - No (default)
+ *                       1 - Yes
+ * @host_support_fs_ls_low_power: Specifies whether low power mode is supported
+ *                      when attached to a Full Speed or Low Speed device in
+ *                      host mode.
+ *                       0 - Don't support low power mode (default)
+ *                       1 - Support low power mode
+ * @host_ls_low_power_phy_clk: Specifies the PHY clock rate in low power mode
+ *                      when connected to a Low Speed device in host
+ *                      mode. This parameter is applicable only if
+ *                      host_support_fs_ls_low_power is enabled.
+ *                       0 - 48 MHz
+ *                           (default when phy_type is UTMI+ or ULPI)
+ *                       1 - 6 MHz
+ *                           (default when phy_type is Full Speed)
+ * @ts_dline:           Enable Term Select Dline pulsing
+ *                       0 - No (default)
+ *                       1 - Yes
+ * @reload_ctl:         Allow dynamic reloading of HFIR register during runtime
+ *                       0 - No (default for core < 2.92a)
+ *                       1 - Yes (default for core >= 2.92a)
+ * @ahbcfg:             This field allows the default value of the GAHBCFG
+ *                      register to be overridden
+ *                       -1         - GAHBCFG value will be set to 0x06
+ *                                    (INCR4, default)
+ *                       all others - GAHBCFG value will be overridden with
+ *                                    this value
+ *                      Not all bits can be controlled like this, the
+ *                      bits defined by GAHBCFG_CTRL_MASK are controlled
+ *                      by the driver and are ignored in this
+ *                      configuration value.
+ * @uframe_sched:       True to enable the microframe scheduler
  *
  * The following parameters may be specified when starting the module. These
- * parameters define how the DWC_otg controller should be configured.
+ * parameters define how the DWC_otg controller should be configured. A
+ * value of -1 (or any other out of range value) for any parameter means
+ * to read the value from hardware (if possible) or use the builtin
+ * default described above.
  */
 struct dwc2_core_params {
 	/*
@@ -189,29 +366,112 @@ struct dwc2_core_params {
 	int host_ls_low_power_phy_clk;
 	int ts_dline;
 	int reload_ctl;
-	int ahb_single;
+	int ahbcfg;
+	int uframe_sched;
 };
+
+/**
+ * struct dwc2_hw_params - Autodetected parameters.
+ *
+ * These parameters are the various parameters read from hardware
+ * registers during initialization. They typically contain the best
+ * supported or maximum value that can be configured in the
+ * corresponding dwc2_core_params value.
+ *
+ * The values that are not in dwc2_core_params are documented below.
+ *
+ * @op_mode             Mode of Operation
+ *                       0 - HNP- and SRP-Capable OTG (Host & Device)
+ *                       1 - SRP-Capable OTG (Host & Device)
+ *                       2 - Non-HNP and Non-SRP Capable OTG (Host & Device)
+ *                       3 - SRP-Capable Device
+ *                       4 - Non-OTG Device
+ *                       5 - SRP-Capable Host
+ *                       6 - Non-OTG Host
+ * @arch                Architecture
+ *                       0 - Slave only
+ *                       1 - External DMA
+ *                       2 - Internal DMA
+ * @power_optimized     Are power optimizations enabled?
+ * @num_dev_ep          Number of device endpoints available
+ * @num_dev_perio_in_ep Number of device periodic IN endpoints
+ *                      available
+ * @dev_token_q_depth   Device Mode IN Token Sequence Learning Queue
+ *                      Depth
+ *                       0 to 30
+ * @host_perio_tx_q_depth
+ *                      Host Mode Periodic Request Queue Depth
+ *                       2, 4 or 8
+ * @nperio_tx_q_depth
+ *                      Non-Periodic Request Queue Depth
+ *                       2, 4 or 8
+ * @hs_phy_type         High-speed PHY interface type
+ *                       0 - High-speed interface not supported
+ *                       1 - UTMI+
+ *                       2 - ULPI
+ *                       3 - UTMI+ and ULPI
+ * @fs_phy_type         Full-speed PHY interface type
+ *                       0 - Full speed interface not supported
+ *                       1 - Dedicated full speed interface
+ *                       2 - FS pins shared with UTMI+ pins
+ *                       3 - FS pins shared with ULPI pins
+ * @total_fifo_size:    Total internal RAM for FIFOs (bytes)
+ * @utmi_phy_data_width UTMI+ PHY data width
+ *                       0 - 8 bits
+ *                       1 - 16 bits
+ *                       2 - 8 or 16 bits
+ * @snpsid:             Value from SNPSID register
+ */
+struct dwc2_hw_params {
+	unsigned op_mode:3;
+	unsigned arch:2;
+	unsigned dma_desc_enable:1;
+	unsigned enable_dynamic_fifo:1;
+	unsigned en_multiple_tx_fifo:1;
+	unsigned host_rx_fifo_size:16;
+	unsigned host_nperio_tx_fifo_size:16;
+	unsigned host_perio_tx_fifo_size:16;
+	unsigned nperio_tx_q_depth:3;
+	unsigned host_perio_tx_q_depth:3;
+	unsigned dev_token_q_depth:5;
+	unsigned max_transfer_size:26;
+	unsigned max_packet_count:11;
+	unsigned host_channels:5;
+	unsigned hs_phy_type:2;
+	unsigned fs_phy_type:2;
+	unsigned i2c_enable:1;
+	unsigned num_dev_ep:4;
+	unsigned num_dev_perio_in_ep:4;
+	unsigned total_fifo_size:16;
+	unsigned power_optimized:1;
+	unsigned utmi_phy_data_width:2;
+	u32 snpsid;
+};
+
+/* Size of control and EP0 buffers */
+#define DWC2_CTRL_BUFF_SIZE 8
 
 /**
  * struct dwc2_hsotg - Holds the state of the driver, including the non-periodic
  * and periodic schedules
  *
+ * These are common for both host and peripheral modes:
+ *
  * @dev:                The struct device pointer
  * @regs:		Pointer to controller regs
- * @core_params:        Parameters that define how the core should be configured
- * @hwcfg1:             Hardware Configuration - stored here for convenience
- * @hwcfg2:             Hardware Configuration - stored here for convenience
- * @hwcfg3:             Hardware Configuration - stored here for convenience
- * @hwcfg4:             Hardware Configuration - stored here for convenience
- * @hptxfsiz:           Hardware Configuration - stored here for convenience
- * @snpsid:             Value from SNPSID register
- * @total_fifo_size:    Total internal RAM for FIFOs (bytes)
- * @rx_fifo_size:       Size of Rx FIFO (bytes)
- * @nperio_tx_fifo_size: Size of Non-periodic Tx FIFO (Bytes)
+ * @hw_params:          Parameters that were autodetected from the
+ *                      hardware registers
+ * @core_params:	Parameters that define how the core should be configured
  * @op_state:           The operational State, during transitions (a_host=>
  *                      a_peripheral and b_device=>b_host) this may not match
  *                      the core, but allows the software to determine
  *                      transitions
+ * @dr_mode:            Requested mode of operation, one of following:
+ *                      - USB_DR_MODE_PERIPHERAL
+ *                      - USB_DR_MODE_HOST
+ *                      - USB_DR_MODE_OTG
+ * @lock:		Spinlock that protects all the driver data structures
+ * @priv:		Stores a pointer to the struct usb_hcd
  * @queuing_high_bandwidth: True if multiple packets of a high-bandwidth
  *                      transfer are in process of being queued
  * @srp_success:        Stores status of SRP request in the case of a FS PHY
@@ -221,6 +481,9 @@ struct dwc2_core_params {
  *                      interrupt
  * @wkp_timer:          Timer object for handling Wakeup Detected interrupt
  * @lx_state:           Lx state of connected device
+ *
+ * These are for host mode:
+ *
  * @flags:              Flags for handling root port state changes
  * @non_periodic_sched_inactive: Inactive QHs in the non-periodic schedule.
  *                      Transfers associated with these QHs are not currently
@@ -265,6 +528,7 @@ struct dwc2_core_params {
  *                      This value is in microseconds per (micro)frame. The
  *                      assumption is that all periodic transfers may occur in
  *                      the same (micro)frame.
+ * @frame_usecs:        Internal variable used by the microframe scheduler
  * @frame_number:       Frame number read from the core at SOF. The value ranges
  *                      from 0 to HFNUM_MAX_FRNUM.
  * @periodic_qh_count:  Count of periodic QHs, if using several eps. Used for
@@ -277,6 +541,8 @@ struct dwc2_core_params {
  *                      host channel is available for non-periodic transactions.
  * @non_periodic_channels: Number of host channels assigned to non-periodic
  *                      transfers
+ * @available_host_channels Number of host channels available for the microframe
+ *                      scheduler to use
  * @hc_ptr_array:       Array of pointers to the host channel descriptors.
  *                      Allows accessing a host channel descriptor given the
  *                      host channel number. This is useful in interrupt
@@ -286,26 +552,57 @@ struct dwc2_core_params {
  * @status_buf_dma:     DMA address for status_buf
  * @start_work:         Delayed work for handling host A-cable connection
  * @reset_work:         Delayed work for handling a port reset
- * @lock:               Spinlock that protects all the driver data structures
- * @priv:               Stores a pointer to the struct usb_hcd
  * @otg_port:           OTG port number
  * @frame_list:         Frame list
  * @frame_list_dma:     Frame list DMA address
+ *
+ * These are for peripheral mode:
+ *
+ * @driver:             USB gadget driver
+ * @phy:                The otg phy transceiver structure for phy control.
+ * @uphy:               The otg phy transceiver structure for old USB phy control.
+ * @plat:               The platform specific configuration data. This can be removed once
+ *                      all SoCs support usb transceiver.
+ * @supplies:           Definition of USB power supplies
+ * @phyif:              PHY interface width
+ * @dedicated_fifos:    Set if the hardware has dedicated IN-EP fifos.
+ * @num_of_eps:         Number of available EPs (excluding EP0)
+ * @debug_root:         Root directrory for debugfs.
+ * @debug_file:         Main status file for debugfs.
+ * @debug_testmode:     Testmode status file for debugfs.
+ * @debug_fifo:         FIFO status file for debugfs.
+ * @ep0_reply:          Request used for ep0 reply.
+ * @ep0_buff:           Buffer for EP0 reply data, if needed.
+ * @ctrl_buff:          Buffer for EP0 control requests.
+ * @ctrl_req:           Request for EP0 control packets.
+ * @ep0_state:          EP0 control transfers state
+ * @test_mode:          USB test mode requested by the host
+ * @last_rst:           Time of last reset
+ * @eps:                The endpoints being supplied to the gadget framework
+ * @g_using_dma:          Indicate if dma usage is enabled
+ * @g_rx_fifo_sz:         Contains rx fifo size value
+ * @g_np_g_tx_fifo_sz:      Contains Non-Periodic tx fifo size value
+ * @g_tx_fifo_sz:         Contains tx fifo size value per endpoints
  */
 struct dwc2_hsotg {
 	struct device *dev;
 	void __iomem *regs;
+	/** Params detected from hardware */
+	struct dwc2_hw_params hw_params;
+	/** Params to actually use */
 	struct dwc2_core_params *core_params;
-	u32 hwcfg1;
-	u32 hwcfg2;
-	u32 hwcfg3;
-	u32 hwcfg4;
-	u32 hptxfsiz;
-	u32 snpsid;
-	u16 total_fifo_size;
-	u16 rx_fifo_size;
-	u16 nperio_tx_fifo_size;
 	enum usb_otg_state op_state;
+	enum usb_dr_mode dr_mode;
+
+	struct phy *phy;
+	struct usb_phy *uphy;
+	struct regulator_bulk_data supplies[ARRAY_SIZE(s3c_hsotg_supply_names)];
+
+	spinlock_t lock;
+	struct mutex init_mutex;
+	void *priv;
+	int     irq;
+	struct clk *clk;
 
 	unsigned int queuing_high_bandwidth:1;
 	unsigned int srp_success:1;
@@ -315,6 +612,19 @@ struct dwc2_hsotg {
 	struct timer_list wkp_timer;
 	enum dwc2_lx_state lx_state;
 
+	struct dentry *debug_root;
+	struct dentry *debug_file;
+	struct dentry *debug_testmode;
+	struct dentry *debug_fifo;
+
+	/* DWC OTG HW Release versions */
+#define DWC2_CORE_REV_2_71a	0x4f54271a
+#define DWC2_CORE_REV_2_90a	0x4f54290a
+#define DWC2_CORE_REV_2_92a	0x4f54292a
+#define DWC2_CORE_REV_2_94a	0x4f54294a
+#define DWC2_CORE_REV_3_00a	0x4f54300a
+
+#if IS_ENABLED(CONFIG_USB_DWC2_HOST) || IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
 	union dwc2_hcd_internal_flags {
 		u32 d32;
 		struct {
@@ -325,7 +635,7 @@ struct dwc2_hsotg {
 			unsigned port_suspend_change:1;
 			unsigned port_over_current_change:1;
 			unsigned port_l1_change:1;
-			unsigned reserved:26;
+			unsigned reserved:25;
 		} b;
 	} flags;
 
@@ -337,6 +647,7 @@ struct dwc2_hsotg {
 	struct list_head periodic_sched_assigned;
 	struct list_head periodic_sched_queued;
 	u16 periodic_usecs;
+	u16 frame_usecs[8];
 	u16 frame_number;
 	u16 periodic_qh_count;
 
@@ -352,6 +663,7 @@ struct dwc2_hsotg {
 	struct list_head free_hc_list;
 	int periodic_channels;
 	int non_periodic_channels;
+	int available_host_channels;
 	struct dwc2_host_chan *hc_ptr_array[MAX_EPS_CHANNELS];
 	u8 *status_buf;
 	dma_addr_t status_buf_dma;
@@ -359,18 +671,9 @@ struct dwc2_hsotg {
 
 	struct delayed_work start_work;
 	struct delayed_work reset_work;
-	spinlock_t lock;
-	void *priv;
 	u8 otg_port;
 	u32 *frame_list;
 	dma_addr_t frame_list_dma;
-
-	/* DWC OTG HW Release versions */
-#define DWC2_CORE_REV_2_71a	0x4f54271a
-#define DWC2_CORE_REV_2_90a	0x4f54290a
-#define DWC2_CORE_REV_2_92a	0x4f54292a
-#define DWC2_CORE_REV_2_94a	0x4f54294a
-#define DWC2_CORE_REV_3_00a	0x4f54300a
 
 #ifdef DEBUG
 	u32 frrem_samples;
@@ -390,6 +693,37 @@ struct dwc2_hsotg {
 	u32 hfnum_other_samples_b;
 	u64 hfnum_other_frrem_accum_b;
 #endif
+#endif /* CONFIG_USB_DWC2_HOST || CONFIG_USB_DWC2_DUAL_ROLE */
+
+#if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
+	/* Gadget structures */
+	struct usb_gadget_driver *driver;
+	struct s3c_hsotg_plat *plat;
+
+	u32 phyif;
+	int fifo_mem;
+	unsigned int dedicated_fifos:1;
+	unsigned char num_of_eps;
+	u32 fifo_map;
+
+	struct usb_request *ep0_reply;
+	struct usb_request *ctrl_req;
+	void *ep0_buff;
+	void *ctrl_buff;
+	enum dwc2_ep0_state ep0_state;
+	u8 test_mode;
+
+	struct usb_gadget gadget;
+	unsigned int enabled:1;
+	unsigned int connected:1;
+	unsigned long last_rst;
+	struct s3c_hsotg_ep *eps_in[MAX_EPS_CHANNELS];
+	struct s3c_hsotg_ep *eps_out[MAX_EPS_CHANNELS];
+	u32 g_using_dma;
+	u32 g_rx_fifo_sz;
+	u32 g_np_g_tx_fifo_sz;
+	u32 g_tx_fifo_sz[MAX_EPS_CHANNELS];
+#endif /* CONFIG_USB_DWC2_PERIPHERAL || CONFIG_USB_DWC2_DUAL_ROLE */
 };
 
 /* Reasons for halting a host channel */
@@ -438,7 +772,7 @@ extern void dwc2_enable_host_interrupts(struct dwc2_hsotg *hsotg);
 extern void dwc2_disable_host_interrupts(struct dwc2_hsotg *hsotg);
 
 extern u32 dwc2_calc_frame_interval(struct dwc2_hsotg *hsotg);
-extern int dwc2_check_core_status(struct dwc2_hsotg *hsotg);
+extern bool dwc2_is_controller_alive(struct dwc2_hsotg *hsotg);
 
 /*
  * Common core Functions.
@@ -465,7 +799,7 @@ extern irqreturn_t dwc2_handle_common_intr(int irq, void *dev);
  * 1 - SRP Only capable
  * 2 - No HNP/SRP capable
  */
-extern int dwc2_set_param_otg_cap(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_otg_cap(struct dwc2_hsotg *hsotg, int val);
 #define DWC2_CAP_PARAM_HNP_SRP_CAPABLE		0
 #define DWC2_CAP_PARAM_SRP_ONLY_CAPABLE		1
 #define DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE	2
@@ -477,7 +811,7 @@ extern int dwc2_set_param_otg_cap(struct dwc2_hsotg *hsotg, int val);
  * 0 - Slave
  * 1 - DMA (default, if available)
  */
-extern int dwc2_set_param_dma_enable(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_dma_enable(struct dwc2_hsotg *hsotg, int val);
 
 /*
  * When DMA mode is enabled specifies whether to use
@@ -487,7 +821,7 @@ extern int dwc2_set_param_dma_enable(struct dwc2_hsotg *hsotg, int val);
  * 0 - address DMA
  * 1 - DMA Descriptor(default, if available)
  */
-extern int dwc2_set_param_dma_desc_enable(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_dma_desc_enable(struct dwc2_hsotg *hsotg, int val);
 
 /*
  * Specifies the maximum speed of operation in host and device mode.
@@ -497,7 +831,7 @@ extern int dwc2_set_param_dma_desc_enable(struct dwc2_hsotg *hsotg, int val);
  * 0 - High Speed (default)
  * 1 - Full Speed
  */
-extern int dwc2_set_param_speed(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_speed(struct dwc2_hsotg *hsotg, int val);
 #define DWC2_SPEED_PARAM_HIGH	0
 #define DWC2_SPEED_PARAM_FULL	1
 
@@ -508,8 +842,8 @@ extern int dwc2_set_param_speed(struct dwc2_hsotg *hsotg, int val);
  * 0 - Don't support low power mode (default)
  * 1 - Support low power mode
  */
-extern int dwc2_set_param_host_support_fs_ls_low_power(struct dwc2_hsotg *hsotg,
-						       int val);
+extern void dwc2_set_param_host_support_fs_ls_low_power(
+		struct dwc2_hsotg *hsotg, int val);
 
 /*
  * Specifies the PHY clock rate in low power mode when connected to a
@@ -520,8 +854,8 @@ extern int dwc2_set_param_host_support_fs_ls_low_power(struct dwc2_hsotg *hsotg,
  * 0 - 48 MHz
  * 1 - 6 MHz
  */
-extern int dwc2_set_param_host_ls_low_power_phy_clk(struct dwc2_hsotg *hsotg,
-						    int val);
+extern void dwc2_set_param_host_ls_low_power_phy_clk(struct dwc2_hsotg *hsotg,
+						     int val);
 #define DWC2_HOST_LS_LOW_POWER_PHY_CLK_PARAM_48MHZ	0
 #define DWC2_HOST_LS_LOW_POWER_PHY_CLK_PARAM_6MHZ	1
 
@@ -529,50 +863,50 @@ extern int dwc2_set_param_host_ls_low_power_phy_clk(struct dwc2_hsotg *hsotg,
  * 0 - Use cC FIFO size parameters
  * 1 - Allow dynamic FIFO sizing (default)
  */
-extern int dwc2_set_param_enable_dynamic_fifo(struct dwc2_hsotg *hsotg,
-					      int val);
+extern void dwc2_set_param_enable_dynamic_fifo(struct dwc2_hsotg *hsotg,
+					       int val);
 
 /*
  * Number of 4-byte words in the Rx FIFO in host mode when dynamic
  * FIFO sizing is enabled.
  * 16 to 32768 (default 1024)
  */
-extern int dwc2_set_param_host_rx_fifo_size(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_host_rx_fifo_size(struct dwc2_hsotg *hsotg, int val);
 
 /*
  * Number of 4-byte words in the non-periodic Tx FIFO in host mode
  * when Dynamic FIFO sizing is enabled in the core.
  * 16 to 32768 (default 256)
  */
-extern int dwc2_set_param_host_nperio_tx_fifo_size(struct dwc2_hsotg *hsotg,
-						   int val);
+extern void dwc2_set_param_host_nperio_tx_fifo_size(struct dwc2_hsotg *hsotg,
+						    int val);
 
 /*
  * Number of 4-byte words in the host periodic Tx FIFO when dynamic
  * FIFO sizing is enabled.
  * 16 to 32768 (default 256)
  */
-extern int dwc2_set_param_host_perio_tx_fifo_size(struct dwc2_hsotg *hsotg,
-						  int val);
+extern void dwc2_set_param_host_perio_tx_fifo_size(struct dwc2_hsotg *hsotg,
+						   int val);
 
 /*
  * The maximum transfer size supported in bytes.
  * 2047 to 65,535  (default 65,535)
  */
-extern int dwc2_set_param_max_transfer_size(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_max_transfer_size(struct dwc2_hsotg *hsotg, int val);
 
 /*
  * The maximum number of packets in a transfer.
  * 15 to 511  (default 511)
  */
-extern int dwc2_set_param_max_packet_count(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_max_packet_count(struct dwc2_hsotg *hsotg, int val);
 
 /*
  * The number of host channel registers to use.
  * 1 to 16 (default 11)
  * Note: The FPGA configuration supports a maximum of 11 host channels.
  */
-extern int dwc2_set_param_host_channels(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_host_channels(struct dwc2_hsotg *hsotg, int val);
 
 /*
  * Specifies the type of PHY interface to use. By default, the driver
@@ -582,7 +916,7 @@ extern int dwc2_set_param_host_channels(struct dwc2_hsotg *hsotg, int val);
  * 1 - UTMI+ (default)
  * 2 - ULPI
  */
-extern int dwc2_set_param_phy_type(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_phy_type(struct dwc2_hsotg *hsotg, int val);
 #define DWC2_PHY_TYPE_PARAM_FS		0
 #define DWC2_PHY_TYPE_PARAM_UTMI	1
 #define DWC2_PHY_TYPE_PARAM_ULPI	2
@@ -598,7 +932,7 @@ extern int dwc2_set_param_phy_type(struct dwc2_hsotg *hsotg, int val);
  *
  * 8 or 16 bits (default 16)
  */
-extern int dwc2_set_param_phy_utmi_width(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_phy_utmi_width(struct dwc2_hsotg *hsotg, int val);
 
 /*
  * Specifies whether the ULPI operates at double or single
@@ -610,13 +944,13 @@ extern int dwc2_set_param_phy_utmi_width(struct dwc2_hsotg *hsotg, int val);
  * 1 - double data rate ULPI interface with 4 bit wide data
  * bus
  */
-extern int dwc2_set_param_phy_ulpi_ddr(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_phy_ulpi_ddr(struct dwc2_hsotg *hsotg, int val);
 
 /*
  * Specifies whether to use the internal or external supply to
  * drive the vbus with a ULPI phy.
  */
-extern int dwc2_set_param_phy_ulpi_ext_vbus(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_phy_ulpi_ext_vbus(struct dwc2_hsotg *hsotg, int val);
 #define DWC2_PHY_ULPI_INTERNAL_VBUS	0
 #define DWC2_PHY_ULPI_EXTERNAL_VBUS	1
 
@@ -626,11 +960,11 @@ extern int dwc2_set_param_phy_ulpi_ext_vbus(struct dwc2_hsotg *hsotg, int val);
  * 0 - No (default)
  * 1 - Yes
  */
-extern int dwc2_set_param_i2c_enable(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_i2c_enable(struct dwc2_hsotg *hsotg, int val);
 
-extern int dwc2_set_param_ulpi_fs_ls(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_ulpi_fs_ls(struct dwc2_hsotg *hsotg, int val);
 
-extern int dwc2_set_param_ts_dline(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_ts_dline(struct dwc2_hsotg *hsotg, int val);
 
 /*
  * Specifies whether dedicated transmit FIFOs are
@@ -638,14 +972,14 @@ extern int dwc2_set_param_ts_dline(struct dwc2_hsotg *hsotg, int val);
  * 0 - No
  * 1 - Yes
  */
-extern int dwc2_set_param_en_multiple_tx_fifo(struct dwc2_hsotg *hsotg,
-					      int val);
+extern void dwc2_set_param_en_multiple_tx_fifo(struct dwc2_hsotg *hsotg,
+					       int val);
 
-extern int dwc2_set_param_reload_ctl(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_reload_ctl(struct dwc2_hsotg *hsotg, int val);
 
-extern int dwc2_set_param_ahb_single(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_ahbcfg(struct dwc2_hsotg *hsotg, int val);
 
-extern int dwc2_set_param_otg_ver(struct dwc2_hsotg *hsotg, int val);
+extern void dwc2_set_param_otg_ver(struct dwc2_hsotg *hsotg, int val);
 
 /*
  * Dump core registers and SPRAM
@@ -658,5 +992,46 @@ extern void dwc2_dump_global_registers(struct dwc2_hsotg *hsotg);
  * Return OTG version - either 1.3 or 2.0
  */
 extern u16 dwc2_get_otg_version(struct dwc2_hsotg *hsotg);
+
+/* Gadget defines */
+#if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
+extern int s3c_hsotg_remove(struct dwc2_hsotg *hsotg);
+extern int s3c_hsotg_suspend(struct dwc2_hsotg *dwc2);
+extern int s3c_hsotg_resume(struct dwc2_hsotg *dwc2);
+extern int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq);
+extern void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *dwc2,
+		bool reset);
+extern void s3c_hsotg_core_connect(struct dwc2_hsotg *hsotg);
+extern void s3c_hsotg_disconnect(struct dwc2_hsotg *dwc2);
+#else
+static inline int s3c_hsotg_remove(struct dwc2_hsotg *dwc2)
+{ return 0; }
+static inline int s3c_hsotg_suspend(struct dwc2_hsotg *dwc2)
+{ return 0; }
+static inline int s3c_hsotg_resume(struct dwc2_hsotg *dwc2)
+{ return 0; }
+static inline int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
+{ return 0; }
+static inline void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *dwc2,
+		bool reset) {}
+static inline void s3c_hsotg_core_connect(struct dwc2_hsotg *hsotg) {}
+static inline void s3c_hsotg_disconnect(struct dwc2_hsotg *dwc2) {}
+#endif
+
+#if IS_ENABLED(CONFIG_USB_DWC2_HOST) || IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
+extern int dwc2_hcd_get_frame_number(struct dwc2_hsotg *hsotg);
+extern void dwc2_hcd_disconnect(struct dwc2_hsotg *hsotg);
+extern void dwc2_hcd_start(struct dwc2_hsotg *hsotg);
+#else
+static inline void dwc2_set_all_params(struct dwc2_core_params *params, int value) {}
+static inline int dwc2_hcd_get_frame_number(struct dwc2_hsotg *hsotg)
+{ return 0; }
+static inline void dwc2_hcd_disconnect(struct dwc2_hsotg *hsotg) {}
+static inline void dwc2_hcd_start(struct dwc2_hsotg *hsotg) {}
+static inline void dwc2_hcd_remove(struct dwc2_hsotg *hsotg) {}
+static inline int dwc2_hcd_init(struct dwc2_hsotg *hsotg, int irq,
+				const struct dwc2_core_params *params)
+{ return 0; }
+#endif
 
 #endif /* __DWC2_CORE_H__ */
