@@ -12,6 +12,7 @@
 #ifndef __LINUX_FLASH_LEDS_H_INCLUDED
 #define __LINUX_FLASH_LEDS_H_INCLUDED
 
+#include <linux/errno.h>
 #include <linux/leds.h>
 #include <uapi/linux/v4l2-controls.h>
 
