@@ -525,6 +525,25 @@ static int fimc_md_of_sensors_register(struct fimc_md *fmd,
 	return 0;
 }
 
+static void fimc_md_register_flash_entities(struct fimc_md *fmd)
+{
+	struct device_node *parent = fmd->pdev->dev.of_node;
+	struct device_node *np;
+	int i = 0;
+
+	do {
+		np = of_parse_phandle(parent, "flashes", i);
+		if (np) {
+			fmd->flash[fmd->num_flashes].asd.match_type =
+							V4L2_ASYNC_MATCH_OF;
+			fmd->flash[fmd->num_flashes].asd.match.of.node = np;
+			fmd->num_flashes++;
+			fmd->async_subdevs[fmd->num_sensors + i] =
+						&fmd->flash[i].asd;
+		}
+	} while (np && (++i < FIMC_MAX_FLASHES));
+}
+
 static int __of_get_csis_id(struct device_node *np)
 {
 	u32 reg = 0;
@@ -1528,6 +1547,15 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 	struct fimc_sensor_info *si = NULL;
 	int i;
 
+	/* Register flash subdev if detected any */
+	for (i = 0; i < ARRAY_SIZE(fmd->flash); i++) {
+		if (fmd->flash[i].asd.match.of.node == subdev->dev->of_node) {
+			fmd->flash[i].subdev = subdev;
+			fmd->num_flashes++;
+			return 0;
+		}
+	}
+
 	/* Find platform data for this sensor subdev */
 	for (i = 0; i < ARRAY_SIZE(fmd->sensor); i++)
 		if (fmd->sensor[i].asd.match.of.node == subdev->dev->of_node)
@@ -1645,6 +1673,8 @@ static int fimc_md_probe(struct platform_device *pdev)
 		}
 	}
 
+	fimc_md_register_flash_entities(fmd);
+
 	mutex_unlock(&fmd->media_dev.graph_mutex);
 
 	ret = device_create_file(&pdev->dev, &dev_attr_subdev_conf_mode);
@@ -1661,13 +1691,14 @@ static int fimc_md_probe(struct platform_device *pdev)
 		goto err_attr;
 	}
 
-
-	if (fmd->num_sensors > 0) {
+	if (fmd->num_sensors > 0 || fmd->num_flashes > 0) {
 		fmd->subdev_notifier.subdevs = fmd->async_subdevs;
-		fmd->subdev_notifier.num_subdevs = fmd->num_sensors;
+		fmd->subdev_notifier.num_subdevs = fmd->num_sensors +
+							fmd->num_flashes;
 		fmd->subdev_notifier.bound = subdev_notifier_bound;
 		fmd->subdev_notifier.complete = subdev_notifier_complete;
 		fmd->num_sensors = 0;
+		fmd->num_flashes = 0;
 
 		ret = v4l2_async_notifier_register(&fmd->v4l2_dev,
 						   &fmd->subdev_notifier);
