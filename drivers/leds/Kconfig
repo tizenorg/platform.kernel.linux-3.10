@@ -54,6 +54,7 @@ config LEDS_AAT1290
 	tristate "LED support for the AAT1290"
 	depends on LEDS_CLASS_FLASH
 	depends on OF
+	depends on PINCTRL
 	help
 	 This option enables support for the LEDs on the AAT1290.
 
