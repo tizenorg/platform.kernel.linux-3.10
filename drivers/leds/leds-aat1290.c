@@ -17,9 +17,11 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <media/v4l2-flash.h>
 
 #define AAT1290_MOVIE_MODE_CURRENT_ADDR	17
 #define AAT1290_MAX_MM_CURR_PERCENT_0	16
@@ -46,6 +48,11 @@
 
 #define AAT1290_NAME			"aat1290"
 
+#if IS_ENABLED(CONFIG_V4L2_FLASH_LED_CLASS)
+/* Number of AAT1290 devices in the system. */
+static unsigned int dev_count;
+#endif
+
 
 struct aat1290_led_settings {
 	struct led_flash_setting torch_brightness;
@@ -60,11 +67,17 @@ struct aat1290_led {
 
 	/* related LED Flash class device */
 	struct led_classdev_flash fled_cdev;
+	/* V4L2 Flash device */
+	struct v4l2_flash *v4l2_flash;
 
 	/* FLEN pin */
 	int flen_gpio;
 	/* EN|SET pin  */
 	int en_set_gpio;
+#if IS_ENABLED(CONFIG_V4L2_FLASH_LED_CLASS)
+	/* movie mode current scale */
+	int *mm_current_scale;
+#endif
 
 	/* maximum flash timeout */
 	u32 max_flash_tm;
@@ -231,12 +244,17 @@ static int aat1290_led_flash_timeout_set(struct led_classdev_flash *fled_cdev,
 	return 0;
 }
 
-static int aat1290_led_parse_dt(struct aat1290_led *led)
+static int aat1290_led_parse_dt(struct aat1290_led *led,
+			struct device_node **sub_node,
+			struct v4l2_flash_ctrl_config *v4l2_flash_config)
 {
 	struct led_classdev *led_cdev = &led->fled_cdev.led_cdev;
 	struct device *dev = &led->pdev->dev;
 	struct device_node *dev_node = dev->of_node, *child_node;
 	int flen_gpio, enset_gpio;
+#if IS_ENABLED(CONFIG_V4L2_FLASH_LED_CLASS)
+	struct pinctrl *pinctrl;
+#endif
 	int ret = 0;
 
 	flen_gpio = of_get_gpio(dev_node, 0);
@@ -269,6 +287,17 @@ static int aat1290_led_parse_dt(struct aat1290_led *led)
 	}
 	led->en_set_gpio = enset_gpio;
 
+#if IS_ENABLED(CONFIG_V4L2_FLASH_LED_CLASS)
+	pinctrl = devm_pinctrl_get_select_default(&led->pdev->dev);
+	if (IS_ERR(pinctrl)) {
+		v4l2_flash_config->has_external_strobe = false;
+		dev_info(dev,
+			 "No support for external strobe detected.\n");
+	} else {
+		v4l2_flash_config->has_external_strobe = true;
+	}
+#endif
+
 	child_node = of_get_next_available_child(dev->of_node, NULL);
 	if (!child_node) {
 		dev_err(dev, "No DT child node found for connected LED.\n");
@@ -294,6 +323,8 @@ static int aat1290_led_parse_dt(struct aat1290_led *led)
 		return ret;
 	}
 
+	*sub_node = child_node;
+
 	return ret;
 }
 
@@ -302,6 +333,15 @@ static void aat1290_init_flash_settings(struct aat1290_led *led,
 {
 	struct led_flash_setting *setting;
 
+#if IS_ENABLED(CONFIG_V4L2_FLASH_LED_CLASS)
+	/* Init flash intensity setting */
+	setting = &s->torch_brightness;
+	setting->min = led->mm_current_scale[0];
+	setting->max = led->mm_current_scale[AAT1290_MM_CURRENT_SCALE_SIZE - 1];
+	setting->step = 1;
+	setting->val = setting->max;
+#endif
+
 	/* Init flash timeout setting */
 	setting = &s->flash_timeout;
 	setting->min = led->max_flash_tm / AAT1290_FLASH_TM_NUM_LEVELS;
@@ -309,6 +349,113 @@ static void aat1290_init_flash_settings(struct aat1290_led *led,
 	setting->step = setting->min;
 	setting->val = setting->max;
 }
+
+#if IS_ENABLED(CONFIG_V4L2_FLASH_LED_CLASS)
+enum led_brightness aat1290_intensity_to_brightness(
+					struct v4l2_flash *v4l2_flash,
+					s32 intensity)
+{
+	struct led_classdev_flash *fled_cdev = v4l2_flash->fled_cdev;
+	struct aat1290_led *led = fled_cdev_to_led(fled_cdev);
+	int i;
+
+	for (i = AAT1290_MM_CURRENT_SCALE_SIZE - 1; i >= 0; --i)
+		if (intensity >= led->mm_current_scale[i])
+			return i + 1;
+
+	return 1;
+}
+
+s32 aat1290_brightness_to_intensity(struct v4l2_flash *v4l2_flash,
+					enum led_brightness brightness)
+{
+	struct led_classdev_flash *fled_cdev = v4l2_flash->fled_cdev;
+	struct aat1290_led *led = fled_cdev_to_led(fled_cdev);
+
+	return led->mm_current_scale[brightness - 1];
+}
+
+static int aat1290_led_external_strobe_set(struct v4l2_flash *v4l2_flash,
+						bool enable)
+{
+	struct aat1290_led *led = fled_cdev_to_led(v4l2_flash->fled_cdev);
+	struct led_classdev_flash *fled_cdev = v4l2_flash->fled_cdev;
+	struct led_classdev *led_cdev = &fled_cdev->led_cdev;
+	struct pinctrl *pinctrl;
+
+	gpio_set_value(led->flen_gpio, 0);
+	gpio_set_value(led->en_set_gpio, 0);
+
+	led->movie_mode = false;
+	led_cdev->brightness = 0;
+
+	pinctrl = devm_pinctrl_get_select(&led->pdev->dev,
+						enable ? "isp" : "host");
+	if (IS_ERR(pinctrl)) {
+		dev_warn(&led->pdev->dev, "Unable to switch strobe source.\n");
+		return PTR_ERR(pinctrl);
+	}
+
+	return 0;
+}
+
+int init_mm_current_scale(struct aat1290_led *led)
+{
+	int max_mm_current_percent[] = { 20, 22, 25, 28, 32, 36, 40, 45, 50, 56,
+						63, 71, 79, 89, 100 };
+	int i, max_mm_current = AAT1290_MAX_MM_CURRENT(led->max_flash_current);
+
+	led->mm_current_scale = devm_kzalloc(&led->pdev->dev,
+						sizeof(max_mm_current_percent),
+						GFP_KERNEL);
+	if (!led->mm_current_scale)
+		return -ENOMEM;
+
+	for (i = 0; i < AAT1290_MM_CURRENT_SCALE_SIZE; ++i)
+		led->mm_current_scale[i] = max_mm_current *
+					  max_mm_current_percent[i] / 100;
+
+	return 0;
+}
+
+static void aat1290_init_v4l2_ctrl_config(struct aat1290_led *led,
+					struct aat1290_led_settings *s,
+					struct v4l2_flash_ctrl_config *config)
+{
+	struct led_flash_setting *setting;
+	struct v4l2_ctrl_config *c;
+	char suffix[10];
+
+	if (++dev_count > 1)
+		snprintf(suffix, sizeof(suffix), "_%d", dev_count);
+
+	snprintf(config->dev_name, sizeof(config->dev_name), "%s%s",
+		 AAT1290_NAME, dev_count > 1 ? suffix : "");
+
+	c = &config->intensity;
+	setting = &s->torch_brightness;
+	c->min = setting->min;
+	c->max = setting->max;
+	c->step = setting->step;
+	c->def = setting->val;
+
+	c = &config->flash_timeout;
+	setting = &s->flash_timeout;
+	c->min = setting->min;
+	c->max = setting->max;
+	c->step = setting->step;
+	c->def = setting->val;
+}
+
+static const struct v4l2_flash_ops v4l2_flash_ops = {
+	.external_strobe_set = aat1290_led_external_strobe_set,
+	.intensity_to_led_brightness = aat1290_intensity_to_brightness,
+	.led_brightness_to_intensity = aat1290_brightness_to_intensity,
+};
+#else
+#define aat1290_init_v4l2_ctrl_config(led, s, config)
+#define init_mm_current_scale(led) (0)
+#endif
 
 static const struct led_flash_ops flash_ops = {
 	.strobe_set = aat1290_led_flash_strobe_set,
@@ -320,8 +467,10 @@ static int aat1290_led_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct aat1290_led *led;
 	struct led_classdev *led_cdev;
+	struct device_node *sub_node = NULL;
 	struct led_classdev_flash *fled_cdev;
 	struct aat1290_led_settings settings;
+	struct v4l2_flash_ctrl_config v4l2_flash_config = {};
 	int ret;
 
 	led = devm_kzalloc(dev, sizeof(*led), GFP_KERNEL);
@@ -334,15 +483,26 @@ static int aat1290_led_probe(struct platform_device *pdev)
 	fled_cdev = &led->fled_cdev;
 	led_cdev = &fled_cdev->led_cdev;
 
-	ret = aat1290_led_parse_dt(led);
+	ret = aat1290_led_parse_dt(led, &sub_node, &v4l2_flash_config);
 	if (ret < 0)
 		return ret;
 
 	if (!led_cdev->name)
 		led_cdev->name = AAT1290_NAME;
 
+	/*
+	 * Init non-linear movie mode current scale basing
+	 * on the max flash current from Device Tree binding.
+	 */
+	ret = init_mm_current_scale(led);
+	if (ret < 0)
+		return ret;
+
 	/* Init flash settings */
 	aat1290_init_flash_settings(led, &settings);
+
+	/* Init V4L2 Flash controls basing on initialized settings */
+	aat1290_init_v4l2_ctrl_config(led, &settings, &v4l2_flash_config);
 
 	fled_cdev->timeout = settings.flash_timeout;
 	fled_cdev->ops = &flash_ops;
@@ -362,17 +522,39 @@ static int aat1290_led_probe(struct platform_device *pdev)
 
 	mutex_init(&led->lock);
 
+	led_cdev->dev->of_node = sub_node;
+
+	/* Create V4L2 Flash subdev. */
+	led->v4l2_flash = v4l2_flash_init(fled_cdev,
+					  &v4l2_flash_ops,
+					  &v4l2_flash_config);
+	if (IS_ERR(led->v4l2_flash)) {
+		ret = PTR_ERR(led->v4l2_flash);
+		goto error_v4l2_flash_init;
+	}
+
 	return 0;
+
+error_v4l2_flash_init:
+	led_classdev_flash_unregister(fled_cdev);
+	mutex_destroy(&led->lock);
+
+	return ret;
 }
 
 static int aat1290_led_remove(struct platform_device *pdev)
 {
 	struct aat1290_led *led = platform_get_drvdata(pdev);
 
+	v4l2_flash_release(led->v4l2_flash);
 	led_classdev_flash_unregister(&led->fled_cdev);
 	cancel_work_sync(&led->work_brightness_set);
 
 	mutex_destroy(&led->lock);
+
+#if IS_ENABLED(CONFIG_V4L2_FLASH_LED_CLASS)
+	--dev_count;
+#endif
 
 	return 0;
 }
