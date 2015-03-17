@@ -1273,6 +1273,21 @@
 		};
 	};
 
+	aat1290 {
+		compatible = "skyworks,aat1290";
+		gpios = <&gpj1 1 0>, <&gpj1 2 0>;
+		pinctrl-names = "default", "host", "isp";
+		pinctrl-0 = <&camera_flash_host>;
+		pinctrl-1 = <&camera_flash_host>;
+		pinctrl-2 = <&camera_flash_isp>;
+
+		aat1290: flash-led {
+			label = "aat1290-flash";
+			flash-max-microamp = <1012500>;
+			flash-timeout-us = <1940000>;
+		};
+	};
+
 	codec@13400000 {
 		status = "okay";
 
@@ -1575,5 +1590,17 @@
 		samsung,pin-function = <2>;
 		samsung,pin-pud = <1>;
 		samsung,pin-drv = <0>;
+	};
+
+	camera_flash_host: camera-flash-host {
+		samsung,pins = "gpj1-0";
+		samsung,pin-function = <1>;
+		samsung,pin-val = <0>;
+	};
+
+	camera_flash_isp: camera-flash-isp {
+		samsung,pins = "gpj1-0";
+		samsung,pin-function = <1>;
+		samsung,pin-val = <1>;
 	};
 };
