@@ -1,7 +1,6 @@
 %define config_name tizen_defconfig
 %define buildarch arm
-%define target_board trats2
-%define variant %{buildarch}-%{target_board}
+%define variant exynos
 
 Name: linux-kernel
 Summary: The Linux Kernel for Samsung Exynos
@@ -13,6 +12,7 @@ Group: System/Kernel
 Vendor: The Linux Community
 URL: http://www.kernel.org
 Source0:   %{name}-%{version}.tar.xz
+Source1:   image.its
 BuildRoot: %{_tmppath}/%{name}-%{PACKAGE_VERSION}-root
 
 %define fullVersion %{version}-%{variant}
@@ -34,21 +34,21 @@ The Linux Kernel, the operating system core itself
 %package -n %{variant}-linux-kernel
 Summary: Tizen kernel
 Group: System/Kernel
-%if %{profile} == "mobile"
 Provides: kernel-profile-%{profile} = %{version}-%{release}
 Provides: kernel-uname-r = %{fullVersion}
-%endif
+Obsoletes: arm-trats2-linux-kernel < %{version}-%{release}
+Obsoletes: arm-odroidu3-linux-kernel < %{version}-%{release}
+Provides: arm-trats2-linux-kernel = %{version}-%{release}
+Provides: arm-odroidu3-linux-kernel = %{version}-%{release}
 
 %description -n %{variant}-linux-kernel
-This package contains the Linux kernel for Tizen (%{profile} profile, arch %{buildarch}, target board %{target_board})
+This package contains the Linux kernel for Tizen (%{profile} profile, arch %{buildarch})
 
 %package -n %{variant}-linux-kernel-headers
 Summary: Header files for the Linux kernel for use by glibc
 Group: Development/System
-%if %{profile} == "mobile"
-Obsoletes: kernel-headers
+Obsoletes: kernel-headers < %{version}-%{release}
 Provides: kernel-headers = %{version}-%{release}
-%endif
 
 %description -n %{variant}-linux-kernel-headers
 Kernel-headers includes the C header files that specify the interface
@@ -58,23 +58,29 @@ building most standard programs and are also needed for rebuilding the
 glibc package.
 
 %package -n %{variant}-linux-kernel-modules
-Summary: Kernel modules for %{target_board}
+Summary: Kernel modules for Exynos platform
 Group: System/Kernel
 %if %{profile} == "mobile"
 Provides: kernel-modules = %{fullVersion}
 Provides: kernel-modules-uname-r = %{fullVersion}
+Obsoletes: arm-trats2-linux-kernel-modules < %{version}-%{release}
+Obsoletes: arm-odroidu3-linux-kernel-modules < %{version}-%{release}
+Provides: arm-trats2-linux-kernel-modules = %{version}-%{release}
+Provides: arm-odroidu3-linux-kernel-modules = %{version}-%{release}
 %endif
 
 %description -n %{variant}-linux-kernel-modules
-Kernel-modules includes the loadable kernel modules(.ko files) for %{target_board}
+Kernel-modules includes the loadable kernel modules(.ko files) for Exynos platform
 
 %package -n %{variant}-linux-kernel-devel
 Summary: Prebuilt linux kernel for out-of-tree modules
 Group: Development/System
-%if %{profile} == "mobile"
 Provides: kernel-devel = %{fullVersion}
 Provides: kernel-devel-uname-r = %{fullVersion}
-%endif
+Obsoletes: arm-trats2-linux-kernel-devel < %{version}-%{release}
+Obsoletes: arm-odroidu3-linux-kernel-devel < %{version}-%{release}
+Provides: arm-trats2-linux-kernel-devel = %{version}-%{release}
+Provides: arm-odroidu3-linux-kernel-devel = %{version}-%{release}
 Requires: %{variant}-linux-kernel = %{version}-%{release}
 
 %description -n %{variant}-linux-kernel-devel
@@ -83,9 +89,7 @@ Prebuilt linux kernel for out-of-tree modules.
 %package -n %{variant}-linux-kernel-perf
 Summary: The 'perf' performance counter tool
 Group: Development/System
-%if %{profile} == "mobile"
 Provides: perf = %{fullVersion}
-%endif
 
 %description -n %{variant}-linux-kernel-perf
 This package provides the "perf" tool that can be used to monitor performance
@@ -93,6 +97,7 @@ counter events as well as various kernel internal events.
 
 %prep
 %setup -q
+cp %{SOURCE1} .
 
 %build
 # Make sure EXTRAVERSION says what we want it to say
@@ -113,20 +118,22 @@ make modules %{?_smp_mflags}
 make -s -C tools/lib/traceevent ARCH=%{buildarch} %{?_smp_mflags}
 make -s -C tools/perf WERROR=0 ARCH=%{buildarch}
 
-# 4. Create tar repo for build directory
+# 4. Create itb image
+mkimage -f image.its Image.itb
+
+# 5. Create tar repo for build directory
 tar cpf linux-kernel-build-%{fullVersion}.tar .
 
 %install
 QA_SKIP_BUILD_ROOT="DO_NOT_WANT"; export QA_SKIP_BUILD_ROOT
 
-# 1. Destynation directories
+# 1. Destination directories
 mkdir -p %{buildroot}/usr/src/linux-kernel-build-%{fullVersion}
 mkdir -p %{buildroot}/boot/
 mkdir -p %{buildroot}/lib/modules/%{fullVersion}
 
-# 2. Install zImage, System.map, ...
-install -m 755 arch/arm/boot/zImage %{buildroot}/boot/
-install -m 644 arch/arm/boot/dts/*.dtb %{buildroot}/boot/
+# 2. Install itb Image, System.map, ...
+install -m 644 Image.itb %{buildroot}/boot/
 
 install -m 644 System.map %{buildroot}/boot/System.map-%{fullVersion}
 install -m 644 .config %{buildroot}/boot/config-%{fullVersion}
@@ -211,8 +218,7 @@ rm -rf %{buildroot}
 
 %files -n %{variant}-linux-kernel
 %license COPYING
-/boot/zImage
-/boot/*.dtb
+/boot/Image.itb
 /boot/System.map*
 /boot/config*
 

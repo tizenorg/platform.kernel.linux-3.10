@@ -1,0 +1,83 @@
+/dts-v1/;
+/ {
+	description = "Single Linux kernel and with multiple FDT blobs";
+	#address-cells = <1>;
+	images {
+		kernel@1 {
+			description = "Vanilla Linux kernel";
+			data = /incbin/("arch/arm/boot/zImage");
+			type = "kernel";
+			arch = "arm";
+			os = "linux";
+			compression = "none";
+			load = <0x40008000>;
+			entry = <0x40008000>;
+			hash@1 {
+				algo = "crc32";
+			};
+		};
+		fdt@0 {
+			description = "FDT for exynos4210-trats";
+			data = /incbin/("arch/arm/boot/dts/exynos4210-trats.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			hash@1 {
+				algo = "crc32";
+			};
+		};
+		fdt@1 {
+			description = "FDT for exynos4412-trats2";
+			data = /incbin/("arch/arm/boot/dts/exynos4412-trats2.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			hash@1 {
+				algo = "crc32";
+			};
+		};
+		fdt@2 {
+			description = "FDT for exynos4412-odroidx2";
+			data = /incbin/("arch/arm/boot/dts/exynos4412-odroidx2.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			hash@1 {
+				algo = "crc32";
+			};
+		};
+		fdt@3 {
+			description = "FDT for exynos4412-odroidu3";
+			data = /incbin/("arch/arm/boot/dts/exynos4412-odroidu3.dtb");
+			type = "flat_dt";
+			arch = "arm";
+			compression = "none";
+			hash@1 {
+				algo = "crc32";
+			};
+		};
+	};
+	configurations {
+		default = "odroidu3@2";
+		trats@0 {
+			description = "Boot Linux kernel with Exynos4210 Trats FDT";
+			kernel = "kernel@1";
+			fdt = "fdt@0";
+		};
+		trats2@1 {
+			description = "Boot Linux kernel with Exynos4412 Trats2 FDT";
+			kernel = "kernel@1";
+			fdt = "fdt@1";
+		};
+		odroidx2@2 {
+			description = "Boot Linux kernel with OdroidX2 FDT";
+			kernel = "kernel@1";
+			fdt = "fdt@2";
+		};
+		odroidu3@3 {
+			description = "Boot Linux kernel with OdroidU3 FDT";
+			kernel = "kernel@1";
+			fdt = "fdt@3";
+		};
+	};
+};
