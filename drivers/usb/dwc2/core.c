@@ -90,12 +90,10 @@ static void dwc2_enable_common_interrupts(struct dwc2_hsotg *hsotg)
  */
 static void dwc2_init_fs_ls_pclk_sel(struct dwc2_hsotg *hsotg)
 {
-	u32 hs_phy_type = hsotg->hwcfg2 & GHWCFG2_HS_PHY_TYPE_MASK;
-	u32 fs_phy_type = hsotg->hwcfg2 & GHWCFG2_FS_PHY_TYPE_MASK;
 	u32 hcfg, val;
 
-	if ((hs_phy_type == GHWCFG2_HS_PHY_TYPE_ULPI &&
-	     fs_phy_type == GHWCFG2_FS_PHY_TYPE_DEDICATED &&
+	if ((hsotg->hw_params.hs_phy_type == GHWCFG2_HS_PHY_TYPE_ULPI &&
+	     hsotg->hw_params.fs_phy_type == GHWCFG2_FS_PHY_TYPE_DEDICATED &&
 	     hsotg->core_params->ulpi_fs_ls > 0) ||
 	    hsotg->core_params->phy_type == DWC2_PHY_TYPE_PARAM_FS) {
 		/* Full speed PHY */
@@ -108,7 +106,7 @@ static void dwc2_init_fs_ls_pclk_sel(struct dwc2_hsotg *hsotg)
 	dev_dbg(hsotg->dev, "Initializing HCFG.FSLSPClkSel to %08x\n", val);
 	hcfg = readl(hsotg->regs + HCFG);
 	hcfg &= ~HCFG_FSLSPCLKSEL_MASK;
-	hcfg |= val;
+	hcfg |= val << HCFG_FSLSPCLKSEL_SHIFT;
 	writel(hcfg, hsotg->regs + HCFG);
 }
 
@@ -116,10 +114,11 @@ static void dwc2_init_fs_ls_pclk_sel(struct dwc2_hsotg *hsotg)
  * Do core a soft reset of the core.  Be careful with this because it
  * resets all the internal state machines of the core.
  */
-static void dwc2_core_reset(struct dwc2_hsotg *hsotg)
+static int dwc2_core_reset(struct dwc2_hsotg *hsotg)
 {
 	u32 greset;
 	int count = 0;
+	u32 gusbcfg;
 
 	dev_vdbg(hsotg->dev, "%s()\n", __func__);
 
@@ -131,7 +130,7 @@ static void dwc2_core_reset(struct dwc2_hsotg *hsotg)
 			dev_warn(hsotg->dev,
 				 "%s() HANG! AHB Idle GRSTCTL=%0x\n",
 				 __func__, greset);
-			return;
+			return -EBUSY;
 		}
 	} while (!(greset & GRSTCTL_AHBIDLE));
 
@@ -146,20 +145,40 @@ static void dwc2_core_reset(struct dwc2_hsotg *hsotg)
 			dev_warn(hsotg->dev,
 				 "%s() HANG! Soft Reset GRSTCTL=%0x\n",
 				 __func__, greset);
-			break;
+			return -EBUSY;
 		}
 	} while (greset & GRSTCTL_CSFTRST);
+
+	if (hsotg->dr_mode == USB_DR_MODE_HOST) {
+		gusbcfg = readl(hsotg->regs + GUSBCFG);
+		gusbcfg &= ~GUSBCFG_FORCEDEVMODE;
+		gusbcfg |= GUSBCFG_FORCEHOSTMODE;
+		writel(gusbcfg, hsotg->regs + GUSBCFG);
+	} else if (hsotg->dr_mode == USB_DR_MODE_PERIPHERAL) {
+		gusbcfg = readl(hsotg->regs + GUSBCFG);
+		gusbcfg &= ~GUSBCFG_FORCEHOSTMODE;
+		gusbcfg |= GUSBCFG_FORCEDEVMODE;
+		writel(gusbcfg, hsotg->regs + GUSBCFG);
+	} else if (hsotg->dr_mode == USB_DR_MODE_OTG) {
+		gusbcfg = readl(hsotg->regs + GUSBCFG);
+		gusbcfg &= ~GUSBCFG_FORCEHOSTMODE;
+		gusbcfg &= ~GUSBCFG_FORCEDEVMODE;
+		writel(gusbcfg, hsotg->regs + GUSBCFG);
+	}
 
 	/*
 	 * NOTE: This long sleep is _very_ important, otherwise the core will
 	 * not stay in host mode after a connector ID change!
 	 */
 	usleep_range(150000, 200000);
+
+	return 0;
 }
 
-static void dwc2_fs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
+static int dwc2_fs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 {
 	u32 usbcfg, i2cctl;
+	int retval = 0;
 
 	/*
 	 * core_init() is now called on every switch so only call the
@@ -172,7 +191,12 @@ static void dwc2_fs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 		writel(usbcfg, hsotg->regs + GUSBCFG);
 
 		/* Reset after a PHY select */
-		dwc2_core_reset(hsotg);
+		retval = dwc2_core_reset(hsotg);
+		if (retval) {
+			dev_err(hsotg->dev, "%s() Reset failed, aborting",
+					__func__);
+			return retval;
+		}
 	}
 
 	/*
@@ -200,14 +224,17 @@ static void dwc2_fs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 		i2cctl |= GI2CCTL_I2CEN;
 		writel(i2cctl, hsotg->regs + GI2CCTL);
 	}
+
+	return retval;
 }
 
-static void dwc2_hs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
+static int dwc2_hs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 {
 	u32 usbcfg;
+	int retval = 0;
 
 	if (!select_phy)
-		return;
+		return 0;
 
 	usbcfg = readl(hsotg->regs + GUSBCFG);
 
@@ -240,27 +267,36 @@ static void dwc2_hs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 	writel(usbcfg, hsotg->regs + GUSBCFG);
 
 	/* Reset after setting the PHY parameters */
-	dwc2_core_reset(hsotg);
+	retval = dwc2_core_reset(hsotg);
+	if (retval) {
+		dev_err(hsotg->dev, "%s() Reset failed, aborting",
+				__func__);
+		return retval;
+	}
+
+	return retval;
 }
 
-static void dwc2_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
+static int dwc2_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 {
-	u32 usbcfg, hs_phy_type, fs_phy_type;
+	u32 usbcfg;
+	int retval = 0;
 
 	if (hsotg->core_params->speed == DWC2_SPEED_PARAM_FULL &&
 	    hsotg->core_params->phy_type == DWC2_PHY_TYPE_PARAM_FS) {
 		/* If FS mode with FS PHY */
-		dwc2_fs_phy_init(hsotg, select_phy);
+		retval = dwc2_fs_phy_init(hsotg, select_phy);
+		if (retval)
+			return retval;
 	} else {
 		/* High speed PHY */
-		dwc2_hs_phy_init(hsotg, select_phy);
+		retval = dwc2_hs_phy_init(hsotg, select_phy);
+		if (retval)
+			return retval;
 	}
 
-	hs_phy_type = hsotg->hwcfg2 & GHWCFG2_HS_PHY_TYPE_MASK;
-	fs_phy_type = hsotg->hwcfg2 & GHWCFG2_FS_PHY_TYPE_MASK;
-
-	if (hs_phy_type == GHWCFG2_HS_PHY_TYPE_ULPI &&
-	    fs_phy_type == GHWCFG2_FS_PHY_TYPE_DEDICATED &&
+	if (hsotg->hw_params.hs_phy_type == GHWCFG2_HS_PHY_TYPE_ULPI &&
+	    hsotg->hw_params.fs_phy_type == GHWCFG2_FS_PHY_TYPE_DEDICATED &&
 	    hsotg->core_params->ulpi_fs_ls > 0) {
 		dev_dbg(hsotg->dev, "Setting ULPI FSLS\n");
 		usbcfg = readl(hsotg->regs + GUSBCFG);
@@ -273,24 +309,26 @@ static void dwc2_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 		usbcfg &= ~GUSBCFG_ULPI_CLK_SUSP_M;
 		writel(usbcfg, hsotg->regs + GUSBCFG);
 	}
+
+	return retval;
 }
 
 static int dwc2_gahbcfg_init(struct dwc2_hsotg *hsotg)
 {
-	u32 ahbcfg = 0;
+	u32 ahbcfg = readl(hsotg->regs + GAHBCFG);
 
-	switch (hsotg->hwcfg2 & GHWCFG2_ARCHITECTURE_MASK) {
+	switch (hsotg->hw_params.arch) {
 	case GHWCFG2_EXT_DMA_ARCH:
 		dev_err(hsotg->dev, "External DMA Mode not supported\n");
 		return -EINVAL;
 
 	case GHWCFG2_INT_DMA_ARCH:
 		dev_dbg(hsotg->dev, "Internal DMA Mode\n");
-		/*
-		 * Old value was GAHBCFG_HBSTLEN_INCR - done for
-		 * Host mode ISOC in issue fix - vahrama
-		 */
-		ahbcfg |= GAHBCFG_HBSTLEN_INCR4;
+		if (hsotg->core_params->ahbcfg != -1) {
+			ahbcfg &= GAHBCFG_CTRL_MASK;
+			ahbcfg |= hsotg->core_params->ahbcfg &
+				  ~GAHBCFG_CTRL_MASK;
+		}
 		break;
 
 	case GHWCFG2_SLAVE_ONLY_ARCH:
@@ -313,9 +351,6 @@ static int dwc2_gahbcfg_init(struct dwc2_hsotg *hsotg)
 		hsotg->core_params->dma_desc_enable = 0;
 	}
 
-	if (hsotg->core_params->ahb_single > 0)
-		ahbcfg |= GAHBCFG_AHB_SINGLE;
-
 	if (hsotg->core_params->dma_enable > 0)
 		ahbcfg |= GAHBCFG_DMA_EN;
 
@@ -331,7 +366,7 @@ static void dwc2_gusbcfg_init(struct dwc2_hsotg *hsotg)
 	usbcfg = readl(hsotg->regs + GUSBCFG);
 	usbcfg &= ~(GUSBCFG_HNPCAP | GUSBCFG_SRPCAP);
 
-	switch (hsotg->hwcfg2 & GHWCFG2_OP_MODE_MASK) {
+	switch (hsotg->hw_params.op_mode) {
 	case GHWCFG2_OP_MODE_HNP_SRP_CAPABLE:
 		if (hsotg->core_params->otg_cap ==
 				DWC2_CAP_PARAM_HNP_SRP_CAPABLE)
@@ -390,27 +425,19 @@ int dwc2_core_init(struct dwc2_hsotg *hsotg, bool select_phy, int irq)
 	writel(usbcfg, hsotg->regs + GUSBCFG);
 
 	/* Reset the Controller */
-	dwc2_core_reset(hsotg);
-
-	dev_dbg(hsotg->dev, "num_dev_perio_in_ep=%d\n",
-		hsotg->hwcfg4 >> GHWCFG4_NUM_DEV_PERIO_IN_EP_SHIFT &
-		GHWCFG4_NUM_DEV_PERIO_IN_EP_MASK >>
-				GHWCFG4_NUM_DEV_PERIO_IN_EP_SHIFT);
-
-	hsotg->total_fifo_size = hsotg->hwcfg3 >> GHWCFG3_DFIFO_DEPTH_SHIFT &
-			GHWCFG3_DFIFO_DEPTH_MASK >> GHWCFG3_DFIFO_DEPTH_SHIFT;
-	hsotg->rx_fifo_size = readl(hsotg->regs + GRXFSIZ);
-	hsotg->nperio_tx_fifo_size =
-			readl(hsotg->regs + GNPTXFSIZ) >> 16 & 0xffff;
-
-	dev_dbg(hsotg->dev, "Total FIFO SZ=%d\n", hsotg->total_fifo_size);
-	dev_dbg(hsotg->dev, "RxFIFO SZ=%d\n", hsotg->rx_fifo_size);
-	dev_dbg(hsotg->dev, "NP TxFIFO SZ=%d\n", hsotg->nperio_tx_fifo_size);
+	retval = dwc2_core_reset(hsotg);
+	if (retval) {
+		dev_err(hsotg->dev, "%s(): Reset failed, aborting\n",
+				__func__);
+		return retval;
+	}
 
 	/*
 	 * This needs to happen in FS mode before any other programming occurs
 	 */
-	dwc2_phy_init(hsotg, select_phy);
+	retval = dwc2_phy_init(hsotg, select_phy);
+	if (retval)
+		return retval;
 
 	/* Program the GAHBCFG Register */
 	retval = dwc2_gahbcfg_init(hsotg);
@@ -431,21 +458,11 @@ int dwc2_core_init(struct dwc2_hsotg *hsotg, bool select_phy, int irq)
 	/* Clear the SRP success bit for FS-I2c */
 	hsotg->srp_success = 0;
 
-	if (irq >= 0) {
-		dev_dbg(hsotg->dev, "registering common handler for irq%d\n",
-			irq);
-		retval = devm_request_irq(hsotg->dev, irq,
-					  dwc2_handle_common_intr, IRQF_SHARED,
-					  dev_name(hsotg->dev), hsotg);
-		if (retval)
-			return retval;
-	}
-
 	/* Enable common interrupts */
 	dwc2_enable_common_interrupts(hsotg);
 
 	/*
-	 * Do device or host intialization based on mode during PCD and
+	 * Do device or host initialization based on mode during PCD and
 	 * HCD initialization
 	 */
 	if (dwc2_is_host_mode(hsotg)) {
@@ -474,9 +491,6 @@ void dwc2_enable_host_interrupts(struct dwc2_hsotg *hsotg)
 	writel(0, hsotg->regs + GINTMSK);
 	writel(0, hsotg->regs + HAINTMSK);
 
-	/* Clear any pending interrupts */
-	writel(0xffffffff, hsotg->regs + GINTSTS);
-
 	/* Enable the common interrupts */
 	dwc2_enable_common_interrupts(hsotg);
 
@@ -501,26 +515,89 @@ void dwc2_disable_host_interrupts(struct dwc2_hsotg *hsotg)
 	writel(intmsk, hsotg->regs + GINTMSK);
 }
 
+/*
+ * dwc2_calculate_dynamic_fifo() - Calculates the default fifo size
+ * For system that have a total fifo depth that is smaller than the default
+ * RX + TX fifo size.
+ *
+ * @hsotg: Programming view of DWC_otg controller
+ */
+static void dwc2_calculate_dynamic_fifo(struct dwc2_hsotg *hsotg)
+{
+	struct dwc2_core_params *params = hsotg->core_params;
+	struct dwc2_hw_params *hw = &hsotg->hw_params;
+	u32 rxfsiz, nptxfsiz, ptxfsiz, total_fifo_size;
+
+	total_fifo_size = hw->total_fifo_size;
+	rxfsiz = params->host_rx_fifo_size;
+	nptxfsiz = params->host_nperio_tx_fifo_size;
+	ptxfsiz = params->host_perio_tx_fifo_size;
+
+	/*
+	 * Will use Method 2 defined in the DWC2 spec: minimum FIFO depth
+	 * allocation with support for high bandwidth endpoints. Synopsys
+	 * defines MPS(Max Packet size) for a periodic EP=1024, and for
+	 * non-periodic as 512.
+	 */
+	if (total_fifo_size < (rxfsiz + nptxfsiz + ptxfsiz)) {
+		/*
+		 * For Buffer DMA mode/Scatter Gather DMA mode
+		 * 2 * ((Largest Packet size / 4) + 1 + 1) + n
+		 * with n = number of host channel.
+		 * 2 * ((1024/4) + 2) = 516
+		 */
+		rxfsiz = 516 + hw->host_channels;
+
+		/*
+		 * min non-periodic tx fifo depth
+		 * 2 * (largest non-periodic USB packet used / 4)
+		 * 2 * (512/4) = 256
+		 */
+		nptxfsiz = 256;
+
+		/*
+		 * min periodic tx fifo depth
+		 * (largest packet size*MC)/4
+		 * (1024 * 3)/4 = 768
+		 */
+		ptxfsiz = 768;
+
+		params->host_rx_fifo_size = rxfsiz;
+		params->host_nperio_tx_fifo_size = nptxfsiz;
+		params->host_perio_tx_fifo_size = ptxfsiz;
+	}
+
+	/*
+	 * If the summation of RX, NPTX and PTX fifo sizes is still
+	 * bigger than the total_fifo_size, then we have a problem.
+	 *
+	 * We won't be able to allocate as many endpoints. Right now,
+	 * we're just printing an error message, but ideally this FIFO
+	 * allocation algorithm would be improved in the future.
+	 *
+	 * FIXME improve this FIFO allocation algorithm.
+	 */
+	if (unlikely(total_fifo_size < (rxfsiz + nptxfsiz + ptxfsiz)))
+		dev_err(hsotg->dev, "invalid fifo sizes\n");
+}
+
 static void dwc2_config_fifos(struct dwc2_hsotg *hsotg)
 {
 	struct dwc2_core_params *params = hsotg->core_params;
-	u32 rxfsiz, nptxfsiz, ptxfsiz, hptxfsiz, dfifocfg;
+	u32 nptxfsiz, hptxfsiz, dfifocfg, grxfsiz;
 
-	if (!(hsotg->hwcfg2 & GHWCFG2_DYNAMIC_FIFO) ||
-	    !params->enable_dynamic_fifo)
+	if (!params->enable_dynamic_fifo)
 		return;
 
-	dev_dbg(hsotg->dev, "Total FIFO Size=%d\n", hsotg->total_fifo_size);
-	dev_dbg(hsotg->dev, "Rx FIFO Size=%d\n", params->host_rx_fifo_size);
-	dev_dbg(hsotg->dev, "NP Tx FIFO Size=%d\n",
-		params->host_nperio_tx_fifo_size);
-	dev_dbg(hsotg->dev, "P Tx FIFO Size=%d\n",
-		params->host_perio_tx_fifo_size);
+	dwc2_calculate_dynamic_fifo(hsotg);
 
 	/* Rx FIFO */
-	dev_dbg(hsotg->dev, "initial grxfsiz=%08x\n",
-		readl(hsotg->regs + GRXFSIZ));
-	writel(params->host_rx_fifo_size, hsotg->regs + GRXFSIZ);
+	grxfsiz = readl(hsotg->regs + GRXFSIZ);
+	dev_dbg(hsotg->dev, "initial grxfsiz=%08x\n", grxfsiz);
+	grxfsiz &= ~GRXFSIZ_DEPTH_MASK;
+	grxfsiz |= params->host_rx_fifo_size <<
+		   GRXFSIZ_DEPTH_SHIFT & GRXFSIZ_DEPTH_MASK;
+	writel(grxfsiz, hsotg->regs + GRXFSIZ);
 	dev_dbg(hsotg->dev, "new grxfsiz=%08x\n", readl(hsotg->regs + GRXFSIZ));
 
 	/* Non-periodic Tx FIFO */
@@ -537,27 +614,26 @@ static void dwc2_config_fifos(struct dwc2_hsotg *hsotg)
 	/* Periodic Tx FIFO */
 	dev_dbg(hsotg->dev, "initial hptxfsiz=%08x\n",
 		readl(hsotg->regs + HPTXFSIZ));
-	ptxfsiz = params->host_perio_tx_fifo_size <<
-		  FIFOSIZE_DEPTH_SHIFT & FIFOSIZE_DEPTH_MASK;
-	ptxfsiz |= (params->host_rx_fifo_size +
-		    params->host_nperio_tx_fifo_size) <<
-		   FIFOSIZE_STARTADDR_SHIFT & FIFOSIZE_STARTADDR_MASK;
-	writel(ptxfsiz, hsotg->regs + HPTXFSIZ);
+	hptxfsiz = params->host_perio_tx_fifo_size <<
+		   FIFOSIZE_DEPTH_SHIFT & FIFOSIZE_DEPTH_MASK;
+	hptxfsiz |= (params->host_rx_fifo_size +
+		     params->host_nperio_tx_fifo_size) <<
+		    FIFOSIZE_STARTADDR_SHIFT & FIFOSIZE_STARTADDR_MASK;
+	writel(hptxfsiz, hsotg->regs + HPTXFSIZ);
 	dev_dbg(hsotg->dev, "new hptxfsiz=%08x\n",
 		readl(hsotg->regs + HPTXFSIZ));
 
 	if (hsotg->core_params->en_multiple_tx_fifo > 0 &&
-	    hsotg->snpsid <= DWC2_CORE_REV_2_94a) {
+	    hsotg->hw_params.snpsid <= DWC2_CORE_REV_2_94a) {
 		/*
 		 * Global DFIFOCFG calculation for Host mode -
 		 * include RxFIFO, NPTXFIFO and HPTXFIFO
 		 */
 		dfifocfg = readl(hsotg->regs + GDFIFOCFG);
-		rxfsiz = readl(hsotg->regs + GRXFSIZ) & 0x0000ffff;
-		nptxfsiz = readl(hsotg->regs + GNPTXFSIZ) >> 16 & 0xffff;
-		hptxfsiz = readl(hsotg->regs + HPTXFSIZ) >> 16 & 0xffff;
 		dfifocfg &= ~GDFIFOCFG_EPINFOBASE_MASK;
-		dfifocfg |= (rxfsiz + nptxfsiz + hptxfsiz) <<
+		dfifocfg |= (params->host_rx_fifo_size +
+			     params->host_nperio_tx_fifo_size +
+			     params->host_perio_tx_fifo_size) <<
 			    GDFIFOCFG_EPINFOBASE_SHIFT &
 			    GDFIFOCFG_EPINFOBASE_MASK;
 		writel(dfifocfg, hsotg->regs + GDFIFOCFG);
@@ -593,7 +669,7 @@ void dwc2_core_host_init(struct dwc2_hsotg *hsotg)
 
 	/*
 	 * This bit allows dynamic reloading of the HFIR register during
-	 * runtime. This bit needs to be programmed during inital configuration
+	 * runtime. This bit needs to be programmed during initial configuration
 	 * and its value must not be changed during runtime.
 	 */
 	if (hsotg->core_params->reload_ctl > 0) {
@@ -603,10 +679,9 @@ void dwc2_core_host_init(struct dwc2_hsotg *hsotg)
 	}
 
 	if (hsotg->core_params->dma_desc_enable > 0) {
-		u32 op_mode = hsotg->hwcfg2 & GHWCFG2_OP_MODE_MASK;
-
-		if (hsotg->snpsid < DWC2_CORE_REV_2_90a ||
-		    !(hsotg->hwcfg4 & GHWCFG4_DESC_DMA) ||
+		u32 op_mode = hsotg->hw_params.op_mode;
+		if (hsotg->hw_params.snpsid < DWC2_CORE_REV_2_90a ||
+		    !hsotg->hw_params.dma_desc_enable ||
 		    op_mode == GHWCFG2_OP_MODE_SRP_CAPABLE_DEVICE ||
 		    op_mode == GHWCFG2_OP_MODE_NO_SRP_CAPABLE_DEVICE ||
 		    op_mode == GHWCFG2_OP_MODE_UNDEFINED) {
@@ -884,26 +959,20 @@ void dwc2_hc_init(struct dwc2_hsotg *hsotg, struct dwc2_host_chan *chan)
 		dev_vdbg(hsotg->dev, "set HCCHAR(%d) to %08x\n",
 			 hc_num, hcchar);
 
-		dev_vdbg(hsotg->dev, "%s: Channel %d\n", __func__, hc_num);
+		dev_vdbg(hsotg->dev, "%s: Channel %d\n",
+			 __func__, hc_num);
 		dev_vdbg(hsotg->dev, "	 Dev Addr: %d\n",
-			 hcchar >> HCCHAR_DEVADDR_SHIFT &
-			 HCCHAR_DEVADDR_MASK >> HCCHAR_DEVADDR_SHIFT);
+			 chan->dev_addr);
 		dev_vdbg(hsotg->dev, "	 Ep Num: %d\n",
-			 hcchar >> HCCHAR_EPNUM_SHIFT &
-			 HCCHAR_EPNUM_MASK >> HCCHAR_EPNUM_SHIFT);
+			 chan->ep_num);
 		dev_vdbg(hsotg->dev, "	 Is In: %d\n",
-			 !!(hcchar & HCCHAR_EPDIR));
+			 chan->ep_is_in);
 		dev_vdbg(hsotg->dev, "	 Is Low Speed: %d\n",
-			 !!(hcchar & HCCHAR_LSPDDEV));
+			 chan->speed == USB_SPEED_LOW);
 		dev_vdbg(hsotg->dev, "	 Ep Type: %d\n",
-			 hcchar >> HCCHAR_EPTYPE_SHIFT &
-			 HCCHAR_EPTYPE_MASK >> HCCHAR_EPTYPE_SHIFT);
+			 chan->ep_type);
 		dev_vdbg(hsotg->dev, "	 Max Pkt: %d\n",
-			 hcchar >> HCCHAR_MPS_SHIFT &
-			 HCCHAR_MPS_MASK >> HCCHAR_MPS_SHIFT);
-		dev_vdbg(hsotg->dev, "	 Multi Cnt: %d\n",
-			 hcchar >> HCCHAR_MULTICNT_SHIFT &
-			 HCCHAR_MULTICNT_MASK >> HCCHAR_MULTICNT_SHIFT);
+			 chan->max_packet);
 	}
 
 	/* Program the HCSPLT register for SPLITs */
@@ -933,8 +1002,7 @@ void dwc2_hc_init(struct dwc2_hsotg *hsotg, struct dwc2_host_chan *chan)
 			dev_vdbg(hsotg->dev, "	  is_in %d\n",
 				 chan->ep_is_in);
 			dev_vdbg(hsotg->dev, "	  Max Pkt %d\n",
-				 hcchar >> HCCHAR_MPS_SHIFT &
-				 HCCHAR_MPS_MASK >> HCCHAR_MPS_SHIFT);
+				 chan->max_packet);
 			dev_vdbg(hsotg->dev, "	  xferlen %d\n",
 				 chan->xfer_len);
 		}
@@ -1146,16 +1214,10 @@ void dwc2_hc_cleanup(struct dwc2_hsotg *hsotg, struct dwc2_host_chan *chan)
 static void dwc2_hc_set_even_odd_frame(struct dwc2_hsotg *hsotg,
 				       struct dwc2_host_chan *chan, u32 *hcchar)
 {
-	u32 hfnum, frnum;
-
 	if (chan->ep_type == USB_ENDPOINT_XFER_INT ||
 	    chan->ep_type == USB_ENDPOINT_XFER_ISOC) {
-		hfnum = readl(hsotg->regs + HFNUM);
-		frnum = hfnum >> HFNUM_FRNUM_SHIFT &
-			HFNUM_FRNUM_MASK >> HFNUM_FRNUM_SHIFT;
-
 		/* 1 if _next_ frame is odd, 0 if it's even */
-		if (frnum & 0x1)
+		if (!(dwc2_hcd_get_frame_number(hsotg) & 0x1))
 			*hcchar |= HCCHAR_ODDFRM;
 	}
 }
@@ -1389,14 +1451,14 @@ void dwc2_hc_start_transfer(struct dwc2_hsotg *hsotg,
 		dev_vdbg(hsotg->dev, "%s: Channel %d\n", __func__,
 			 chan->hc_num);
 		dev_vdbg(hsotg->dev, "	 Xfer Size: %d\n",
-			 hctsiz >> TSIZ_XFERSIZE_SHIFT &
-			 TSIZ_XFERSIZE_MASK >> TSIZ_XFERSIZE_SHIFT);
+			 (hctsiz & TSIZ_XFERSIZE_MASK) >>
+			 TSIZ_XFERSIZE_SHIFT);
 		dev_vdbg(hsotg->dev, "	 Num Pkts: %d\n",
-			 hctsiz >> TSIZ_PKTCNT_SHIFT &
-			 TSIZ_PKTCNT_MASK >> TSIZ_PKTCNT_SHIFT);
+			 (hctsiz & TSIZ_PKTCNT_MASK) >>
+			 TSIZ_PKTCNT_SHIFT);
 		dev_vdbg(hsotg->dev, "	 Start PID: %d\n",
-			 hctsiz >> TSIZ_SC_MC_PID_SHIFT &
-			 TSIZ_SC_MC_PID_MASK >> TSIZ_SC_MC_PID_SHIFT);
+			 (hctsiz & TSIZ_SC_MC_PID_MASK) >>
+			 TSIZ_SC_MC_PID_SHIFT);
 	}
 
 	if (hsotg->core_params->dma_enable > 0) {
@@ -1440,8 +1502,8 @@ void dwc2_hc_start_transfer(struct dwc2_hsotg *hsotg,
 
 	if (dbg_hc(chan))
 		dev_vdbg(hsotg->dev, "	 Multi Cnt: %d\n",
-			 hcchar >> HCCHAR_MULTICNT_SHIFT &
-			 HCCHAR_MULTICNT_MASK >> HCCHAR_MULTICNT_SHIFT);
+			 (hcchar & HCCHAR_MULTICNT_MASK) >>
+			 HCCHAR_MULTICNT_SHIFT);
 
 	writel(hcchar, hsotg->regs + HCCHAR(chan->hc_num));
 	if (dbg_hc(chan))
@@ -1529,8 +1591,8 @@ void dwc2_hc_start_transfer_ddma(struct dwc2_hsotg *hsotg,
 
 	if (dbg_hc(chan))
 		dev_vdbg(hsotg->dev, "	 Multi Cnt: %d\n",
-			 hcchar >> HCCHAR_MULTICNT_SHIFT &
-			 HCCHAR_MULTICNT_MASK >> HCCHAR_MULTICNT_SHIFT);
+			 (hcchar & HCCHAR_MULTICNT_MASK) >>
+			 HCCHAR_MULTICNT_SHIFT);
 
 	writel(hcchar, hsotg->regs + HCCHAR(chan->hc_num));
 	if (dbg_hc(chan))
@@ -1665,18 +1727,16 @@ void dwc2_hc_do_ping(struct dwc2_hsotg *hsotg, struct dwc2_host_chan *chan)
 u32 dwc2_calc_frame_interval(struct dwc2_hsotg *hsotg)
 {
 	u32 usbcfg;
-	u32 hwcfg2;
 	u32 hprt0;
 	int clock = 60;	/* default value */
 
 	usbcfg = readl(hsotg->regs + GUSBCFG);
-	hwcfg2 = readl(hsotg->regs + GHWCFG2);
 	hprt0 = readl(hsotg->regs + HPRT0);
 
 	if (!(usbcfg & GUSBCFG_PHYSEL) && (usbcfg & GUSBCFG_ULPI_UTMI_SEL) &&
 	    !(usbcfg & GUSBCFG_PHYIF16))
 		clock = 60;
-	if ((usbcfg & GUSBCFG_PHYSEL) && (hwcfg2 & GHWCFG2_FS_PHY_TYPE_MASK) ==
+	if ((usbcfg & GUSBCFG_PHYSEL) && hsotg->hw_params.fs_phy_type ==
 	    GHWCFG2_FS_PHY_TYPE_SHARED_ULPI)
 		clock = 48;
 	if (!(usbcfg & GUSBCFG_PHY_LP_CLK_SEL) && !(usbcfg & GUSBCFG_PHYSEL) &&
@@ -1689,14 +1749,13 @@ u32 dwc2_calc_frame_interval(struct dwc2_hsotg *hsotg)
 	    !(usbcfg & GUSBCFG_ULPI_UTMI_SEL) && (usbcfg & GUSBCFG_PHYIF16))
 		clock = 48;
 	if ((usbcfg & GUSBCFG_PHYSEL) && !(usbcfg & GUSBCFG_PHYIF16) &&
-	    (hwcfg2 & GHWCFG2_FS_PHY_TYPE_MASK) ==
-	    GHWCFG2_FS_PHY_TYPE_SHARED_UTMI)
+	    hsotg->hw_params.fs_phy_type == GHWCFG2_FS_PHY_TYPE_SHARED_UTMI)
 		clock = 48;
-	if ((usbcfg & GUSBCFG_PHYSEL) && (hwcfg2 & GHWCFG2_FS_PHY_TYPE_MASK) ==
-	    GHWCFG2_FS_PHY_TYPE_DEDICATED)
+	if ((usbcfg & GUSBCFG_PHYSEL) &&
+	    hsotg->hw_params.fs_phy_type == GHWCFG2_FS_PHY_TYPE_DEDICATED)
 		clock = 48;
 
-	if ((hprt0 & HPRT0_SPD_MASK) == 0)
+	if ((hprt0 & HPRT0_SPD_MASK) >> HPRT0_SPD_SHIFT == HPRT0_SPD_HIGH_SPEED)
 		/* High speed case */
 		return 125 * clock;
 	else
@@ -1815,8 +1874,6 @@ void dwc2_dump_global_registers(struct dwc2_hsotg *hsotg)
 {
 #ifdef DEBUG
 	u32 __iomem *addr;
-	int i, ep_num;
-	char *txfsiz;
 
 	dev_dbg(hsotg->dev, "Core Global Registers\n");
 	addr = hsotg->regs + GOTGCTL;
@@ -1892,23 +1949,6 @@ void dwc2_dump_global_registers(struct dwc2_hsotg *hsotg)
 	dev_dbg(hsotg->dev, "HPTXFSIZ	 @0x%08lX : 0x%08X\n",
 		(unsigned long)addr, readl(addr));
 
-	if (hsotg->core_params->en_multiple_tx_fifo <= 0) {
-		ep_num = hsotg->hwcfg4 >> GHWCFG4_NUM_DEV_PERIO_IN_EP_SHIFT &
-			 GHWCFG4_NUM_DEV_PERIO_IN_EP_MASK >>
-					 GHWCFG4_NUM_DEV_PERIO_IN_EP_SHIFT;
-		txfsiz = "DPTXFSIZ";
-	} else {
-		ep_num = hsotg->hwcfg4 >> GHWCFG4_NUM_IN_EPS_SHIFT &
-			 GHWCFG4_NUM_IN_EPS_MASK >> GHWCFG4_NUM_IN_EPS_SHIFT;
-		txfsiz = "DIENPTXF";
-	}
-
-	for (i = 0; i < ep_num; i++) {
-		addr = hsotg->regs + DPTXFSIZN(i + 1);
-		dev_dbg(hsotg->dev, "%s[%d] @0x%08lX : 0x%08X\n", txfsiz, i + 1,
-			(unsigned long)addr, readl(addr));
-	}
-
 	addr = hsotg->regs + PCGCTL;
 	dev_dbg(hsotg->dev, "PCGCTL	 @0x%08lX : 0x%08X\n",
 		(unsigned long)addr, readl(addr));
@@ -1977,24 +2017,20 @@ void dwc2_flush_rx_fifo(struct dwc2_hsotg *hsotg)
 	udelay(1);
 }
 
-#define DWC2_PARAM_TEST(a, b, c)	((a) < (b) || (a) > (c))
+#define DWC2_OUT_OF_BOUNDS(a, b, c)	((a) < (b) || (a) > (c))
 
 /* Parameter access functions */
-int dwc2_set_param_otg_cap(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_otg_cap(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
-	u32 op_mode;
-
-	op_mode = hsotg->hwcfg2 & GHWCFG2_OP_MODE_MASK;
 
 	switch (val) {
 	case DWC2_CAP_PARAM_HNP_SRP_CAPABLE:
-		if (op_mode != GHWCFG2_OP_MODE_HNP_SRP_CAPABLE)
+		if (hsotg->hw_params.op_mode != GHWCFG2_OP_MODE_HNP_SRP_CAPABLE)
 			valid = 0;
 		break;
 	case DWC2_CAP_PARAM_SRP_ONLY_CAPABLE:
-		switch (op_mode) {
+		switch (hsotg->hw_params.op_mode) {
 		case GHWCFG2_OP_MODE_HNP_SRP_CAPABLE:
 		case GHWCFG2_OP_MODE_SRP_ONLY_CAPABLE:
 		case GHWCFG2_OP_MODE_SRP_CAPABLE_DEVICE:
@@ -2018,7 +2054,7 @@ int dwc2_set_param_otg_cap(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for otg_cap parameter. Check HW configuration.\n",
 				val);
-		switch (op_mode) {
+		switch (hsotg->hw_params.op_mode) {
 		case GHWCFG2_OP_MODE_HNP_SRP_CAPABLE:
 			val = DWC2_CAP_PARAM_HNP_SRP_CAPABLE;
 			break;
@@ -2032,20 +2068,16 @@ int dwc2_set_param_otg_cap(struct dwc2_hsotg *hsotg, int val)
 			break;
 		}
 		dev_dbg(hsotg->dev, "Setting otg_cap to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->otg_cap = val;
-	return retval;
 }
 
-int dwc2_set_param_dma_enable(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_dma_enable(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
 
-	if (val > 0 && (hsotg->hwcfg2 & GHWCFG2_ARCHITECTURE_MASK) ==
-	    GHWCFG2_SLAVE_ONLY_ARCH)
+	if (val > 0 && hsotg->hw_params.arch == GHWCFG2_SLAVE_ONLY_ARCH)
 		valid = 0;
 	if (val < 0)
 		valid = 0;
@@ -2055,23 +2087,19 @@ int dwc2_set_param_dma_enable(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for dma_enable parameter. Check HW configuration.\n",
 				val);
-		val = (hsotg->hwcfg2 & GHWCFG2_ARCHITECTURE_MASK) !=
-			GHWCFG2_SLAVE_ONLY_ARCH;
+		val = hsotg->hw_params.arch != GHWCFG2_SLAVE_ONLY_ARCH;
 		dev_dbg(hsotg->dev, "Setting dma_enable to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->dma_enable = val;
-	return retval;
 }
 
-int dwc2_set_param_dma_desc_enable(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_dma_desc_enable(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
 
 	if (val > 0 && (hsotg->core_params->dma_enable <= 0 ||
-			!(hsotg->hwcfg4 & GHWCFG4_DESC_DMA)))
+			!hsotg->hw_params.dma_desc_enable))
 		valid = 0;
 	if (val < 0)
 		valid = 0;
@@ -2082,21 +2110,17 @@ int dwc2_set_param_dma_desc_enable(struct dwc2_hsotg *hsotg, int val)
 				"%d invalid for dma_desc_enable parameter. Check HW configuration.\n",
 				val);
 		val = (hsotg->core_params->dma_enable > 0 &&
-			(hsotg->hwcfg4 & GHWCFG4_DESC_DMA));
+			hsotg->hw_params.dma_desc_enable);
 		dev_dbg(hsotg->dev, "Setting dma_desc_enable to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->dma_desc_enable = val;
-	return retval;
 }
 
-int dwc2_set_param_host_support_fs_ls_low_power(struct dwc2_hsotg *hsotg,
-						int val)
+void dwc2_set_param_host_support_fs_ls_low_power(struct dwc2_hsotg *hsotg,
+						 int val)
 {
-	int retval = 0;
-
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev,
 				"Wrong value for host_support_fs_low_power\n");
@@ -2106,19 +2130,16 @@ int dwc2_set_param_host_support_fs_ls_low_power(struct dwc2_hsotg *hsotg,
 		val = 0;
 		dev_dbg(hsotg->dev,
 			"Setting host_support_fs_low_power to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->host_support_fs_ls_low_power = val;
-	return retval;
 }
 
-int dwc2_set_param_enable_dynamic_fifo(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_enable_dynamic_fifo(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
 
-	if (val > 0 && !(hsotg->hwcfg2 & GHWCFG2_DYNAMIC_FIFO))
+	if (val > 0 && !hsotg->hw_params.enable_dynamic_fifo)
 		valid = 0;
 	if (val < 0)
 		valid = 0;
@@ -2128,21 +2149,18 @@ int dwc2_set_param_enable_dynamic_fifo(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for enable_dynamic_fifo parameter. Check HW configuration.\n",
 				val);
-		val = !!(hsotg->hwcfg2 & GHWCFG2_DYNAMIC_FIFO);
+		val = hsotg->hw_params.enable_dynamic_fifo;
 		dev_dbg(hsotg->dev, "Setting enable_dynamic_fifo to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->enable_dynamic_fifo = val;
-	return retval;
 }
 
-int dwc2_set_param_host_rx_fifo_size(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_host_rx_fifo_size(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
 
-	if (val < 16 || val > readl(hsotg->regs + GRXFSIZ))
+	if (val < 16 || val > hsotg->hw_params.host_rx_fifo_size)
 		valid = 0;
 
 	if (!valid) {
@@ -2150,21 +2168,18 @@ int dwc2_set_param_host_rx_fifo_size(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for host_rx_fifo_size. Check HW configuration.\n",
 				val);
-		val = readl(hsotg->regs + GRXFSIZ);
+		val = hsotg->hw_params.host_rx_fifo_size;
 		dev_dbg(hsotg->dev, "Setting host_rx_fifo_size to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->host_rx_fifo_size = val;
-	return retval;
 }
 
-int dwc2_set_param_host_nperio_tx_fifo_size(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_host_nperio_tx_fifo_size(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
 
-	if (val < 16 || val > (readl(hsotg->regs + GNPTXFSIZ) >> 16 & 0xffff))
+	if (val < 16 || val > hsotg->hw_params.host_nperio_tx_fifo_size)
 		valid = 0;
 
 	if (!valid) {
@@ -2172,22 +2187,19 @@ int dwc2_set_param_host_nperio_tx_fifo_size(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for host_nperio_tx_fifo_size. Check HW configuration.\n",
 				val);
-		val = readl(hsotg->regs + GNPTXFSIZ) >> 16 & 0xffff;
+		val = hsotg->hw_params.host_nperio_tx_fifo_size;
 		dev_dbg(hsotg->dev, "Setting host_nperio_tx_fifo_size to %d\n",
 			val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->host_nperio_tx_fifo_size = val;
-	return retval;
 }
 
-int dwc2_set_param_host_perio_tx_fifo_size(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_host_perio_tx_fifo_size(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
 
-	if (val < 16 || val > (hsotg->hptxfsiz >> 16))
+	if (val < 16 || val > hsotg->hw_params.host_perio_tx_fifo_size)
 		valid = 0;
 
 	if (!valid) {
@@ -2195,25 +2207,19 @@ int dwc2_set_param_host_perio_tx_fifo_size(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for host_perio_tx_fifo_size. Check HW configuration.\n",
 				val);
-		val = hsotg->hptxfsiz >> 16;
+		val = hsotg->hw_params.host_perio_tx_fifo_size;
 		dev_dbg(hsotg->dev, "Setting host_perio_tx_fifo_size to %d\n",
 			val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->host_perio_tx_fifo_size = val;
-	return retval;
 }
 
-int dwc2_set_param_max_transfer_size(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_max_transfer_size(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
-	int width = hsotg->hwcfg3 >> GHWCFG3_XFER_SIZE_CNTR_WIDTH_SHIFT &
-		    GHWCFG3_XFER_SIZE_CNTR_WIDTH_MASK >>
-				GHWCFG3_XFER_SIZE_CNTR_WIDTH_SHIFT;
 
-	if (val < 2047 || val >= (1 << (width + 11)))
+	if (val < 2047 || val > hsotg->hw_params.max_transfer_size)
 		valid = 0;
 
 	if (!valid) {
@@ -2221,24 +2227,18 @@ int dwc2_set_param_max_transfer_size(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for max_transfer_size. Check HW configuration.\n",
 				val);
-		val = (1 << (width + 11)) - 1;
+		val = hsotg->hw_params.max_transfer_size;
 		dev_dbg(hsotg->dev, "Setting max_transfer_size to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->max_transfer_size = val;
-	return retval;
 }
 
-int dwc2_set_param_max_packet_count(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_max_packet_count(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
-	int width = hsotg->hwcfg3 >> GHWCFG3_PACKET_SIZE_CNTR_WIDTH_SHIFT &
-		    GHWCFG3_PACKET_SIZE_CNTR_WIDTH_MASK >>
-				GHWCFG3_PACKET_SIZE_CNTR_WIDTH_SHIFT;
 
-	if (val < 15 || val > (1 << (width + 4)))
+	if (val < 15 || val > hsotg->hw_params.max_packet_count)
 		valid = 0;
 
 	if (!valid) {
@@ -2246,23 +2246,18 @@ int dwc2_set_param_max_packet_count(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for max_packet_count. Check HW configuration.\n",
 				val);
-		val = (1 << (width + 4)) - 1;
+		val = hsotg->hw_params.max_packet_count;
 		dev_dbg(hsotg->dev, "Setting max_packet_count to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->max_packet_count = val;
-	return retval;
 }
 
-int dwc2_set_param_host_channels(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_host_channels(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
-	int num_chan = hsotg->hwcfg2 >> GHWCFG2_NUM_HOST_CHAN_SHIFT &
-		GHWCFG2_NUM_HOST_CHAN_MASK >> GHWCFG2_NUM_HOST_CHAN_SHIFT;
 
-	if (val < 1 || val > num_chan + 1)
+	if (val < 1 || val > hsotg->hw_params.host_channels)
 		valid = 0;
 
 	if (!valid) {
@@ -2270,44 +2265,30 @@ int dwc2_set_param_host_channels(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for host_channels. Check HW configuration.\n",
 				val);
-		val = num_chan + 1;
+		val = hsotg->hw_params.host_channels;
 		dev_dbg(hsotg->dev, "Setting host_channels to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->host_channels = val;
-	return retval;
 }
 
-int dwc2_set_param_phy_type(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_phy_type(struct dwc2_hsotg *hsotg, int val)
 {
-#ifndef NO_FS_PHY_HW_CHECKS
 	int valid = 0;
-	u32 hs_phy_type;
-	u32 fs_phy_type;
-#endif
-	int retval = 0;
+	u32 hs_phy_type, fs_phy_type;
 
-	if (DWC2_PARAM_TEST(val, DWC2_PHY_TYPE_PARAM_FS,
-			    DWC2_PHY_TYPE_PARAM_ULPI)) {
+	if (DWC2_OUT_OF_BOUNDS(val, DWC2_PHY_TYPE_PARAM_FS,
+			       DWC2_PHY_TYPE_PARAM_ULPI)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev, "Wrong value for phy_type\n");
 			dev_err(hsotg->dev, "phy_type must be 0, 1 or 2\n");
 		}
 
-#ifndef NO_FS_PHY_HW_CHECKS
 		valid = 0;
-#else
-		val = 0;
-		dev_dbg(hsotg->dev, "Setting phy_type to %d\n", val);
-		retval = -EINVAL;
-#endif
 	}
 
-#ifndef NO_FS_PHY_HW_CHECKS
-	hs_phy_type = hsotg->hwcfg2 & GHWCFG2_HS_PHY_TYPE_MASK;
-	fs_phy_type = hsotg->hwcfg2 & GHWCFG2_FS_PHY_TYPE_MASK;
-
+	hs_phy_type = hsotg->hw_params.hs_phy_type;
+	fs_phy_type = hsotg->hw_params.fs_phy_type;
 	if (val == DWC2_PHY_TYPE_PARAM_UTMI &&
 	    (hs_phy_type == GHWCFG2_HS_PHY_TYPE_UTMI ||
 	     hs_phy_type == GHWCFG2_HS_PHY_TYPE_UTMI_ULPI))
@@ -2325,7 +2306,7 @@ int dwc2_set_param_phy_type(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for phy_type. Check HW configuration.\n",
 				val);
-		val = 0;
+		val = DWC2_PHY_TYPE_PARAM_FS;
 		if (hs_phy_type != GHWCFG2_HS_PHY_TYPE_NOT_SUPPORTED) {
 			if (hs_phy_type == GHWCFG2_HS_PHY_TYPE_UTMI ||
 			    hs_phy_type == GHWCFG2_HS_PHY_TYPE_UTMI_ULPI)
@@ -2334,12 +2315,9 @@ int dwc2_set_param_phy_type(struct dwc2_hsotg *hsotg, int val)
 				val = DWC2_PHY_TYPE_PARAM_ULPI;
 		}
 		dev_dbg(hsotg->dev, "Setting phy_type to %d\n", val);
-		retval = -EINVAL;
 	}
-#endif
 
 	hsotg->core_params->phy_type = val;
-	return retval;
 }
 
 static int dwc2_get_param_phy_type(struct dwc2_hsotg *hsotg)
@@ -2347,12 +2325,11 @@ static int dwc2_get_param_phy_type(struct dwc2_hsotg *hsotg)
 	return hsotg->core_params->phy_type;
 }
 
-int dwc2_set_param_speed(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_speed(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
 
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev, "Wrong value for speed parameter\n");
 			dev_err(hsotg->dev, "max_speed parameter must be 0 or 1\n");
@@ -2360,8 +2337,8 @@ int dwc2_set_param_speed(struct dwc2_hsotg *hsotg, int val)
 		valid = 0;
 	}
 
-	if (val == 0 && dwc2_get_param_phy_type(hsotg) ==
-					DWC2_PHY_TYPE_PARAM_FS)
+	if (val == DWC2_SPEED_PARAM_HIGH &&
+	    dwc2_get_param_phy_type(hsotg) == DWC2_PHY_TYPE_PARAM_FS)
 		valid = 0;
 
 	if (!valid) {
@@ -2370,22 +2347,19 @@ int dwc2_set_param_speed(struct dwc2_hsotg *hsotg, int val)
 				"%d invalid for speed parameter. Check HW configuration.\n",
 				val);
 		val = dwc2_get_param_phy_type(hsotg) == DWC2_PHY_TYPE_PARAM_FS ?
-				1 : 0;
+				DWC2_SPEED_PARAM_FULL : DWC2_SPEED_PARAM_HIGH;
 		dev_dbg(hsotg->dev, "Setting speed to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->speed = val;
-	return retval;
 }
 
-int dwc2_set_param_host_ls_low_power_phy_clk(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_host_ls_low_power_phy_clk(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
 
-	if (DWC2_PARAM_TEST(val, DWC2_HOST_LS_LOW_POWER_PHY_CLK_PARAM_48MHZ,
-			    DWC2_HOST_LS_LOW_POWER_PHY_CLK_PARAM_6MHZ)) {
+	if (DWC2_OUT_OF_BOUNDS(val, DWC2_HOST_LS_LOW_POWER_PHY_CLK_PARAM_48MHZ,
+			       DWC2_HOST_LS_LOW_POWER_PHY_CLK_PARAM_6MHZ)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev,
 				"Wrong value for host_ls_low_power_phy_clk parameter\n");
@@ -2409,36 +2383,28 @@ int dwc2_set_param_host_ls_low_power_phy_clk(struct dwc2_hsotg *hsotg, int val)
 			: DWC2_HOST_LS_LOW_POWER_PHY_CLK_PARAM_48MHZ;
 		dev_dbg(hsotg->dev, "Setting host_ls_low_power_phy_clk to %d\n",
 			val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->host_ls_low_power_phy_clk = val;
-	return retval;
 }
 
-int dwc2_set_param_phy_ulpi_ddr(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_phy_ulpi_ddr(struct dwc2_hsotg *hsotg, int val)
 {
-	int retval = 0;
-
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev, "Wrong value for phy_ulpi_ddr\n");
 			dev_err(hsotg->dev, "phy_upli_ddr must be 0 or 1\n");
 		}
 		val = 0;
 		dev_dbg(hsotg->dev, "Setting phy_upli_ddr to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->phy_ulpi_ddr = val;
-	return retval;
 }
 
-int dwc2_set_param_phy_ulpi_ext_vbus(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_phy_ulpi_ext_vbus(struct dwc2_hsotg *hsotg, int val)
 {
-	int retval = 0;
-
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev,
 				"Wrong value for phy_ulpi_ext_vbus\n");
@@ -2447,91 +2413,83 @@ int dwc2_set_param_phy_ulpi_ext_vbus(struct dwc2_hsotg *hsotg, int val)
 		}
 		val = 0;
 		dev_dbg(hsotg->dev, "Setting phy_ulpi_ext_vbus to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->phy_ulpi_ext_vbus = val;
-	return retval;
 }
 
-int dwc2_set_param_phy_utmi_width(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_phy_utmi_width(struct dwc2_hsotg *hsotg, int val)
 {
-	int retval = 0;
+	int valid = 0;
 
-	if (DWC2_PARAM_TEST(val, 8, 8) && DWC2_PARAM_TEST(val, 16, 16)) {
+	switch (hsotg->hw_params.utmi_phy_data_width) {
+	case GHWCFG4_UTMI_PHY_DATA_WIDTH_8:
+		valid = (val == 8);
+		break;
+	case GHWCFG4_UTMI_PHY_DATA_WIDTH_16:
+		valid = (val == 16);
+		break;
+	case GHWCFG4_UTMI_PHY_DATA_WIDTH_8_OR_16:
+		valid = (val == 8 || val == 16);
+		break;
+	}
+
+	if (!valid) {
 		if (val >= 0) {
-			dev_err(hsotg->dev, "Wrong value for phy_utmi_width\n");
-			dev_err(hsotg->dev, "phy_utmi_width must be 8 or 16\n");
+			dev_err(hsotg->dev,
+				"%d invalid for phy_utmi_width. Check HW configuration.\n",
+				val);
 		}
-		val = 8;
+		val = (hsotg->hw_params.utmi_phy_data_width ==
+		       GHWCFG4_UTMI_PHY_DATA_WIDTH_8) ? 8 : 16;
 		dev_dbg(hsotg->dev, "Setting phy_utmi_width to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->phy_utmi_width = val;
-	return retval;
 }
 
-int dwc2_set_param_ulpi_fs_ls(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_ulpi_fs_ls(struct dwc2_hsotg *hsotg, int val)
 {
-	int retval = 0;
-
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev, "Wrong value for ulpi_fs_ls\n");
 			dev_err(hsotg->dev, "ulpi_fs_ls must be 0 or 1\n");
 		}
 		val = 0;
 		dev_dbg(hsotg->dev, "Setting ulpi_fs_ls to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->ulpi_fs_ls = val;
-	return retval;
 }
 
-int dwc2_set_param_ts_dline(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_ts_dline(struct dwc2_hsotg *hsotg, int val)
 {
-	int retval = 0;
-
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev, "Wrong value for ts_dline\n");
 			dev_err(hsotg->dev, "ts_dline must be 0 or 1\n");
 		}
 		val = 0;
 		dev_dbg(hsotg->dev, "Setting ts_dline to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->ts_dline = val;
-	return retval;
 }
 
-int dwc2_set_param_i2c_enable(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_i2c_enable(struct dwc2_hsotg *hsotg, int val)
 {
-#ifndef NO_FS_PHY_HW_CHECKS
 	int valid = 1;
-#endif
-	int retval = 0;
 
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev, "Wrong value for i2c_enable\n");
 			dev_err(hsotg->dev, "i2c_enable must be 0 or 1\n");
 		}
 
-#ifndef NO_FS_PHY_HW_CHECKS
 		valid = 0;
-#else
-		val = 0;
-		dev_dbg(hsotg->dev, "Setting i2c_enable to %d\n", val);
-		retval = -EINVAL;
-#endif
 	}
 
-#ifndef NO_FS_PHY_HW_CHECKS
-	if (val == 1 && !(hsotg->hwcfg3 & GHWCFG3_I2C))
+	if (val == 1 && !(hsotg->hw_params.i2c_enable))
 		valid = 0;
 
 	if (!valid) {
@@ -2539,22 +2497,18 @@ int dwc2_set_param_i2c_enable(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for i2c_enable. Check HW configuration.\n",
 				val);
-		val = !!(hsotg->hwcfg3 & GHWCFG3_I2C);
+		val = hsotg->hw_params.i2c_enable;
 		dev_dbg(hsotg->dev, "Setting i2c_enable to %d\n", val);
-		retval = -EINVAL;
 	}
-#endif
 
 	hsotg->core_params->i2c_enable = val;
-	return retval;
 }
 
-int dwc2_set_param_en_multiple_tx_fifo(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_en_multiple_tx_fifo(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
 
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev,
 				"Wrong value for en_multiple_tx_fifo,\n");
@@ -2564,7 +2518,7 @@ int dwc2_set_param_en_multiple_tx_fifo(struct dwc2_hsotg *hsotg, int val)
 		valid = 0;
 	}
 
-	if (val == 1 && !(hsotg->hwcfg4 & GHWCFG4_DED_FIFO_EN))
+	if (val == 1 && !hsotg->hw_params.en_multiple_tx_fifo)
 		valid = 0;
 
 	if (!valid) {
@@ -2572,21 +2526,18 @@ int dwc2_set_param_en_multiple_tx_fifo(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for parameter en_multiple_tx_fifo. Check HW configuration.\n",
 				val);
-		val = !!(hsotg->hwcfg4 & GHWCFG4_DED_FIFO_EN);
+		val = hsotg->hw_params.en_multiple_tx_fifo;
 		dev_dbg(hsotg->dev, "Setting en_multiple_tx_fifo to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->en_multiple_tx_fifo = val;
-	return retval;
 }
 
-int dwc2_set_param_reload_ctl(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_reload_ctl(struct dwc2_hsotg *hsotg, int val)
 {
 	int valid = 1;
-	int retval = 0;
 
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev,
 				"'%d' invalid for parameter reload_ctl\n", val);
@@ -2595,7 +2546,7 @@ int dwc2_set_param_reload_ctl(struct dwc2_hsotg *hsotg, int val)
 		valid = 0;
 	}
 
-	if (val == 1 && hsotg->snpsid < DWC2_CORE_REV_2_92a)
+	if (val == 1 && hsotg->hw_params.snpsid < DWC2_CORE_REV_2_92a)
 		valid = 0;
 
 	if (!valid) {
@@ -2603,51 +2554,25 @@ int dwc2_set_param_reload_ctl(struct dwc2_hsotg *hsotg, int val)
 			dev_err(hsotg->dev,
 				"%d invalid for parameter reload_ctl. Check HW configuration.\n",
 				val);
-		val = hsotg->snpsid >= DWC2_CORE_REV_2_92a;
+		val = hsotg->hw_params.snpsid >= DWC2_CORE_REV_2_92a;
 		dev_dbg(hsotg->dev, "Setting reload_ctl to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->reload_ctl = val;
-	return retval;
 }
 
-int dwc2_set_param_ahb_single(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_ahbcfg(struct dwc2_hsotg *hsotg, int val)
 {
-	int valid = 1;
-	int retval = 0;
-
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
-		if (val >= 0) {
-			dev_err(hsotg->dev,
-				"'%d' invalid for parameter ahb_single\n", val);
-			dev_err(hsotg->dev, "ahb_single must be 0 or 1\n");
-		}
-		valid = 0;
-	}
-
-	if (val > 0 && hsotg->snpsid < DWC2_CORE_REV_2_94a)
-		valid = 0;
-
-	if (!valid) {
-		if (val >= 0)
-			dev_err(hsotg->dev,
-				"%d invalid for parameter ahb_single. Check HW configuration.\n",
-				val);
-		val = 0;
-		dev_dbg(hsotg->dev, "Setting ahb_single to %d\n", val);
-		retval = -EINVAL;
-	}
-
-	hsotg->core_params->ahb_single = val;
-	return retval;
+	if (val != -1)
+		hsotg->core_params->ahbcfg = val;
+	else
+		hsotg->core_params->ahbcfg = GAHBCFG_HBSTLEN_INCR4 <<
+						GAHBCFG_HBSTLEN_SHIFT;
 }
 
-int dwc2_set_param_otg_ver(struct dwc2_hsotg *hsotg, int val)
+void dwc2_set_param_otg_ver(struct dwc2_hsotg *hsotg, int val)
 {
-	int retval = 0;
-
-	if (DWC2_PARAM_TEST(val, 0, 1)) {
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
 		if (val >= 0) {
 			dev_err(hsotg->dev,
 				"'%d' invalid for parameter otg_ver\n", val);
@@ -2656,74 +2581,250 @@ int dwc2_set_param_otg_ver(struct dwc2_hsotg *hsotg, int val)
 		}
 		val = 0;
 		dev_dbg(hsotg->dev, "Setting otg_ver to %d\n", val);
-		retval = -EINVAL;
 	}
 
 	hsotg->core_params->otg_ver = val;
-	return retval;
+}
+
+static void dwc2_set_param_uframe_sched(struct dwc2_hsotg *hsotg, int val)
+{
+	if (DWC2_OUT_OF_BOUNDS(val, 0, 1)) {
+		if (val >= 0) {
+			dev_err(hsotg->dev,
+				"'%d' invalid for parameter uframe_sched\n",
+				val);
+			dev_err(hsotg->dev, "uframe_sched must be 0 or 1\n");
+		}
+		val = 1;
+		dev_dbg(hsotg->dev, "Setting uframe_sched to %d\n", val);
+	}
+
+	hsotg->core_params->uframe_sched = val;
 }
 
 /*
  * This function is called during module intialization to pass module parameters
- * for the DWC_otg core. It returns non-0 if any parameters are invalid.
+ * for the DWC_otg core.
  */
-int dwc2_set_parameters(struct dwc2_hsotg *hsotg,
-			struct dwc2_core_params *params)
+void dwc2_set_parameters(struct dwc2_hsotg *hsotg,
+			 const struct dwc2_core_params *params)
 {
-	int retval = 0;
-
 	dev_dbg(hsotg->dev, "%s()\n", __func__);
 
-	retval |= dwc2_set_param_otg_cap(hsotg, params->otg_cap);
-	retval |= dwc2_set_param_dma_enable(hsotg, params->dma_enable);
-	retval |= dwc2_set_param_dma_desc_enable(hsotg,
-						 params->dma_desc_enable);
-	retval |= dwc2_set_param_host_support_fs_ls_low_power(hsotg,
+	dwc2_set_param_otg_cap(hsotg, params->otg_cap);
+	dwc2_set_param_dma_enable(hsotg, params->dma_enable);
+	dwc2_set_param_dma_desc_enable(hsotg, params->dma_desc_enable);
+	dwc2_set_param_host_support_fs_ls_low_power(hsotg,
 			params->host_support_fs_ls_low_power);
-	retval |= dwc2_set_param_enable_dynamic_fifo(hsotg,
+	dwc2_set_param_enable_dynamic_fifo(hsotg,
 			params->enable_dynamic_fifo);
-	retval |= dwc2_set_param_host_rx_fifo_size(hsotg,
+	dwc2_set_param_host_rx_fifo_size(hsotg,
 			params->host_rx_fifo_size);
-	retval |= dwc2_set_param_host_nperio_tx_fifo_size(hsotg,
+	dwc2_set_param_host_nperio_tx_fifo_size(hsotg,
 			params->host_nperio_tx_fifo_size);
-	retval |= dwc2_set_param_host_perio_tx_fifo_size(hsotg,
+	dwc2_set_param_host_perio_tx_fifo_size(hsotg,
 			params->host_perio_tx_fifo_size);
-	retval |= dwc2_set_param_max_transfer_size(hsotg,
+	dwc2_set_param_max_transfer_size(hsotg,
 			params->max_transfer_size);
-	retval |= dwc2_set_param_max_packet_count(hsotg,
+	dwc2_set_param_max_packet_count(hsotg,
 			params->max_packet_count);
-	retval |= dwc2_set_param_host_channels(hsotg, params->host_channels);
-	retval |= dwc2_set_param_phy_type(hsotg, params->phy_type);
-	retval |= dwc2_set_param_speed(hsotg, params->speed);
-	retval |= dwc2_set_param_host_ls_low_power_phy_clk(hsotg,
+	dwc2_set_param_host_channels(hsotg, params->host_channels);
+	dwc2_set_param_phy_type(hsotg, params->phy_type);
+	dwc2_set_param_speed(hsotg, params->speed);
+	dwc2_set_param_host_ls_low_power_phy_clk(hsotg,
 			params->host_ls_low_power_phy_clk);
-	retval |= dwc2_set_param_phy_ulpi_ddr(hsotg, params->phy_ulpi_ddr);
-	retval |= dwc2_set_param_phy_ulpi_ext_vbus(hsotg,
+	dwc2_set_param_phy_ulpi_ddr(hsotg, params->phy_ulpi_ddr);
+	dwc2_set_param_phy_ulpi_ext_vbus(hsotg,
 			params->phy_ulpi_ext_vbus);
-	retval |= dwc2_set_param_phy_utmi_width(hsotg, params->phy_utmi_width);
-	retval |= dwc2_set_param_ulpi_fs_ls(hsotg, params->ulpi_fs_ls);
-	retval |= dwc2_set_param_ts_dline(hsotg, params->ts_dline);
-	retval |= dwc2_set_param_i2c_enable(hsotg, params->i2c_enable);
-	retval |= dwc2_set_param_en_multiple_tx_fifo(hsotg,
+	dwc2_set_param_phy_utmi_width(hsotg, params->phy_utmi_width);
+	dwc2_set_param_ulpi_fs_ls(hsotg, params->ulpi_fs_ls);
+	dwc2_set_param_ts_dline(hsotg, params->ts_dline);
+	dwc2_set_param_i2c_enable(hsotg, params->i2c_enable);
+	dwc2_set_param_en_multiple_tx_fifo(hsotg,
 			params->en_multiple_tx_fifo);
-	retval |= dwc2_set_param_reload_ctl(hsotg, params->reload_ctl);
-	retval |= dwc2_set_param_ahb_single(hsotg, params->ahb_single);
-	retval |= dwc2_set_param_otg_ver(hsotg, params->otg_ver);
+	dwc2_set_param_reload_ctl(hsotg, params->reload_ctl);
+	dwc2_set_param_ahbcfg(hsotg, params->ahbcfg);
+	dwc2_set_param_otg_ver(hsotg, params->otg_ver);
+	dwc2_set_param_uframe_sched(hsotg, params->uframe_sched);
+}
 
-	return retval;
+/**
+ * During device initialization, read various hardware configuration
+ * registers and interpret the contents.
+ */
+int dwc2_get_hwparams(struct dwc2_hsotg *hsotg)
+{
+	struct dwc2_hw_params *hw = &hsotg->hw_params;
+	unsigned width;
+	u32 hwcfg1, hwcfg2, hwcfg3, hwcfg4;
+	u32 hptxfsiz, grxfsiz, gnptxfsiz;
+	u32 gusbcfg;
+
+	/*
+	 * Attempt to ensure this device is really a DWC_otg Controller.
+	 * Read and verify the GSNPSID register contents. The value should be
+	 * 0x45f42xxx or 0x45f43xxx, which corresponds to either "OT2" or "OT3",
+	 * as in "OTG version 2.xx" or "OTG version 3.xx".
+	 */
+	hw->snpsid = readl(hsotg->regs + GSNPSID);
+	if ((hw->snpsid & 0xfffff000) != 0x4f542000 &&
+	    (hw->snpsid & 0xfffff000) != 0x4f543000) {
+		dev_err(hsotg->dev, "Bad value for GSNPSID: 0x%08x\n",
+			hw->snpsid);
+		return -ENODEV;
+	}
+
+	dev_dbg(hsotg->dev, "Core Release: %1x.%1x%1x%1x (snpsid=%x)\n",
+		hw->snpsid >> 12 & 0xf, hw->snpsid >> 8 & 0xf,
+		hw->snpsid >> 4 & 0xf, hw->snpsid & 0xf, hw->snpsid);
+
+	hwcfg1 = readl(hsotg->regs + GHWCFG1);
+	hwcfg2 = readl(hsotg->regs + GHWCFG2);
+	hwcfg3 = readl(hsotg->regs + GHWCFG3);
+	hwcfg4 = readl(hsotg->regs + GHWCFG4);
+	grxfsiz = readl(hsotg->regs + GRXFSIZ);
+
+	dev_dbg(hsotg->dev, "hwcfg1=%08x\n", hwcfg1);
+	dev_dbg(hsotg->dev, "hwcfg2=%08x\n", hwcfg2);
+	dev_dbg(hsotg->dev, "hwcfg3=%08x\n", hwcfg3);
+	dev_dbg(hsotg->dev, "hwcfg4=%08x\n", hwcfg4);
+	dev_dbg(hsotg->dev, "grxfsiz=%08x\n", grxfsiz);
+
+	/* Force host mode to get HPTXFSIZ / GNPTXFSIZ exact power on value */
+	gusbcfg = readl(hsotg->regs + GUSBCFG);
+	gusbcfg |= GUSBCFG_FORCEHOSTMODE;
+	writel(gusbcfg, hsotg->regs + GUSBCFG);
+	usleep_range(100000, 150000);
+
+	gnptxfsiz = readl(hsotg->regs + GNPTXFSIZ);
+	hptxfsiz = readl(hsotg->regs + HPTXFSIZ);
+	dev_dbg(hsotg->dev, "gnptxfsiz=%08x\n", gnptxfsiz);
+	dev_dbg(hsotg->dev, "hptxfsiz=%08x\n", hptxfsiz);
+	gusbcfg = readl(hsotg->regs + GUSBCFG);
+	gusbcfg &= ~GUSBCFG_FORCEHOSTMODE;
+	writel(gusbcfg, hsotg->regs + GUSBCFG);
+	usleep_range(100000, 150000);
+
+	/* hwcfg2 */
+	hw->op_mode = (hwcfg2 & GHWCFG2_OP_MODE_MASK) >>
+		      GHWCFG2_OP_MODE_SHIFT;
+	hw->arch = (hwcfg2 & GHWCFG2_ARCHITECTURE_MASK) >>
+		   GHWCFG2_ARCHITECTURE_SHIFT;
+	hw->enable_dynamic_fifo = !!(hwcfg2 & GHWCFG2_DYNAMIC_FIFO);
+	hw->host_channels = 1 + ((hwcfg2 & GHWCFG2_NUM_HOST_CHAN_MASK) >>
+				GHWCFG2_NUM_HOST_CHAN_SHIFT);
+	hw->hs_phy_type = (hwcfg2 & GHWCFG2_HS_PHY_TYPE_MASK) >>
+			  GHWCFG2_HS_PHY_TYPE_SHIFT;
+	hw->fs_phy_type = (hwcfg2 & GHWCFG2_FS_PHY_TYPE_MASK) >>
+			  GHWCFG2_FS_PHY_TYPE_SHIFT;
+	hw->num_dev_ep = (hwcfg2 & GHWCFG2_NUM_DEV_EP_MASK) >>
+			 GHWCFG2_NUM_DEV_EP_SHIFT;
+	hw->nperio_tx_q_depth =
+		(hwcfg2 & GHWCFG2_NONPERIO_TX_Q_DEPTH_MASK) >>
+		GHWCFG2_NONPERIO_TX_Q_DEPTH_SHIFT << 1;
+	hw->host_perio_tx_q_depth =
+		(hwcfg2 & GHWCFG2_HOST_PERIO_TX_Q_DEPTH_MASK) >>
+		GHWCFG2_HOST_PERIO_TX_Q_DEPTH_SHIFT << 1;
+	hw->dev_token_q_depth =
+		(hwcfg2 & GHWCFG2_DEV_TOKEN_Q_DEPTH_MASK) >>
+		GHWCFG2_DEV_TOKEN_Q_DEPTH_SHIFT;
+
+	/* hwcfg3 */
+	width = (hwcfg3 & GHWCFG3_XFER_SIZE_CNTR_WIDTH_MASK) >>
+		GHWCFG3_XFER_SIZE_CNTR_WIDTH_SHIFT;
+	hw->max_transfer_size = (1 << (width + 11)) - 1;
+	/*
+	 * Clip max_transfer_size to 65535. dwc2_hc_setup_align_buf() allocates
+	 * coherent buffers with this size, and if it's too large we can
+	 * exhaust the coherent DMA pool.
+	 */
+	if (hw->max_transfer_size > 65535)
+		hw->max_transfer_size = 65535;
+	width = (hwcfg3 & GHWCFG3_PACKET_SIZE_CNTR_WIDTH_MASK) >>
+		GHWCFG3_PACKET_SIZE_CNTR_WIDTH_SHIFT;
+	hw->max_packet_count = (1 << (width + 4)) - 1;
+	hw->i2c_enable = !!(hwcfg3 & GHWCFG3_I2C);
+	hw->total_fifo_size = (hwcfg3 & GHWCFG3_DFIFO_DEPTH_MASK) >>
+			      GHWCFG3_DFIFO_DEPTH_SHIFT;
+
+	/* hwcfg4 */
+	hw->en_multiple_tx_fifo = !!(hwcfg4 & GHWCFG4_DED_FIFO_EN);
+	hw->num_dev_perio_in_ep = (hwcfg4 & GHWCFG4_NUM_DEV_PERIO_IN_EP_MASK) >>
+				  GHWCFG4_NUM_DEV_PERIO_IN_EP_SHIFT;
+	hw->dma_desc_enable = !!(hwcfg4 & GHWCFG4_DESC_DMA);
+	hw->power_optimized = !!(hwcfg4 & GHWCFG4_POWER_OPTIMIZ);
+	hw->utmi_phy_data_width = (hwcfg4 & GHWCFG4_UTMI_PHY_DATA_WIDTH_MASK) >>
+				  GHWCFG4_UTMI_PHY_DATA_WIDTH_SHIFT;
+
+	/* fifo sizes */
+	hw->host_rx_fifo_size = (grxfsiz & GRXFSIZ_DEPTH_MASK) >>
+				GRXFSIZ_DEPTH_SHIFT;
+	hw->host_nperio_tx_fifo_size = (gnptxfsiz & FIFOSIZE_DEPTH_MASK) >>
+				       FIFOSIZE_DEPTH_SHIFT;
+	hw->host_perio_tx_fifo_size = (hptxfsiz & FIFOSIZE_DEPTH_MASK) >>
+				      FIFOSIZE_DEPTH_SHIFT;
+
+	dev_dbg(hsotg->dev, "Detected values from hardware:\n");
+	dev_dbg(hsotg->dev, "  op_mode=%d\n",
+		hw->op_mode);
+	dev_dbg(hsotg->dev, "  arch=%d\n",
+		hw->arch);
+	dev_dbg(hsotg->dev, "  dma_desc_enable=%d\n",
+		hw->dma_desc_enable);
+	dev_dbg(hsotg->dev, "  power_optimized=%d\n",
+		hw->power_optimized);
+	dev_dbg(hsotg->dev, "  i2c_enable=%d\n",
+		hw->i2c_enable);
+	dev_dbg(hsotg->dev, "  hs_phy_type=%d\n",
+		hw->hs_phy_type);
+	dev_dbg(hsotg->dev, "  fs_phy_type=%d\n",
+		hw->fs_phy_type);
+	dev_dbg(hsotg->dev, "  utmi_phy_data_wdith=%d\n",
+		hw->utmi_phy_data_width);
+	dev_dbg(hsotg->dev, "  num_dev_ep=%d\n",
+		hw->num_dev_ep);
+	dev_dbg(hsotg->dev, "  num_dev_perio_in_ep=%d\n",
+		hw->num_dev_perio_in_ep);
+	dev_dbg(hsotg->dev, "  host_channels=%d\n",
+		hw->host_channels);
+	dev_dbg(hsotg->dev, "  max_transfer_size=%d\n",
+		hw->max_transfer_size);
+	dev_dbg(hsotg->dev, "  max_packet_count=%d\n",
+		hw->max_packet_count);
+	dev_dbg(hsotg->dev, "  nperio_tx_q_depth=0x%0x\n",
+		hw->nperio_tx_q_depth);
+	dev_dbg(hsotg->dev, "  host_perio_tx_q_depth=0x%0x\n",
+		hw->host_perio_tx_q_depth);
+	dev_dbg(hsotg->dev, "  dev_token_q_depth=0x%0x\n",
+		hw->dev_token_q_depth);
+	dev_dbg(hsotg->dev, "  enable_dynamic_fifo=%d\n",
+		hw->enable_dynamic_fifo);
+	dev_dbg(hsotg->dev, "  en_multiple_tx_fifo=%d\n",
+		hw->en_multiple_tx_fifo);
+	dev_dbg(hsotg->dev, "  total_fifo_size=%d\n",
+		hw->total_fifo_size);
+	dev_dbg(hsotg->dev, "  host_rx_fifo_size=%d\n",
+		hw->host_rx_fifo_size);
+	dev_dbg(hsotg->dev, "  host_nperio_tx_fifo_size=%d\n",
+		hw->host_nperio_tx_fifo_size);
+	dev_dbg(hsotg->dev, "  host_perio_tx_fifo_size=%d\n",
+		hw->host_perio_tx_fifo_size);
+	dev_dbg(hsotg->dev, "\n");
+
+	return 0;
 }
 
 u16 dwc2_get_otg_version(struct dwc2_hsotg *hsotg)
 {
-	return (u16)(hsotg->core_params->otg_ver == 1 ? 0x0200 : 0x0103);
+	return hsotg->core_params->otg_ver == 1 ? 0x0200 : 0x0103;
 }
 
-int dwc2_check_core_status(struct dwc2_hsotg *hsotg)
+bool dwc2_is_controller_alive(struct dwc2_hsotg *hsotg)
 {
 	if (readl(hsotg->regs + GSNPSID) == 0xffffffff)
-		return -1;
+		return false;
 	else
-		return 0;
+		return true;
 }
 
 /**
