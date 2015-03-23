@@ -1403,7 +1403,7 @@ static void s3c_hsotg_complete_request(struct dwc2_hsotg *hsotg,
 	 * request tries to queue more work for this endpoint.
 	 */
 
-	if (hs_req->req.complete && hs_req->req.status == 0) {
+	if (hs_req->req.complete) {
 		spin_unlock(&hsotg->lock);
 		hs_req->req.complete(&hs_ep->ep, &hs_req->req);
 		spin_lock(&hsotg->lock);
