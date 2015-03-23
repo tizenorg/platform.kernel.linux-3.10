@@ -3052,7 +3052,6 @@ static int s3c_hsotg_udc_start(struct usb_gadget *gadget,
 
 	driver->driver.bus = NULL;
 	hsotg->driver = driver;
-	hsotg->gadget.dev.of_node = hsotg->dev->of_node;
 	hsotg->gadget.speed = USB_SPEED_UNKNOWN;
 
 	clk_enable(hsotg->clk);
@@ -3898,6 +3897,7 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 	hsotg->gadget.max_speed = USB_SPEED_HIGH;
 	hsotg->gadget.ops = &s3c_hsotg_gadget_ops;
 	hsotg->gadget.name = dev_name(dev);
+	hsotg->gadget.dev.of_node = hsotg->dev->of_node;
 
 	/* reset the system */
 
