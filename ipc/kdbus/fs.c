@@ -263,7 +263,7 @@ static void fs_super_sop_evict_inode(struct inode *inode)
 {
 	struct kdbus_node *node = kdbus_node_from_inode(inode);
 
-	truncate_inode_pages_final(&inode->i_data);
+	truncate_inode_pages(&inode->i_data, 0);
 	clear_inode(inode);
 	kdbus_node_unref(node);
 }

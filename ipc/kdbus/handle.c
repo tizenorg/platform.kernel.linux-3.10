@@ -346,7 +346,7 @@ static long kdbus_handle_ioctl_control(struct file *file, unsigned int cmd,
 
 		bus = kdbus_cmd_bus_make(domain, argp);
 		if (IS_ERR_OR_NULL(bus)) {
-			ret = PTR_ERR_OR_ZERO(bus);
+			ret = PTR_ERR(bus);
 			break;
 		}
 
@@ -387,7 +387,7 @@ static long kdbus_handle_ioctl_ep(struct file *file, unsigned int cmd,
 
 		ep = kdbus_cmd_ep_make(file_ep->bus, buf);
 		if (IS_ERR_OR_NULL(ep)) {
-			ret = PTR_ERR_OR_ZERO(ep);
+			ret = PTR_ERR(ep);
 			break;
 		}
 
@@ -398,7 +398,7 @@ static long kdbus_handle_ioctl_ep(struct file *file, unsigned int cmd,
 	case KDBUS_CMD_HELLO:
 		conn = kdbus_cmd_hello(file_ep, handle->privileged, buf);
 		if (IS_ERR_OR_NULL(conn)) {
-			ret = PTR_ERR_OR_ZERO(conn);
+			ret = PTR_ERR(conn);
 			break;
 		}
 
