@@ -1,3 +1,5 @@
+override LINUXINCLUDE := $(patsubst -Iinclude, -Icompat/include -Iinclude , $(LINUXINCLUDE))
+
 kdbus-y := \
 	bus.o \
 	connection.o \
