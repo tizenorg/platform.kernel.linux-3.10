@@ -289,10 +289,15 @@ struct address_space;
 struct writeback_control;
 
 struct iov_iter {
-	const struct iovec *iov;
-	unsigned long nr_segs;
+	int type;
 	size_t iov_offset;
 	size_t count;
+	union {
+		const struct iovec *iov;
+		const struct kvec *kvec;
+		const struct bio_vec *bvec;
+	};
+	unsigned long nr_segs;
 };
 
 size_t iov_iter_copy_from_user_atomic(struct page *page,
@@ -303,6 +308,7 @@ void iov_iter_advance(struct iov_iter *i, size_t bytes);
 int iov_iter_fault_in_readable(struct iov_iter *i, size_t bytes);
 size_t iov_iter_single_seg_count(const struct iov_iter *i);
 
+#ifndef _COMPAT_LINUX_FS_H
 static inline void iov_iter_init(struct iov_iter *i,
 			const struct iovec *iov, unsigned long nr_segs,
 			size_t count, size_t written)
@@ -314,6 +320,7 @@ static inline void iov_iter_init(struct iov_iter *i,
 
 	iov_iter_advance(i, written);
 }
+#endif
 
 static inline size_t iov_iter_count(struct iov_iter *i)
 {
@@ -1551,6 +1558,8 @@ struct file_operations {
 	ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
 	ssize_t (*aio_read) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
 	ssize_t (*aio_write) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
+	ssize_t (*read_iter) (struct kiocb *, struct iov_iter *);
+	ssize_t (*write_iter) (struct kiocb *, struct iov_iter *);
 	int (*iterate) (struct file *, struct dir_context *);
 	unsigned int (*poll) (struct file *, struct poll_table_struct *);
 	long (*unlocked_ioctl) (struct file *, unsigned int, unsigned long);
