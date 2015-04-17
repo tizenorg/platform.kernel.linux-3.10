@@ -12,6 +12,9 @@
 #include <linux/kernel.h>
 #include <uapi/linux/uio.h>
 
+/* other compatibility headers */
+#include <linux/time64.h>
+
 struct page;
 
 struct kvec {
