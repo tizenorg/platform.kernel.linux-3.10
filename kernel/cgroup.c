@@ -1838,6 +1838,35 @@ out:
 }
 EXPORT_SYMBOL_GPL(cgroup_path);
 
+static char *__cgroup_path(const struct cgroup *cgrp, char *buf, int buflen)
+{
+	char *p = buf + buflen;
+	const char *name;
+	int len;
+
+	*--p = '\0';
+
+	rcu_read_lock();
+	do {
+		if (cgrp->parent) {
+			name = cgroup_name(cgrp);
+			len = strlen(name);
+			if (p - buf < len + 1) {
+				buf[0] = '\0';
+				p = NULL;
+				break;
+			}
+			p -= len;
+			memcpy(p, name, len);
+		}
+		*--p = '/';
+		cgrp = cgrp->parent;
+	} while (cgrp && cgrp->parent);
+	rcu_read_unlock();
+
+	return p;
+}
+
 /**
  * task_cgroup_path - cgroup path of a task in the first cgroup hierarchy
  * @task: target task
@@ -1876,6 +1905,46 @@ int task_cgroup_path(struct task_struct *task, char *buf, size_t buflen)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(task_cgroup_path);
+
+/**
+ * __task_cgroup_path - cgroup path of a task in the first cgroup hierarchy
+ * @task: target task
+ * @buf: the buffer to write the path into
+ * @buflen: the length of the buffer
+ *
+ * Determine @task's cgroup on the first (the one with the lowest non-zero
+ * hierarchy_id) cgroup hierarchy and copy its path into @buf.  This
+ * function grabs cgroup_mutex and shouldn't be used inside locks used by
+ * cgroup controller callbacks.
+ *
+ * Return value is the same as kernfs_path().
+ */
+char *__task_cgroup_path(struct task_struct *task, char *buf, size_t buflen)
+{
+	struct cgroupfs_root *root;
+	struct cgroup *cgrp;
+	int hierarchy_id = 1;
+	char *path = NULL;
+
+	if (buflen < 2)
+		return NULL;
+
+	mutex_lock(&cgroup_mutex);
+
+	root = idr_get_next(&cgroup_hierarchy_idr, &hierarchy_id);
+
+	if (root) {
+		cgrp = task_cgroup_from_root(task, root);
+		path = __cgroup_path(cgrp, buf, buflen);
+	} else {
+		/* if no hierarchy exists, everyone is in "/" */
+		memcpy(buf, "/", 2);
+	}
+
+	mutex_unlock(&cgroup_mutex);
+	return path;
+}
+EXPORT_SYMBOL_GPL(__task_cgroup_path);
 
 /*
  * Control Group taskset
