@@ -27,6 +27,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/uio.h>
+#include <linux/version.h>
 
 #include "pool.h"
 #include "util.h"
@@ -563,6 +564,113 @@ void kdbus_pool_accounted(struct kdbus_pool *pool, size_t *size, size_t *acc)
 	mutex_unlock(&pool->lock);
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
+
+/* copy data from a file to a page in the receiver's pool */
+static int kdbus_pool_copy_file(struct page *p, size_t start,
+				struct file *f, size_t off, size_t count)
+{
+	loff_t o = off;
+	char *kaddr;
+	ssize_t n;
+
+	kaddr = kmap(p);
+	n = f->f_op->read(f, (char __force __user *)kaddr + start, count, &o);
+	kunmap(p);
+	if (n < 0)
+		return n;
+	if (n != count)
+		return -EFAULT;
+
+	return 0;
+}
+
+/* copy data to a page in the receiver's pool */
+static int kdbus_pool_copy_data(struct page *p, size_t start,
+				const void __user *from, size_t count)
+{
+	unsigned long remain;
+	char *kaddr;
+
+	if (fault_in_pages_readable(from, count) < 0)
+		return -EFAULT;
+
+	kaddr = kmap_atomic(p);
+	pagefault_disable();
+	remain = __copy_from_user_inatomic(kaddr + start, from, count);
+	pagefault_enable();
+	kunmap_atomic(kaddr);
+	if (remain > 0)
+		return -EFAULT;
+
+	cond_resched();
+	return 0;
+}
+
+/* copy data to the receiver's pool */
+static int kdbus_pool_copy(const struct kdbus_pool_slice *slice, size_t off,
+			   const void __user *data, struct file *f_src,
+			   size_t off_src, size_t len)
+{
+	struct file *f_dst = slice->pool->f;
+	struct inode *i_dst = file_inode(f_dst);
+	struct address_space *mapping = f_dst->f_mapping;
+	const struct address_space_operations *aops = mapping->a_ops;
+	unsigned long fpos = slice->off + off;
+	unsigned long rem = len;
+	size_t pos = 0;
+	int ret = 0;
+
+	BUG_ON(off + len > slice->size);
+	BUG_ON(slice->free);
+
+	mutex_lock(&i_dst->i_mutex);
+
+	while (rem > 0) {
+		struct page *p;
+		unsigned long o;
+		unsigned long n;
+		void *fsdata;
+		int status;
+
+		o = fpos & (PAGE_CACHE_SIZE - 1);
+		n = min_t(unsigned long, PAGE_CACHE_SIZE - o, rem);
+
+		status = aops->write_begin(f_dst, mapping, fpos, n, 0, &p,
+					   &fsdata);
+		if (status) {
+			ret = -EFAULT;
+			break;
+		}
+
+		if (data)
+			ret = kdbus_pool_copy_data(p, o, data + pos, n);
+		else
+			ret = kdbus_pool_copy_file(p, o, f_src,
+						   off_src + pos, n);
+		mark_page_accessed(p);
+
+		status = aops->write_end(f_dst, mapping, fpos, n, n, p, fsdata);
+
+		if (ret < 0)
+			break;
+		if (status != n) {
+			ret = -EFAULT;
+			break;
+		}
+
+		pos += n;
+		fpos += n;
+		rem -= n;
+	}
+
+	mutex_unlock(&i_dst->i_mutex);
+
+	return ret;
+}
+
+#endif
+
 /**
  * kdbus_pool_slice_copy_iovec() - copy user memory to a slice
  * @slice:		The slice to write to
@@ -579,15 +687,32 @@ ssize_t
 kdbus_pool_slice_copy_iovec(const struct kdbus_pool_slice *slice, loff_t off,
 			    struct iovec *iov, size_t iov_len, size_t total_len)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
+	size_t i;
+#else
 	struct iov_iter iter;
+#endif
 	ssize_t len;
 
 	if (WARN_ON(off + total_len > slice->size))
 		return -EFAULT;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
+	len = 0;
+	for (i = 0; i < iov_len; i++) {
+		if (kdbus_pool_copy(slice, off + len,
+				    (const void __user *)(iov[i].iov_base),
+				    NULL, 0, iov[i].iov_len) < 0) {
+			len = -EFAULT;
+			break;
+		}
+		len += iov[i].iov_len;
+	}
+#else
 	off += slice->off;
 	iov_iter_init(&iter, WRITE, iov, iov_len, total_len);
 	len = vfs_iter_write(slice->pool->f, &iter, &off);
+#endif
 
 	return (len >= 0 && len != total_len) ? -EFAULT : len;
 }
@@ -608,19 +733,39 @@ ssize_t kdbus_pool_slice_copy_kvec(const struct kdbus_pool_slice *slice,
 				   loff_t off, struct kvec *kvec,
 				   size_t kvec_len, size_t total_len)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
+	size_t i;
+#else
 	struct iov_iter iter;
+#endif
 	mm_segment_t old_fs;
 	ssize_t len;
 
 	if (WARN_ON(off + total_len > slice->size))
 		return -EFAULT;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
+	len = 0;
+#else
 	off += slice->off;
 	iov_iter_kvec(&iter, WRITE | ITER_KVEC, kvec, kvec_len, total_len);
+#endif
 
 	old_fs = get_fs();
 	set_fs(get_ds());
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
+	for (i = 0; i < kvec_len; i++) {
+		if (kdbus_pool_copy(slice, off + len,
+				    (const void __user *)(kvec[i].iov_base),
+				    NULL, 0, kvec[i].iov_len) < 0) {
+			len = -EFAULT;
+			break;
+		}
+		len += kvec[i].iov_len;
+	}
+#else
 	len = vfs_iter_write(slice->pool->f, &iter, &off);
+#endif
 	set_fs(old_fs);
 
 	return (len >= 0 && len != total_len) ? -EFAULT : len;
