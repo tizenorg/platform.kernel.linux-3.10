@@ -6,7 +6,7 @@
 Name: odroid-linux-kernel
 Summary: The Linux Kernel for ODROID U3
 Version: 3.10.60
-Release: 0
+Release: 99
 License: GPL-2.0
 ExclusiveArch: %{arm}
 Group: System/Kernel
