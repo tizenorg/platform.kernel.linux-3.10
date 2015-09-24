@@ -442,7 +442,12 @@ struct hci_conn {
 	__u8		remote_cap;
 	__u8		remote_auth;
 	__u8		remote_id;
-
+#ifdef CONFIG_TIZEN_WIP
+	__u16		tx_len;
+	__u16		tx_time;
+	__u16		rx_len;
+	__u16		rx_time;
+#endif
 	unsigned int	sent;
 
 	struct sk_buff_head data_q;
@@ -495,6 +500,10 @@ struct hci_conn_params {
 	u16 conn_max_interval;
 	u16 conn_latency;
 	u16 supervision_timeout;
+#ifdef CONFIG_TIZEN_WIP
+	u16 max_tx_octets;
+	u16 max_tx_time;
+#endif
 
 	enum {
 		HCI_AUTO_CONN_DISABLED,
@@ -1519,6 +1528,18 @@ void mgmt_device_found(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 link_type,
 void mgmt_le_device_found(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 link_type,
 		       u8 addr_type, u8 *dev_class, s8 rssi, u32 flags,
 		       u8 *eir, u16 eir_len, u8 *scan_rsp, u8 scan_rsp_len, u8 adv_type);
+void mgmt_6lowpan_conn_changed(struct hci_dev *hdev, bdaddr_t *bdaddr,
+			   u8 addr_type, bool connected);
+void mgmt_le_read_maximum_data_length_complete(struct hci_dev *hdev,
+			u8 status);
+void mgmt_le_read_host_def_data_length_complete(struct hci_dev *hdev,
+			u8 status);
+void mgmt_le_write_host_suggested_data_length_complete(
+			struct hci_dev *hdev, u8 status);
+int hci_le_set_data_length(struct hci_conn *conn,
+				u16 tx_octets, u16 tx_time);
+void mgmt_le_data_length_change_complete(struct hci_dev *hdev,
+		bdaddr_t *bdaddr, u16 tx_octets, u16 tx_time, u16 rx_octets, u16 rx_time);
 #endif
 void mgmt_remote_name(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 link_type,
 		      u8 addr_type, s8 rssi, u8 *name, u8 name_len);
