@@ -105,6 +105,10 @@ static const u16 mgmt_commands[] = {
 	MGMT_OP_SET_EXTERNAL_CONFIG,
 	MGMT_OP_SET_PUBLIC_ADDRESS,
 	MGMT_OP_START_SERVICE_DISCOVERY,
+	MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH,
+	MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+	MGMT_OP_LE_READ_HOST_SUGGESTED_DATA_LENGTH,
+	MGMT_OP_LE_SET_DATA_LENGTH,
 };
 
 static const u16 mgmt_events[] = {
@@ -137,6 +141,7 @@ static const u16 mgmt_events[] = {
 	MGMT_EV_UNCONF_INDEX_ADDED,
 	MGMT_EV_UNCONF_INDEX_REMOVED,
 	MGMT_EV_NEW_CONFIG_OPTIONS,
+	MGMT_EV_LE_DATA_LENGTH_CHANGED,
 };
 
 #define CACHE_TIMEOUT	msecs_to_jiffies(2 * 1000)
@@ -5211,8 +5216,452 @@ done:
 	hci_dev_unlock(hdev);
 	return err;
 }
+
+static int connect_bt_6lowpan(struct sock *sk, struct hci_dev *hdev,
+			void *data, u16 len)
+{
+	struct mgmt_cp_connect_6lowpan *cp = data;
+	__u8 addr_type = ADDR_LE_DEV_PUBLIC;
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!lmp_le_capable(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN,
+				  MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	if (!hdev_is_powered(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN,
+				  MGMT_STATUS_REJECTED);
+		goto unlocked;
+	}
+
+	if (bdaddr_type_is_le(cp->addr.type)) {
+		if (cp->addr.type == BDADDR_LE_PUBLIC)
+			addr_type = ADDR_LE_DEV_PUBLIC;
+		else
+			addr_type = ADDR_LE_DEV_RANDOM;
+	} else {
+		 err = cmd_complete(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN,
+				  MGMT_STATUS_INVALID_PARAMS,
+				  NULL, 0);
+		goto unlocked;
+	}
+	hci_dev_unlock(hdev);
+
+        /*TODO: uncomment the below code later once 6lowpan code is merged into Tizen 3.0*/
+	//err = _bt_6lowpan_connect(&cp->addr.bdaddr, cp->addr.type);
+
+	hci_dev_lock(hdev);
+
+	if (err < 0) {
+		err = cmd_complete(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN,
+				MGMT_STATUS_REJECTED, NULL, 0);
+
+		goto unlocked;
+	}
+	err = cmd_complete(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN, 0,
+				NULL, 0);
+
+unlocked:
+	hci_dev_unlock(hdev);
+	return err;
+}
+
+static int disconnect_bt_6lowpan(struct sock *sk, struct hci_dev *hdev,
+			void *data, u16 len)
+{
+	struct mgmt_cp_disconnect_6lowpan *cp = data;
+	struct hci_conn *conn = NULL;
+	__u8 addr_type = ADDR_LE_DEV_PUBLIC;
+	int err;
+
+	BT_DBG("%s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!lmp_le_capable(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_DISCONNECT_6LOWPAN,
+				  MGMT_STATUS_NOT_SUPPORTED);
+		goto unlocked;
+	}
+
+	if (!hdev_is_powered(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_DISCONNECT_6LOWPAN,
+				  MGMT_STATUS_REJECTED);
+		goto unlocked;
+	}
+
+	if (bdaddr_type_is_le(cp->addr.type)) {
+		if (cp->addr.type == BDADDR_LE_PUBLIC)
+			addr_type = ADDR_LE_DEV_PUBLIC;
+		else
+			addr_type = ADDR_LE_DEV_RANDOM;
+	} else {
+		 err = cmd_complete(sk, hdev->id, MGMT_OP_DISCONNECT_6LOWPAN,
+				  MGMT_STATUS_INVALID_PARAMS,
+				  NULL, 0);
+		goto unlocked;
+	}
+
+	conn = hci_conn_hash_lookup_ba(hdev, LE_LINK, &cp->addr.bdaddr);
+	if (!conn) {
+		err = cmd_complete(sk, hdev->id, MGMT_OP_DISCONNECT_6LOWPAN,
+				  MGMT_STATUS_NOT_CONNECTED,
+				  NULL, 0);
+		goto unlocked;
+	}
+
+	if (conn->dst_type != addr_type) {
+		err = cmd_complete(sk, hdev->id, MGMT_OP_DISCONNECT_6LOWPAN,
+				  MGMT_STATUS_INVALID_PARAMS,
+				  NULL, 0);
+		goto unlocked;
+	}
+
+	if (conn->state != BT_CONNECTED) {
+		err = cmd_complete(sk, hdev->id, MGMT_OP_DISCONNECT_6LOWPAN,
+				  MGMT_STATUS_NOT_CONNECTED,
+				  NULL, 0);
+		goto unlocked;
+	}
+
+	/*TODO: uncomment the below code later once 6lowpan code is merged into Tizen 3.0*/
+	//err = _bt_6lowpan_disconnect(conn->l2cap_data, cp->addr.type);
+	if (err < 0) {
+		err = cmd_complete(sk, hdev->id, MGMT_OP_DISCONNECT_6LOWPAN,
+				MGMT_STATUS_REJECTED, NULL, 0);
+		goto unlocked;
+	}
+	err = cmd_complete(sk, hdev->id, MGMT_OP_CONNECT_6LOWPAN, 0,
+				NULL, 0);
+
+unlocked:
+	hci_dev_unlock(hdev);
+	return err;
+}
+
+void mgmt_le_read_maximum_data_length_complete(
+			struct hci_dev *hdev, u8 status)
+{
+	struct pending_cmd *cmd;
+	struct mgmt_rp_le_read_maximum_data_length rp;
+
+	BT_INFO("%s status %u", hdev->name, status);
+
+	cmd = mgmt_pending_find(MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH, hdev);
+	if (!cmd)
+		return;
+
+	if (status) {
+		cmd_status(cmd->sk, hdev->id, MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH,
+			   mgmt_status(status));
+	}
+
+	memset(&rp, 0, sizeof(rp));
+
+	rp.max_tx_octets = cpu_to_le16(hdev->le_max_tx_len);
+	rp.max_tx_time = cpu_to_le16(hdev->le_max_tx_time);
+	rp.max_rx_octets = cpu_to_le16(hdev->le_max_rx_len);
+	rp.max_rx_time = cpu_to_le16(hdev->le_max_rx_time);
+
+	cmd_complete(cmd->sk, hdev->id,
+			     MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH, 0,
+			     &rp, sizeof(rp));
+
+	mgmt_pending_remove(cmd);
+}
+
+static int le_read_maximum_le_data_length(
+	struct sock *sk, struct hci_dev *hdev, void *data, u16 len)
+{
+	struct pending_cmd *cmd;
+	int err;
+
+	BT_INFO("le_read_maximum_le_data_length  %s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!hdev_is_powered(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH,
+				 MGMT_STATUS_NOT_POWERED);
+		goto unlock;
+	}
+
+	if (!lmp_le_capable(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH,
+				 MGMT_STATUS_NOT_SUPPORTED);
+		goto unlock;
+	}
+
+	if (mgmt_pending_find(MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH, hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH,
+				 MGMT_STATUS_BUSY);
+		goto unlock;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH, hdev, data, len);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto unlock;
+	}
+
+	err = hci_send_cmd(hdev, HCI_OP_LE_READ_MAX_DATA_LEN, 0, NULL);
+
+	if (err < 0)
+		mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+	return err;
+}
+
+void mgmt_le_read_host_def_data_length_complete(struct hci_dev *hdev,
+			u8 status)
+{
+	struct pending_cmd *cmd;
+	struct mgmt_rp_le_read_host_suggested_data_length rp;
+
+	BT_INFO("%s status %u", hdev->name, status);
+
+	cmd = mgmt_pending_find(MGMT_OP_LE_READ_HOST_SUGGESTED_DATA_LENGTH, hdev);
+	if (!cmd) {
+		BT_INFO("cmd not found in the pending list");
+		return;
+	}
+
+	if (status) {
+		cmd_status(cmd->sk, hdev->id, MGMT_OP_LE_READ_HOST_SUGGESTED_DATA_LENGTH,
+			   mgmt_status(status));
+	}
+
+	memset(&rp, 0, sizeof(rp));
+
+	rp.def_tx_octets = cpu_to_le16(hdev->le_def_tx_len);
+	rp.def_tx_time = cpu_to_le16(hdev->le_def_tx_time);
+
+	cmd_complete(cmd->sk, hdev->id,
+			     MGMT_OP_LE_READ_HOST_SUGGESTED_DATA_LENGTH, 0,
+			     &rp, sizeof(rp));
+
+	mgmt_pending_remove(cmd);
+}
+
+static int le_read_host_suggested_data_length(
+	struct sock *sk, struct hci_dev *hdev, void *data, u16 len)
+{
+	struct pending_cmd *cmd;
+	int err;
+
+	BT_INFO("le_read_host_suggested_data_length %s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!hdev_is_powered(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_READ_HOST_SUGGESTED_DATA_LENGTH,
+				 MGMT_STATUS_NOT_POWERED);
+		goto unlock;
+	}
+
+	if (!lmp_le_capable(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_READ_HOST_SUGGESTED_DATA_LENGTH,
+				 MGMT_STATUS_NOT_SUPPORTED);
+		goto unlock;
+	}
+
+	if (mgmt_pending_find(MGMT_OP_LE_READ_HOST_SUGGESTED_DATA_LENGTH, hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_READ_HOST_SUGGESTED_DATA_LENGTH,
+				 MGMT_STATUS_BUSY);
+		goto unlock;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_LE_READ_HOST_SUGGESTED_DATA_LENGTH, hdev, data, len);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto unlock;
+	}
+
+	err = hci_send_cmd(hdev, HCI_OP_LE_READ_DEF_DATA_LEN, 0, NULL);
+
+	if (err < 0)
+		mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+	return err;
+}
+
+void mgmt_le_write_host_suggested_data_length_complete(
+			struct hci_dev *hdev, u8 status)
+{
+	struct pending_cmd *cmd;
+
+	BT_INFO("status 0x%02x", status);
+
+	hci_dev_lock(hdev);
+
+	cmd = mgmt_pending_find(
+			MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH, hdev);
+	if (!cmd) {
+		BT_INFO("cmd not found in the pending list");
+		goto unlock;
+	}
+
+	if (status)
+		cmd_status(cmd->sk, hdev->id,
+			MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+			mgmt_status(status));
+	else
+		cmd_complete(cmd->sk, hdev->id,
+			MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH, 0,
+			NULL, 0);
+
+	mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+}
+
+
+static int le_write_host_suggested_data_length(
+			struct sock *sk, struct hci_dev *hdev, void *data, u16 len)
+{
+	struct pending_cmd *cmd;
+	struct mgmt_cp_le_write_host_suggested_data_length *cp = data;
+	struct hci_cp_le_write_def_data_len hci_data;
+	int err = 0;
+
+	BT_INFO("Write host suggested data length request for %s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!hdev_is_powered(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+				 MGMT_STATUS_NOT_POWERED);
+		goto unlock;
+	}
+
+	if (!lmp_le_capable(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+				 MGMT_STATUS_NOT_SUPPORTED);
+		goto unlock;
+	}
+
+	if (mgmt_pending_find(MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH, hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH,
+				 MGMT_STATUS_BUSY);
+		goto unlock;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH, hdev, data, len);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto unlock;
+	}
+
+	hci_data.tx_len = cp->def_tx_octets;
+	hci_data.tx_time = cp->def_tx_time;
+
+	err = hci_send_cmd(hdev, HCI_OP_LE_WRITE_DEF_DATA_LEN, sizeof(hci_data), &hci_data);
+
+	if (err < 0)
+		mgmt_pending_remove(cmd);
+
+unlock:
+	hci_dev_unlock(hdev);
+
+	return err;
+}
+
+static int le_set_data_length_params(
+			struct sock *sk, struct hci_dev *hdev, void *data, u16 len)
+{
+	struct mgmt_cp_le_set_data_length *cp = data;
+	struct mgmt_rp_le_set_data_length *rp;
+	struct pending_cmd *cmd;
+	struct hci_conn *conn;
+	int err = 0;
+	u16 max_tx_octets, max_tx_time;
+
+	BT_INFO("Set Data length for the device %s", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	if (!hdev_is_powered(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_SET_DATA_LENGTH,
+				 MGMT_STATUS_NOT_POWERED);
+		goto unlock;
+	}
+
+	if (!lmp_le_capable(hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_SET_DATA_LENGTH,
+				 MGMT_STATUS_NOT_SUPPORTED);
+		goto unlock;
+	}
+
+	if (mgmt_pending_find(MGMT_OP_LE_SET_DATA_LENGTH, hdev)) {
+		err = cmd_status(sk, hdev->id, MGMT_OP_LE_SET_DATA_LENGTH,
+				 MGMT_STATUS_BUSY);
+		goto unlock;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_LE_SET_DATA_LENGTH, hdev, data, len);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto unlock;
+	}
+
+	max_tx_octets = __le16_to_cpu(cp->max_tx_octets);
+	max_tx_time = __le16_to_cpu(cp->max_tx_time);
+
+	BT_INFO("max_tx_octets 0x%4.4x max_tx_time 0x%4.4x latency",
+			max_tx_octets, max_tx_time);
+
+	conn = hci_conn_hash_lookup_ba(hdev, LE_LINK, &cp->bdaddr);
+	if (!conn) {
+		cmd_status(sk, hdev->id, MGMT_OP_LE_SET_DATA_LENGTH,
+				MGMT_STATUS_NOT_CONNECTED);
+		goto unlock;
+	}
+
+	err = hci_le_set_data_length(conn, max_tx_octets, max_tx_time);
+
+	if (err < 0)
+		mgmt_pending_remove(cmd);
+
+	rp->handle = conn->handle;
+	rp->status = 0;
+
+	err = cmd_complete(sk, hdev->id, MGMT_OP_LE_SET_DATA_LENGTH, 0,
+				rp, MGMT_LE_SET_DATA_LENGTH_RSP_SIZE);
+
+unlock:
+	hci_dev_unlock(hdev);
+
+	return err;
+}
+
+void mgmt_le_data_length_change_complete(struct hci_dev *hdev,
+	bdaddr_t *bdaddr, u16 tx_octets, u16 tx_time, u16 rx_octets, u16 rx_time)
+{
+
+	struct mgmt_ev_le_data_length_changed ev;
+
+	bacpy(&ev.addr.bdaddr, bdaddr);
+	ev.max_tx_octets = tx_octets;
+	ev.max_tx_time = tx_time;
+	ev.max_rx_octets = rx_octets;
+	ev.max_rx_time = rx_time;
+
+	mgmt_event(MGMT_EV_LE_DATA_LENGTH_CHANGED, hdev, &ev, sizeof(ev), NULL);
+}
+
+#endif	//CONFIG_TIZEN_WIP
 /* END TIZEN_Bluetooth */
-#endif
 
 static void fast_connectable_complete(struct hci_dev *hdev, u8 status, u16 opcode)
 {
@@ -6208,14 +6657,15 @@ static int enable_bt_6lowpan(struct sock *sk, struct hci_dev *hdev,
 		goto unlocked;
 	}
 
-#if 0
-	if (cp->enable_6lowpan) {
-		bt_6lowpan_enable(true);
-		err = cmd_complete(sk, hdev->id, MGMT_OP_ENABLE_6LOWPAN,
-				MGMT_STATUS_SUCCESS, NULL, 0);
-	}
-#endif
-	/* Code to disable 6lowpan to be added */
+	/*TODO: uncomment the below code later once 6lowpan code is merged into Tizen 3.0*/
+	/*
+	if (cp->enable_6lowpan)
+		bt_6lowpan_enable();
+	else
+		bt_6lowpan_disable();
+
+	err = cmd_complete(sk, hdev->id, MGMT_OP_ENABLE_6LOWPAN,
+			MGMT_STATUS_SUCCESS, NULL, 0);*/
 
 unlocked:
 	hci_dev_unlock(hdev);
@@ -7936,7 +8386,13 @@ static const struct mgmt_handler tizen_mgmt_handlers[] = {
 	{ le_set_scan_params,      false, MGMT_LE_SET_SCAN_PARAMS_SIZE },
 	{ set_voice_setting,       false, MGMT_SET_VOICE_SETTING_SIZE},
 	{ get_adv_tx_power,       false, MGMT_GET_ADV_TX_POWER_SIZE},
-	{ enable_bt_6lowpan,       false, MGMT_ENABLE_BT_6LOWPAN_SIZE}
+	{ enable_bt_6lowpan,       false, MGMT_ENABLE_BT_6LOWPAN_SIZE},
+	{ connect_bt_6lowpan,      false, MGMT_CONNECT_6LOWPAN_SIZE},
+	{ disconnect_bt_6lowpan,   false, MGMT_DISCONNECT_6LOWPAN_SIZE},
+	{ le_read_maximum_le_data_length, false, MGMT_LE_READ_MAXIMUM_DATA_LENGTH_SIZE },
+	{ le_write_host_suggested_data_length, false, MGMT_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH_SIZE },
+	{ le_read_host_suggested_data_length, false, MGMT_LE_READ_HOST_SUGGESTED_DATA_LENGTH_SIZE },
+	{ le_set_data_length_params, false, MGMT_LE_SET_DATA_LENGTH_SIZE },
 };
 #endif
 
@@ -9259,6 +9715,23 @@ void mgmt_le_device_found(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 link_type,
 
 	mgmt_event(MGMT_EV_LE_DEVICE_FOUND, hdev, ev, ev_size, NULL);
 }
+
+void mgmt_6lowpan_conn_changed(struct hci_dev *hdev, bdaddr_t *bdaddr,
+			   u8 addr_type, bool connected)
+{
+	char buf[512];
+	struct mgmt_ev_6lowpan_conn_state_changed *ev = (void *) buf;
+	size_t ev_size;
+
+	memset(buf, 0, sizeof(buf));
+	bacpy(&ev->addr.bdaddr, bdaddr);
+	ev->addr.type = addr_type;
+	ev->connected = connected;
+
+	ev_size = sizeof(*ev);
+
+	mgmt_event(MGMT_EV_6LOWPAN_CONN_STATE_CHANGED, hdev, ev, ev_size, NULL);
+}
 #endif
 
 void mgmt_remote_name(struct hci_dev *hdev, bdaddr_t *bdaddr, u8 link_type,
@@ -9325,6 +9798,7 @@ void mgmt_le_discovering(struct hci_dev *hdev, u8 discovering)
 
 	mgmt_event(MGMT_EV_DISCOVERING, hdev, &ev, sizeof(ev), NULL);
 }
+
 /* END TIZEN_Bluetooth */
 #endif
 

@@ -1354,11 +1354,23 @@ static void hci_cc_le_read_def_data_len(struct hci_dev *hdev,
 
 	BT_DBG("%s status 0x%2.2x", hdev->name, rp->status);
 
+#ifndef CONFIG_TIZEN_WIP
 	if (rp->status)
 		return;
 
 	hdev->le_def_tx_len = le16_to_cpu(rp->tx_len);
 	hdev->le_def_tx_time = le16_to_cpu(rp->tx_time);
+#else
+	hci_dev_lock(hdev);
+
+	hdev->le_def_tx_len = __le16_to_cpu(rp->tx_len);
+	hdev->le_def_tx_time = __le16_to_cpu(rp->tx_time);
+
+	mgmt_le_read_host_def_data_length_complete(
+			hdev, rp->status);
+
+	hci_dev_unlock(hdev);
+#endif
 }
 
 static void hci_cc_le_write_def_data_len(struct hci_dev *hdev,
@@ -1369,6 +1381,7 @@ static void hci_cc_le_write_def_data_len(struct hci_dev *hdev,
 
 	BT_DBG("%s status 0x%2.2x", hdev->name, status);
 
+#ifndef CONFIG_TIZEN_WIP
 	if (status)
 		return;
 
@@ -1378,6 +1391,20 @@ static void hci_cc_le_write_def_data_len(struct hci_dev *hdev,
 
 	hdev->le_def_tx_len = le16_to_cpu(sent->tx_len);
 	hdev->le_def_tx_time = le16_to_cpu(sent->tx_time);
+#else
+	if (status)
+		goto unblock;
+
+	sent = hci_sent_cmd_data(hdev, HCI_OP_LE_WRITE_DEF_DATA_LEN);
+	if (!sent)
+		goto unblock;
+
+	hdev->le_def_tx_len = __le16_to_cpu(sent->tx_len);
+	hdev->le_def_tx_time = __le16_to_cpu(sent->tx_time);
+
+unblock:
+	mgmt_le_write_host_suggested_data_length_complete(hdev, status);
+#endif
 }
 
 static void hci_cc_le_read_max_data_len(struct hci_dev *hdev,
@@ -1387,6 +1414,7 @@ static void hci_cc_le_read_max_data_len(struct hci_dev *hdev,
 
 	BT_DBG("%s status 0x%2.2x", hdev->name, rp->status);
 
+#ifndef CONFIG_TIZEN_WIP
 	if (rp->status)
 		return;
 
@@ -1394,6 +1422,19 @@ static void hci_cc_le_read_max_data_len(struct hci_dev *hdev,
 	hdev->le_max_tx_time = le16_to_cpu(rp->tx_time);
 	hdev->le_max_rx_len = le16_to_cpu(rp->rx_len);
 	hdev->le_max_rx_time = le16_to_cpu(rp->rx_time);
+#else
+	hci_dev_lock(hdev);
+
+	hdev->le_max_tx_len = __le16_to_cpu(rp->tx_len);
+	hdev->le_max_tx_time = __le16_to_cpu(rp->tx_time);
+	hdev->le_max_rx_len = __le16_to_cpu(rp->rx_time);
+	hdev->le_max_rx_time = __le16_to_cpu(rp->rx_len);
+
+	mgmt_le_read_maximum_data_length_complete(hdev,
+			rp->status);
+
+	hci_dev_unlock(hdev);
+#endif
 }
 
 static void hci_cc_write_le_host_supported(struct hci_dev *hdev,
@@ -4713,6 +4754,32 @@ static void hci_le_conn_update_complete_evt(struct hci_dev *hdev,
 	hci_dev_unlock(hdev);
 }
 
+#ifdef CONFIG_TIZEN_WIP
+static void hci_le_data_length_changed_complete_evt(struct hci_dev *hdev,
+					    struct sk_buff *skb)
+{
+	struct hci_ev_le_data_len_change *ev = (void *) skb->data;
+	struct hci_conn *conn;
+
+	BT_DBG("%s status", hdev->name);
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(ev->handle));
+	if (conn) {
+		conn->tx_len = le16_to_cpu(ev->tx_len);
+		conn->tx_time = le16_to_cpu(ev->tx_time);
+		conn->rx_len = le16_to_cpu(ev->rx_len);
+		conn->rx_time = le16_to_cpu(ev->rx_time);
+	}
+
+	mgmt_le_data_length_change_complete(hdev, &conn->dst,
+		       conn->tx_len, conn->tx_time, conn->rx_len, conn->rx_time);
+
+	hci_dev_unlock(hdev);
+}
+#endif
+
 /* This function requires the caller holds hdev->lock */
 static struct hci_conn *check_pending_le_conn(struct hci_dev *hdev,
 					      bdaddr_t *addr,
@@ -5175,7 +5242,11 @@ static void hci_le_meta_evt(struct hci_dev *hdev, struct sk_buff *skb)
 	case HCI_EV_LE_DIRECT_ADV_REPORT:
 		hci_le_direct_adv_report_evt(hdev, skb);
 		break;
-
+#ifdef CONFIG_TIZEN_WIP
+	case HCI_EV_LE_DATA_LEN_CHANGE:
+		hci_le_data_length_changed_complete_evt(hdev, skb);
+		break;
+#endif
 	default:
 		break;
 	}

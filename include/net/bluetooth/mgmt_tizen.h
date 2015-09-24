@@ -171,6 +171,55 @@ struct mgmt_cp_enable_6lowpan {
 	__u8 enable_6lowpan;
 } __packed;
 
+#define MGMT_OP_CONNECT_6LOWPAN	(TIZEN_OP_CODE_BASE + 0x13)
+struct mgmt_cp_connect_6lowpan {
+	struct mgmt_addr_info addr;
+} __packed;
+#define MGMT_CONNECT_6LOWPAN_SIZE	7
+
+#define MGMT_OP_DISCONNECT_6LOWPAN	(TIZEN_OP_CODE_BASE + 0x14)
+struct mgmt_cp_disconnect_6lowpan {
+	struct mgmt_addr_info addr;
+} __packed;
+#define MGMT_DISCONNECT_6LOWPAN_SIZE	7
+
+#define MGMT_OP_LE_READ_MAXIMUM_DATA_LENGTH	(TIZEN_OP_CODE_BASE + 0x15)
+struct mgmt_rp_le_read_maximum_data_length {
+	__le16 max_tx_octets;
+	__le16 max_tx_time;
+	__le16 max_rx_octets;
+	__le16 max_rx_time;
+} __packed;
+#define MGMT_LE_READ_MAXIMUM_DATA_LENGTH_SIZE	0
+
+#define MGMT_OP_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH	(TIZEN_OP_CODE_BASE + 0x16)
+struct mgmt_cp_le_write_host_suggested_data_length {
+	__le16 def_tx_octets;
+	__le16 def_tx_time;
+} __packed;
+#define MGMT_LE_WRITE_HOST_SUGGESTED_DATA_LENGTH_SIZE	4
+
+#define MGMT_OP_LE_READ_HOST_SUGGESTED_DATA_LENGTH	(TIZEN_OP_CODE_BASE + 0x17)
+struct mgmt_rp_le_read_host_suggested_data_length {
+	__le16 def_tx_octets;
+	__le16 def_tx_time;
+} __packed;
+#define MGMT_LE_READ_HOST_SUGGESTED_DATA_LENGTH_SIZE	0
+
+#define MGMT_OP_LE_SET_DATA_LENGTH	(TIZEN_OP_CODE_BASE + 0x18)
+struct mgmt_cp_le_set_data_length {
+	bdaddr_t bdaddr;
+	__le16 max_tx_octets;
+	__le16 max_tx_time;
+} __packed;
+#define MGMT_LE_SET_DATA_LENGTH_SIZE	 10
+
+struct mgmt_rp_le_set_data_length {
+	__u8 status;
+	__le16 handle;
+} __packed;
+#define MGMT_LE_SET_DATA_LENGTH_RSP_SIZE	 3
+
 /* BEGIN TIZEN_Bluetooth :: name update changes */
 #define MGMT_EV_DEVICE_NAME_UPDATE		(TIZEN_EV_BASE + 0x01)
 struct mgmt_ev_device_name_update {
@@ -244,6 +293,22 @@ struct mgmt_ev_vendor_specific_multi_adv_state_changed {
 	__u8	adv_instance;
 	__u8	state_change_reason;
 	__le16	connection_handle;
+} __packed;
+
+#define MGMT_EV_6LOWPAN_CONN_STATE_CHANGED		(TIZEN_EV_BASE + 0x0c)
+struct mgmt_ev_6lowpan_conn_state_changed {
+	struct	mgmt_addr_info addr;
+	__u8	connected;
+} __packed;
+
+
+#define MGMT_EV_LE_DATA_LENGTH_CHANGED		(TIZEN_EV_BASE + 0x0d)
+struct mgmt_ev_le_data_length_changed {
+	struct	mgmt_addr_info addr;
+	__le16 max_tx_octets;
+	__le16 max_tx_time;
+	__le16 max_rx_octets;
+	__le16 max_rx_time;
 } __packed;
 
 #endif   /* CONFIG_TIZEN_WIP */
