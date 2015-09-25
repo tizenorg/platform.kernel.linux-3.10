@@ -1738,15 +1738,27 @@ static u8 smp_cmd_pairing_req(struct l2cap_conn *conn, struct sk_buff *skb)
 
 	clear_bit(SMP_FLAG_INITIATOR, &smp->flags);
 
+#ifdef CONFIG_TIZEN_WIP
+	/* Strictly speaking we shouldn't allow Pairing Confirm for the
+	 * SC case, however some implementations incorrectly copy RFU auth
+	 * req bits from our security request, which may create a false
+	 * positive SC enablement.
+	 */
+	SMP_ALLOW_CMD(smp, SMP_CMD_PAIRING_CONFIRM);
+#endif
+
 	if (test_bit(SMP_FLAG_SC, &smp->flags)) {
 		SMP_ALLOW_CMD(smp, SMP_CMD_PUBLIC_KEY);
 		/* Clear bits which are generated but not distributed */
 		smp->remote_key_dist &= ~SMP_SC_NO_DIST;
 		/* Wait for Public Key from Initiating Device */
 		return 0;
-	} else {
+	}
+#ifndef CONFIG_TIZEN_WIP
+	else {
 		SMP_ALLOW_CMD(smp, SMP_CMD_PAIRING_CONFIRM);
 	}
+#endif
 
 	/* Request setup of TK */
 	ret = tk_request(conn, 0, auth, rsp.io_capability, req->io_capability);
@@ -1886,9 +1898,11 @@ static u8 sc_check_confirm(struct smp_chan *smp)
 
 	BT_DBG("");
 
+#ifndef CONFIG_TIZEN_WIP
 	/* Public Key exchange must happen before any other steps */
 	if (!test_bit(SMP_FLAG_REMOTE_PK, &smp->flags))
 		return SMP_UNSPECIFIED;
+#endif
 
 	if (smp->method == REQ_PASSKEY || smp->method == DSP_PASSKEY)
 		return sc_passkey_round(smp, SMP_CMD_PAIRING_CONFIRM);
@@ -1901,6 +1915,49 @@ static u8 sc_check_confirm(struct smp_chan *smp)
 
 	return 0;
 }
+
+#ifdef CONFIG_TIZEN_WIP
+/* Work-around for some implementations that incorrectly copy RFU bits
+ * from our security request and thereby create the impression that
+ * we're doing SC when in fact the remote doesn't support it.
+ */
+static int fixup_sc_false_positive(struct smp_chan *smp)
+{
+	struct l2cap_conn *conn = smp->conn;
+	struct hci_conn *hcon = conn->hcon;
+	struct hci_dev *hdev = hcon->hdev;
+	struct smp_cmd_pairing *req, *rsp;
+	u8 auth;
+
+	/* The issue is only observed when we're in slave role */
+	if (hcon->out)
+		return SMP_UNSPECIFIED;
+
+	if (test_bit(HCI_SC_ONLY, &hdev->dev_flags)) {
+		BT_ERR("Refusing SMP SC -> legacy fallback in SC-only mode");
+		return SMP_UNSPECIFIED;
+	}
+
+	BT_ERR("Trying to fall back to legacy SMP");
+
+	req = (void *) &smp->preq[1];
+	rsp = (void *) &smp->prsp[1];
+
+	/* Rebuild key dist flags which may have been cleared for SC */
+	smp->remote_key_dist = (req->init_key_dist & rsp->resp_key_dist);
+
+	auth = req->auth_req & AUTH_REQ_MASK(hdev);
+
+	if (tk_request(conn, 0, auth, rsp->io_capability, req->io_capability)) {
+		BT_ERR("Failed to fall back to legacy SMP");
+		return SMP_UNSPECIFIED;
+	}
+
+	clear_bit(SMP_FLAG_SC, &smp->flags);
+
+	return 0;
+}
+#endif
 
 static u8 smp_cmd_pairing_confirm(struct l2cap_conn *conn, struct sk_buff *skb)
 {
@@ -1915,8 +1972,24 @@ static u8 smp_cmd_pairing_confirm(struct l2cap_conn *conn, struct sk_buff *skb)
 	memcpy(smp->pcnf, skb->data, sizeof(smp->pcnf));
 	skb_pull(skb, sizeof(smp->pcnf));
 
+#ifndef CONFIG_TIZEN_WIP
 	if (test_bit(SMP_FLAG_SC, &smp->flags))
 		return sc_check_confirm(smp);
+#else
+	if (test_bit(SMP_FLAG_SC, &smp->flags)) {
+		int ret;
+
+		/* Public Key exchange must happen before any other steps */
+		if (test_bit(SMP_FLAG_REMOTE_PK, &smp->flags))
+			return sc_check_confirm(smp);
+
+		BT_ERR("Unexpected SMP Pairing Confirm");
+
+		ret = fixup_sc_false_positive(smp);
+		if (ret)
+			return ret;
+	}
+#endif
 
 	if (conn->hcon->out) {
 		smp_send_cmd(conn, SMP_CMD_PAIRING_RANDOM, sizeof(smp->prnd),
@@ -1927,8 +2000,12 @@ static u8 smp_cmd_pairing_confirm(struct l2cap_conn *conn, struct sk_buff *skb)
 
 	if (test_bit(SMP_FLAG_TK_VALID, &smp->flags))
 		return smp_confirm(smp);
+#ifndef CONFIG_TIZEN_WIP
 	else
 		set_bit(SMP_FLAG_CFM_PENDING, &smp->flags);
+#else
+	set_bit(SMP_FLAG_CFM_PENDING, &smp->flags);
+#endif
 
 	return 0;
 }
@@ -2141,6 +2218,13 @@ int smp_conn_security(struct hci_conn *hcon, __u8 sec_level)
 		return 1;
 
 	chan = conn->smp;
+
+#ifdef CONFIG_TIZEN_WIP
+	if (!chan) {
+		BT_ERR("SMP security requested but not available");
+		return 1;
+	}
+#endif
 
 	if (!test_bit(HCI_LE_ENABLED, &hcon->hdev->dev_flags))
 		return 1;
