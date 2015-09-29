@@ -1622,6 +1622,18 @@ static void build_bredr_pairing_cmd(struct smp_chan *smp,
 		req->init_key_dist   = local_dist;
 		req->resp_key_dist   = remote_dist;
 		req->max_key_size    = SMP_MAX_ENC_KEY_SIZE;
+#ifdef CONFIG_TIZEN_WIP
+		/* When smp pairing over bredr is enabled, the authentication
+		 * requirements shall be added based on the security level set */
+		if (test_bit(HCI_SC_ONLY, &hdev->dev_flags))
+			req->auth_req |= SMP_AUTH_SC;
+		/* Require MITM if IO Capability allows or the security level
+		 * requires it.
+		 */
+		if (conn->hcon->io_capability != HCI_IO_NO_INPUT_OUTPUT ||
+			conn->hcon->pending_sec_level > BT_SECURITY_MEDIUM)
+			req->auth_req |= SMP_AUTH_MITM;
+#endif
 
 		smp->remote_key_dist = remote_dist;
 
@@ -1629,6 +1641,20 @@ static void build_bredr_pairing_cmd(struct smp_chan *smp,
 	}
 
 	memset(rsp, 0, sizeof(*rsp));
+
+#ifdef CONFIG_TIZEN_WIP
+	/* When smp pairing over bredr is enabled, the authentication
+	 * requirements shall be added based on the security level set */
+	if (test_bit(HCI_SC_ONLY, &hdev->dev_flags))
+		rsp->auth_req |= SMP_AUTH_SC;
+
+	/* Require MITM if IO Capability allows or the security level
+	 * requires it.
+	 */
+	if (conn->hcon->io_capability != HCI_IO_NO_INPUT_OUTPUT ||
+		conn->hcon->pending_sec_level > BT_SECURITY_MEDIUM)
+		rsp->auth_req |= SMP_AUTH_MITM;
+#endif
 
 	rsp->max_key_size    = SMP_MAX_ENC_KEY_SIZE;
 	rsp->init_key_dist   = req->init_key_dist & remote_dist;
